@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/amitgujar/Downloads/mock-fleet-toolkit-2026-09-10/**)",
+      "Bash(node *)",
+      "Bash(sqlite3 *)",
+      "Bash(npm install *)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git branch *)",
+      "Bash(git commit -m ' *)"
+    ]
+  },
+  "disabledMcpjsonServers": [
+    "dash0"
+  ]
+}
