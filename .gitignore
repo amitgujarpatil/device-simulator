@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Output / generated files
+output/
+sim_output/
+
+# SQLite databases (generated)
+*.db
+
+# Keys & certs (never commit private keys)
+keys/private*.pem
+*.key.pem
+*.pem
+
+# State files
+sim_state_*.json
+state_*.json
+
+# Misc
+*.text
+vsc0de-s.json
+.env

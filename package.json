@@ -1,0 +1,16 @@
+{
+  "name": "build-sqlite",
+  "version": "1.0.0",
+  "description": "Fetch telemetry from API, produce encrypted + unencrypted SQLite output files",
+  "main": "fetch-and-store.js",
+  "scripts": {
+    "keygen": "node generate-keypair.js",
+    "fetch": "node fetch-and-store.js",
+    "simulate": "node simulate-device.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "better-sqlite3": "^9.6.0",
+    "mqtt": "^5.0.0"
+  }
+}
