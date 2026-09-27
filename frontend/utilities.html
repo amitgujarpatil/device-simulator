@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>Utilities — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+.ut-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── home ────────────────────────────────────────── */
+.ut-home{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.ut-home::-webkit-scrollbar{width:4px}
+.ut-home::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ut-home-top{padding:16px 18px 12px;flex-shrink:0;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.ut-home-title{font-size:14px;font-weight:800;color:var(--t0);letter-spacing:-.015em;white-space:nowrap}
+.ut-search-wrap{flex:1;max-width:260px;position:relative}
+.ut-search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:12px;height:12px;color:var(--t2);pointer-events:none}
+.ut-sinp{width:100%;padding:6px 10px 6px 28px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;color:var(--t0);font-size:11px;outline:none;transition:border-color .13s,background .13s}
+.ut-sinp:focus{border-color:rgba(167,139,250,.45);background:var(--bg1)}
+.ut-sinp::placeholder{color:var(--t2)}
+.ut-home-cnt{font-size:9px;color:var(--t2);white-space:nowrap;margin-left:auto}
+.ut-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:5px;padding:14px 18px 22px}
+
+/* tool card */
+.wc{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:14px 10px 11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;transition:border-color .17s,box-shadow .17s,transform .17s,background .17s;user-select:none;position:relative;overflow:hidden}
+.wc::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .17s;background:radial-gradient(ellipse at 50% 0%,rgba(var(--wrgb,167,139,250),.08) 0%,transparent 70%)}
+.wc:hover{border-color:var(--wc,var(--blue));background:var(--bg2);transform:translateY(-2px);box-shadow:0 8px 28px rgba(var(--wrgb,167,139,250),.12),0 0 0 1px rgba(var(--wrgb,167,139,250),.06)}
+.wc:hover::before{opacity:1}
+.wc:active{transform:translateY(-1px)}
+.wc.hidden{display:none!important}
+
+.wc-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .17s}
+.wc-ico svg{width:19px;height:19px}
+.wc:hover .wc-ico{transform:scale(1.08)}
+.wc-name{font-size:10px;font-weight:700;color:var(--t0);line-height:1.3;letter-spacing:-.01em}
+.wc-desc{font-size:8px;color:var(--t2);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ── tool panel ──────────────────────────────────── */
+.ut-panel{flex:1;display:none;flex-direction:column;overflow:hidden}
+.ut-panel.on{display:flex}
+.ut-phdr{height:50px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg1);flex-shrink:0}
+.ut-phdr-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ut-phdr-ico svg{width:14px;height:14px}
+.ut-phdr-name{font-size:13px;font-weight:800;color:var(--t0);letter-spacing:-.01em;line-height:1.2;flex:1}
+.ut-phdr-desc{font-size:9px;color:var(--t2);margin-top:1px}
+.ut-phdr-back{width:26px;height:26px;border-radius:5px;background:none;border:none;color:var(--t2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;outline:none;transition:all .14s;flex-shrink:0}
+.ut-phdr-back:hover{background:var(--bg3);color:var(--t0)}
+.ut-pbody{flex:1;overflow-y:auto;padding:16px 18px 22px}
+.ut-pbody::-webkit-scrollbar{width:4px}
+.ut-pbody::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── shared tool atoms ───────────────────────────── */
+.t-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:7px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:8px}
+.t-toolbar-sep{width:1px;height:16px;background:var(--border);margin:0 2px}
+.sp{flex:1}
+.t-row{display:flex;gap:12px;align-items:flex-start}
+.t-col{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.t-zone{background:var(--bg1);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.t-zone-hdr{display:flex;align-items:center;justify-content:space-between;padding:6px 10px 5px;border-bottom:1px solid var(--border);background:var(--bg0)}
+.t-zone-lbl{font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--t2)}
+.t-zone-acts{display:flex;align-items:center;gap:5px}
+.t-ta{width:100%;resize:vertical;min-height:140px;padding:10px 12px;background:var(--bg1);border:none;outline:none;color:var(--t0);font-size:11px;font-family:var(--font-mono);line-height:1.6}
+.t-ta.sm{min-height:80px}
+.t-ta.lg{min-height:190px}
+.t-ta.err{background:rgba(248,113,113,.04)}
+.t-ta::placeholder{color:var(--t2);opacity:.7}
+.t-out{padding:10px 12px;min-height:90px;font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--t0);white-space:pre-wrap;word-break:break-all;background:var(--bg0)}
+.t-out.sm{min-height:55px}
+.t-inp{width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--t0);font-size:11px;font-family:var(--font-mono);outline:none;transition:border-color .13s,background .13s}
+.t-inp:focus{border-color:rgba(167,139,250,.45);background:var(--bg1)}
+.t-inp::placeholder{color:var(--t2);font-family:var(--font-ui);opacity:.7}
+.t-sel{padding:5px 24px 5px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--t0);font-size:10px;font-weight:600;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%238878b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;transition:border-color .13s}
+.t-sel:hover{border-color:var(--t2)}
+.t-btn{padding:5px 13px;border-radius:6px;border:none;cursor:pointer;font-size:10px;font-weight:700;transition:all .14s;outline:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.t-btn-pri{background:var(--tc,var(--blue));color:#09080e}.t-btn-pri:hover{filter:brightness(1.12);box-shadow:0 2px 12px rgba(var(--trgb,167,139,250),.35)}
+.t-btn-sec{background:var(--bg3);border:1px solid var(--border);color:var(--t1)}.t-btn-sec:hover{color:var(--t0);border-color:var(--t2)}
+.t-btn-ghost{background:none;border:1px solid var(--border);color:var(--t2);padding:4px 10px;font-size:9px}.t-btn-ghost:hover{color:var(--t0);border-color:var(--t2)}
+.t-copy-btn{padding:3px 8px;font-size:9px;font-weight:700;background:var(--bg3);border:1px solid var(--border);color:var(--t2);border-radius:4px;cursor:pointer;transition:all .12s;outline:none}
+.t-copy-btn:hover{color:var(--t0);border-color:var(--t2)}
+.t-copy-btn.ok{color:var(--green);border-color:rgba(52,211,153,.3)}
+.t-seg{display:inline-flex;background:var(--bg0);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.t-seg-btn{padding:4px 11px;font-size:10px;font-weight:700;color:var(--t2);background:none;border:none;cursor:pointer;transition:all .12s;outline:none;white-space:nowrap}
+.t-seg-btn:hover{color:var(--t1)}
+.t-seg-btn.on{background:var(--bg3);color:var(--t0)}
+.t-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px}
+.t-card-hdr{padding:7px 12px 6px;border-bottom:1px solid var(--border);background:var(--bg0);font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);display:flex;align-items:center;justify-content:space-between}
+.t-card-body{padding:10px 12px}
+.t-kv{display:flex;align-items:flex-start;gap:10px;padding:4px 0;border-bottom:1px solid rgba(45,42,64,.5);font-size:10px}
+.t-kv:last-child{border-bottom:none}
+.t-kv-k{color:var(--t2);font-weight:600;min-width:120px;flex-shrink:0;padding-top:1px;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+.t-kv-v{color:var(--t0);font-family:var(--font-mono);word-break:break-all;flex:1;line-height:1.45}
+.t-kv-v.ok{color:var(--green)}.t-kv-v.err{color:var(--red)}.t-kv-v.warn{color:var(--yellow)}.t-kv-v.blue{color:var(--blue)}
+.t-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:8px;font-weight:700}
+.badge-ok{background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.2)}
+.badge-err{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.2)}
+.badge-warn{background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2)}
+.badge-info{background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.2)}
+.t-err{padding:7px 11px;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);border-radius:7px;color:var(--red);font-size:10px;font-family:var(--font-mono);margin-top:8px;display:none;line-height:1.5}
+.t-err.on{display:block}
+.t-hint{font-size:9px;color:var(--t2);line-height:1.55;padding:3px 0}
+.t-divider{height:1px;background:var(--border);margin:12px 0}
+.t-paste-lbl{font-size:9px;color:var(--blue);cursor:pointer;font-weight:600}
+.t-paste-lbl:hover{color:var(--t0)}
+
+/* hash table */
+.hash-tbl{width:100%;border-collapse:collapse}
+.hash-tbl tr{border-bottom:1px solid rgba(45,42,64,.5)}.hash-tbl tr:last-child{border-bottom:none}
+.hash-tbl td{padding:6px 10px;vertical-align:middle}
+.hash-tbl td:first-child{color:var(--t2);font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;width:56px}
+.hash-tbl td:nth-child(2){font-family:var(--font-mono);font-size:10px;color:var(--t0);cursor:pointer}
+.hash-tbl td:nth-child(2):hover{color:var(--blue)}
+.hash-tbl td:last-child{text-align:right;width:54px}
+
+/* diff */
+.diff-out{font-family:var(--font-mono);font-size:10px;line-height:1.65;background:var(--bg0);padding:10px;overflow-y:auto;max-height:320px;border-radius:0 0 8px 8px}
+.diff-out::-webkit-scrollbar{width:3px}.diff-out::-webkit-scrollbar-thumb{background:var(--border)}
+.dl{display:flex;gap:8px;padding:1px 6px}
+.dl-add{background:rgba(52,211,153,.07);color:#34d399}
+.dl-rem{background:rgba(248,113,113,.07);color:#f87171}
+.dl-ctx{color:var(--t2)}
+.dl-n{min-width:20px;text-align:right;opacity:.4;flex-shrink:0}
+
+/* regex */
+.regex-preview{font-family:var(--font-mono);font-size:11px;line-height:1.65;padding:10px 12px;background:var(--bg0);min-height:80px;white-space:pre-wrap;word-break:break-all;border-radius:0 0 8px 8px}
+.rm{background:rgba(167,139,250,.22);border-radius:2px;outline:1px solid rgba(167,139,250,.4)}
+.rm0{background:rgba(251,146,60,.22);outline:1px solid rgba(251,146,60,.4)}
+.rmatch-list{display:flex;flex-direction:column;gap:3px;max-height:100px;overflow-y:auto;padding:6px 0}
+.rmatch-item{font-size:9px;font-family:var(--font-mono);padding:3px 8px;background:var(--bg2);border-radius:4px;display:flex;gap:8px}
+.rmatch-i{color:var(--t2);font-size:8px;min-width:22px}
+.rmatch-v{color:var(--t0)}
+
+/* uuid */
+.uuid-big{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--tc,var(--blue));letter-spacing:.04em;padding:14px;background:var(--bg0);border-radius:8px;text-align:center;cursor:pointer;transition:all .15s;user-select:all;border:1px solid var(--border)}
+.uuid-big:hover{border-color:var(--tc,var(--blue));box-shadow:0 0 0 2px rgba(var(--trgb,167,139,250),.1)}
+.uuid-batch-list{display:flex;flex-direction:column;gap:2px;max-height:160px;overflow-y:auto;padding:5px}
+.uuid-batch-list::-webkit-scrollbar{width:3px}.uuid-batch-list::-webkit-scrollbar-thumb{background:var(--border)}
+.uuid-batch-item{font-family:var(--font-mono);font-size:10px;color:var(--t1);padding:3px 6px;border-radius:4px;cursor:pointer;transition:all .1s}
+.uuid-batch-item:hover{background:var(--bg3);color:var(--tc,var(--blue))}
+
+/* epoch */
+.epoch-clock{text-align:center;padding:18px;background:var(--bg0);border-radius:9px;border:1px solid var(--border);margin-bottom:14px}
+.epoch-ts{font-family:var(--font-mono);font-size:24px;font-weight:800;color:var(--tc,var(--blue));letter-spacing:.03em;line-height:1}
+.epoch-human{font-size:9px;color:var(--t2);margin-top:4px;letter-spacing:.06em;text-transform:uppercase}
+
+/* cron */
+.cron-fields{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.cron-f{background:var(--bg0);border:1px solid var(--border);border-radius:7px;padding:9px 6px;text-align:center}
+.cron-f-val{font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--tc,var(--blue));margin-bottom:3px;line-height:1}
+.cron-f-lbl{font-size:7px;font-weight:800;color:var(--t2);text-transform:uppercase;letter-spacing:.08em}
+.cron-run{font-family:var(--font-mono);font-size:10px;color:var(--t0);padding:4px 10px;border-left:2px solid var(--tc,var(--blue));margin-bottom:3px}
+
+/* cert */
+.cert-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.cert-f{background:var(--bg0);border:1px solid var(--border);border-radius:7px;padding:9px 10px}
+.cert-f-lbl{font-size:7px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t2);margin-bottom:4px}
+.cert-f-val{font-family:var(--font-mono);font-size:10px;color:var(--t0);word-break:break-all;line-height:1.45}
+.cert-tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:600;margin:2px;background:var(--bg3);color:var(--t1)}
+
+/* case */
+.case-list{display:flex;flex-direction:column;gap:4px}
+.case-row{display:flex;align-items:center;gap:10px;padding:6px 11px;background:var(--bg1);border:1px solid var(--border);border-radius:7px;transition:border-color .12s}
+.case-row:hover{border-color:var(--t2)}
+.case-row-lbl{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);min-width:116px;flex-shrink:0}
+.case-row-val{font-family:var(--font-mono);font-size:11px;color:var(--t0);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* toast */
+.ut-toast{position:fixed;bottom:16px;right:16px;z-index:9999;padding:7px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:10px;color:var(--t0);pointer-events:none;opacity:0;transform:translateY(5px);transition:opacity .18s,transform .18s}
+.ut-toast.show{opacity:1;transform:translateY(0)}
+.ut-toast.err{border-color:rgba(248,113,113,.35);color:var(--red)}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+<div class="ut-main">
+  <!-- HOME -->
+  <div class="ut-home" id="utHome">
+    <div class="ut-home-top">
+      <div class="ut-home-title">Utilities</div>
+      <div class="ut-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="ut-sinp" id="utSinp" placeholder="Search tools…" oninput="gridFilter(this.value)" autocomplete="off">
+      </div>
+      <div class="ut-home-cnt" id="utCnt">18 tools</div>
+    </div>
+    <div class="ut-grid" id="utGrid"></div>
+  </div>
+
+  <!-- TOOL PANEL -->
+  <div class="ut-panel" id="utPanel">
+    <div class="ut-phdr">
+      <button class="ut-phdr-back" onclick="goHome()" title="Back">‹</button>
+      <div class="ut-phdr-ico" id="phIco"></div>
+      <div style="flex:1;min-width:0">
+        <div class="ut-phdr-name" id="phName"></div>
+        <div class="ut-phdr-desc" id="phDesc"></div>
+      </div>
+    </div>
+    <div class="ut-pbody" id="utPbody"></div>
+  </div>
+</div>
+</div>
+<div class="ut-toast" id="utToast"></div>
+
+<script>
+'use strict';
+const GA = window.go && window.go.main && window.go.main.App;
+
+/* ── SVG icon library ────────────────────────────── */
+const IC = {
+  braces:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg>`,
+  key:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`,
+  arrows:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+  link:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+  code:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
+  hash:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>`,
+  shield:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  clock:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  id:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>`,
+  search:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  type:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+  diff:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><line x1="12" y1="20" x2="12" y2="4"/></svg>`,
+  compress: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1z"/><line x1="12" y1="12" x2="12" y2="17"/><polyline points="9 15 12 12 15 15"/></svg>`,
+  cert:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="10" cy="14" r="2"/><path d="m10 16 2.5 2.5L15 14"/></svg>`,
+  filecode: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+  swap:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/></svg>`,
+  table:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>`,
+  calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="12 14 12 16 14 16"/></svg>`,
+};
+
+/* ── tool registry ───────────────────────────────── */
+const TOOLS = [
+  { id:'json',     name:'JSON Formatter',    desc:'Format, validate & minify JSON',        c:'#4ade80', rgb:'74,222,128',    icon:'braces'   },
+  { id:'jwt',      name:'JWT Decoder',       desc:'Inspect JWT claims & headers',           c:'#f59e0b', rgb:'245,158,11',   icon:'key'      },
+  { id:'base64',   name:'Base64',            desc:'Encode & decode Base64',                 c:'#818cf8', rgb:'129,140,248',  icon:'arrows'   },
+  { id:'url',      name:'URL Encode',        desc:'Percent-encode & decode strings',        c:'#22d3ee', rgb:'34,211,238',   icon:'link'     },
+  { id:'html',     name:'HTML Entities',     desc:'Encode & decode HTML entities',          c:'#fb923c', rgb:'251,146,60',   icon:'code'     },
+  { id:'hash',     name:'Hash Generator',    desc:'MD5 · SHA-1 · SHA-256 · SHA-512',        c:'#a78bfa', rgb:'167,139,250',  icon:'hash'     },
+  { id:'hmac',     name:'HMAC',              desc:'HMAC-SHA256 & HMAC-SHA512',              c:'#f87171', rgb:'248,113,113',  icon:'shield'   },
+  { id:'epoch',    name:'Epoch Converter',   desc:'Unix timestamp ↔ human time',            c:'#fbbf24', rgb:'251,191,36',   icon:'clock'    },
+  { id:'uuid',     name:'UUID / ULID',       desc:'Generate & decode unique IDs',           c:'#f472b6', rgb:'244,114,182',  icon:'id'       },
+  { id:'regex',    name:'Regex Tester',      desc:'Live match highlighting & groups',       c:'#34d399', rgb:'52,211,153',   icon:'search'   },
+  { id:'case',     name:'Case Converter',    desc:'camelCase · snake_case · Pascal…',       c:'#60a5fa', rgb:'96,165,250',   icon:'type'     },
+  { id:'diff',     name:'Text Diff',         desc:'Line-by-line text comparison',           c:'#e879f9', rgb:'232,121,249',  icon:'diff'     },
+  { id:'compress', name:'zlib / gzip',       desc:'Compress & decompress with stats',       c:'#94a3b8', rgb:'148,163,184',  icon:'compress' },
+  { id:'cert',     name:'SSL Cert Viewer',   desc:'Parse & inspect X.509 certificates',    c:'#2dd4bf', rgb:'45,212,191',   icon:'cert'     },
+  { id:'certstr',  name:'Cert → Inline',     desc:'PEM cert to DB-ready string',            c:'#c084fc', rgb:'192,132,252',  icon:'filecode' },
+  { id:'yaml',     name:'YAML ↔ JSON',       desc:'Convert between YAML and JSON',          c:'#86efac', rgb:'134,239,172',  icon:'swap'     },
+  { id:'csv',      name:'CSV ↔ JSON',        desc:'Transform CSV to JSON arrays',           c:'#fda4af', rgb:'253,164,175',  icon:'table'    },
+  { id:'cron',     name:'Cron Parser',       desc:'Explain expressions & next runs',        c:'#fcd34d', rgb:'252,211,77',   icon:'calendar' },
+];
+
+/* ── grid filter ─────────────────────────────────── */
+let curTool = null;
+
+function gridFilter(q) {
+  const lo = q.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.wc').forEach(el => {
+    const show = !q || el.dataset.name.includes(lo) || el.dataset.desc.includes(lo);
+    el.classList.toggle('hidden', !show);
+    if (show) visible++;
+  });
+  document.getElementById('utCnt').textContent = visible + ' tool' + (visible !== 1 ? 's' : '');
+}
+
+/* ── welcome grid ────────────────────────────────── */
+function buildGrid() {
+  document.getElementById('utGrid').innerHTML = TOOLS.map(t =>
+    `<div class="wc" style="--wc:${t.c};--wrgb:${t.rgb}" onclick="openTool('${t.id}')"
+      data-name="${t.name.toLowerCase()}" data-desc="${t.desc.toLowerCase()}">
+      <div class="wc-ico" style="background:rgba(${t.rgb},.13);color:${t.c}">${IC[t.icon]}</div>
+      <div class="wc-name">${t.name}</div>
+      <div class="wc-desc">${t.desc}</div>
+    </div>`
+  ).join('');
+}
+
+/* ── navigation ──────────────────────────────────── */
+function openTool(id) {
+  const t = TOOLS.find(x => x.id === id);
+  if (!t) return;
+  curTool = id;
+
+  document.getElementById('utHome').style.display = 'none';
+  const panel = document.getElementById('utPanel');
+  panel.classList.add('on');
+
+  /* set accent vars on body of panel */
+  const body = document.getElementById('utPbody');
+  body.style.setProperty('--tc', t.c);
+  body.style.setProperty('--trgb', t.rgb);
+
+  document.getElementById('phIco').innerHTML = IC[t.icon];
+  document.getElementById('phIco').style.cssText = `background:rgba(${t.rgb},.15);color:${t.c}`;
+  document.getElementById('phName').textContent = t.name;
+  document.getElementById('phDesc').textContent = t.desc;
+
+  body.innerHTML = PANELS[id] ? PANELS[id]() : '<div style="padding:40px;text-align:center;color:var(--t2)">Coming soon</div>';
+  if (INITS[id]) INITS[id]();
+}
+
+function goHome() {
+  curTool = null;
+  document.getElementById('utPanel').classList.remove('on');
+  document.getElementById('utHome').style.display = '';
+}
+
+/* ── helpers ─────────────────────────────────────── */
+function toast(msg, isErr) {
+  const el = document.getElementById('utToast');
+  el.textContent = msg;
+  el.className = 'ut-toast' + (isErr ? ' err' : '');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    if (btn) { const o = btn.textContent; btn.textContent = 'Copied!'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = o; btn.classList.remove('ok'); }, 1400); }
+    else toast('Copied!');
+  });
+}
+function pasteIn(id) {
+  navigator.clipboard.readText().then(t => {
+    const el = document.getElementById(id); if (!el) return;
+    el.value = t; el.dispatchEvent(new Event('input'));
+  }).catch(() => toast('Clipboard access denied', true));
+}
+function segSwitch(seg, btn) { seg.querySelectorAll('.t-seg-btn').forEach(b => b.classList.remove('on')); btn.classList.add('on'); }
+function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function zone(label, content, actions='') {
+  return `<div class="t-zone">
+    <div class="t-zone-hdr">
+      <span class="t-zone-lbl">${label}</span>
+      <span class="t-zone-acts">${actions}</span>
+    </div>
+    ${content}
+  </div>`;
+}
+function zoneTA(id, ph='', h='') { return `<textarea class="t-ta ${h}" id="${id}" placeholder="${ph}"></textarea>`; }
+function zoneOut(id) { return `<div class="t-out" id="${id}"></div>`; }
+
+/* ═══════════════════════════════════════════════
+   TOOL PANELS
+═══════════════════════════════════════════════ */
+const PANELS = {};
+const INITS  = {};
+
+/* ── 1. JSON FORMATTER ── */
+PANELS.json = () => `
+<div class="t-toolbar">
+  <div class="t-seg" id="jsonIndSeg">
+    <button class="t-seg-btn on" onclick="jsonSetIndent(2,this)">2 sp</button>
+    <button class="t-seg-btn" onclick="jsonSetIndent(4,this)">4 sp</button>
+    <button class="t-seg-btn" onclick="jsonSetIndent('\t',this)">Tab</button>
+  </div>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-ghost" onclick="jsonMinify()">Minify</button>
+  <button class="t-btn t-btn-ghost" onclick="jsonClear()">Clear</button>
+  <button class="t-btn t-btn-pri" onclick="jsonFormat()">Format JSON</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col">
+    ${zone('Input', zoneTA('jsonIn','Paste JSON here…','lg'), `<span class="t-paste-lbl" onclick="pasteIn('jsonIn')">Paste</span>`)}
+    <div class="t-err" id="jsonErr"></div>
+  </div>
+  <div class="t-col">
+    ${zone('Output', zoneOut('jsonOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('jsonOut').textContent,this)">Copy</button>`)}
+  </div>
+</div>`;
+
+let jsonIndent = 2;
+INITS.json = () => { document.getElementById('jsonIn').style.minHeight='280px'; document.getElementById('jsonOut').style.minHeight='280px'; document.getElementById('jsonIn').addEventListener('input', ()=>{ try{ JSON.parse(document.getElementById('jsonIn').value); document.getElementById('jsonErr').classList.remove('on'); }catch(_){} }); };
+function jsonSetIndent(v,btn){jsonIndent=v; segSwitch(btn.closest('.t-seg'),btn); if(document.getElementById('jsonIn').value)jsonFormat();}
+function jsonFormat(){const inp=document.getElementById('jsonIn');const out=document.getElementById('jsonOut');const err=document.getElementById('jsonErr');try{out.textContent=JSON.stringify(JSON.parse(inp.value),null,jsonIndent);err.classList.remove('on');}catch(e){err.textContent=e.message;err.classList.add('on');}}
+function jsonMinify(){const inp=document.getElementById('jsonIn');const out=document.getElementById('jsonOut');const err=document.getElementById('jsonErr');try{out.textContent=JSON.stringify(JSON.parse(inp.value||out.textContent));err.classList.remove('on');}catch(e){err.textContent=e.message;err.classList.add('on');}}
+function jsonClear(){document.getElementById('jsonIn').value='';document.getElementById('jsonOut').textContent='';document.getElementById('jsonErr').classList.remove('on');}
+
+/* ── 2. JWT DECODER ── */
+PANELS.jwt = () => `
+${zone('JWT Token', zoneTA('jwtIn','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…','sm'), `<span class="t-paste-lbl" onclick="pasteIn('jwtIn')">Paste</span>`)}
+<div class="t-err" id="jwtErr"></div>
+<div id="jwtOut" style="display:none;margin-top:12px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    ${zone('Header', zoneOut('jwtHeader'))}
+    ${zone('Payload', zoneOut('jwtPayload'))}
+  </div>
+  <div class="t-card"><div class="t-card-hdr">Claims</div><div class="t-card-body" id="jwtClaims"></div></div>
+</div>`;
+
+INITS.jwt = () => { document.getElementById('jwtIn').addEventListener('input', jwtDecode); };
+function jwtDecode(){const raw=document.getElementById('jwtIn').value.trim();const err=document.getElementById('jwtErr');const out=document.getElementById('jwtOut');if(!raw){out.style.display='none';err.classList.remove('on');return;}const parts=raw.split('.');if(parts.length!==3){err.textContent='Invalid JWT: expected 3 dot-separated parts';err.classList.add('on');out.style.display='none';return;}try{const dec=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return JSON.parse(atob(s));};const h=dec(parts[0]);const p=dec(parts[1]);document.getElementById('jwtHeader').textContent=JSON.stringify(h,null,2);document.getElementById('jwtPayload').textContent=JSON.stringify(p,null,2);err.classList.remove('on');out.style.display='block';const now=Math.floor(Date.now()/1000);const claims=[];if(p.exp){const exp=p.exp>now;claims.push({k:'Expiry (exp)',v:new Date(p.exp*1000).toLocaleString()+(exp?'':' — EXPIRED'),cls:exp?'ok':'err'});}if(p.iat)claims.push({k:'Issued At (iat)',v:new Date(p.iat*1000).toLocaleString()});if(p.nbf)claims.push({k:'Not Before (nbf)',v:new Date(p.nbf*1000).toLocaleString()});if(p.sub)claims.push({k:'Subject (sub)',v:p.sub});if(p.iss)claims.push({k:'Issuer (iss)',v:p.iss});if(p.aud)claims.push({k:'Audience (aud)',v:Array.isArray(p.aud)?p.aud.join(', '):p.aud});if(h.alg)claims.push({k:'Algorithm',v:h.alg,cls:'blue'});document.getElementById('jwtClaims').innerHTML=claims.map(c=>`<div class="t-kv"><span class="t-kv-k">${c.k}</span><span class="t-kv-v ${c.cls||''}">${c.v}</span></div>`).join('');}catch(e){err.textContent='Decode error: '+e.message;err.classList.add('on');out.style.display='none';}}
+
+/* ── 3. BASE64 ── */
+PANELS.base64 = () => `
+<div class="t-toolbar">
+  <div class="t-seg" id="b64Mseg"><button class="t-seg-btn on" onclick="b64SetMode('encode',this)">Encode</button><button class="t-seg-btn" onclick="b64SetMode('decode',this)">Decode</button></div>
+  <div class="t-seg" id="b64Useg"><button class="t-seg-btn on" onclick="b64SetUrl(false,this)">Standard</button><button class="t-seg-btn" onclick="b64SetUrl(true,this)">URL-safe</button></div>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-ghost" onclick="b64File()">Open File</button>
+  <button class="t-btn t-btn-pri" onclick="b64Run()">Convert</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col">${zone('Input', zoneTA('b64In','','lg'), `<span class="t-paste-lbl" onclick="pasteIn('b64In')">Paste</span>`)}</div>
+  <div class="t-col">${zone('Output', zoneOut('b64Out'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('b64Out').textContent,this)">Copy</button>`)}</div>
+</div>
+<div class="t-err" id="b64Err"></div>`;
+
+let b64Mode='encode',b64Url=false;
+INITS.base64=()=>{document.getElementById('b64In').addEventListener('input',b64Run);};
+function b64SetMode(m,btn){b64Mode=m;segSwitch(btn.closest('.t-seg'),btn);b64Run();}
+function b64SetUrl(u,btn){b64Url=u;segSwitch(btn.closest('.t-seg'),btn);b64Run();}
+function b64Run(){const v=document.getElementById('b64In').value;const err=document.getElementById('b64Err');const out=document.getElementById('b64Out');if(!v){out.textContent='';err.classList.remove('on');return;}try{if(b64Mode==='encode'){let r=btoa(unescape(encodeURIComponent(v)));if(b64Url)r=r.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');out.textContent=r;}else{let s=v.trim();if(b64Url){s=s.replace(/-/g,'+').replace(/_/g,'/');}while(s.length%4)s+='=';out.textContent=decodeURIComponent(escape(atob(s)));}err.classList.remove('on');}catch(e){err.textContent=e.message;err.classList.add('on');}}
+async function b64File(){if(!GA)return;try{const f=await GA.ACPickFile();if(!f)return;document.getElementById('b64In').value=b64Mode==='encode'?'(binary: '+f.name+')':f.base64;document.getElementById('b64Out').textContent=b64Mode==='encode'?f.base64:'(use Decode mode)';if(b64Mode==='decode')b64Run();}catch(e){toast(String(e),true);}}
+
+/* ── 4. URL ENCODE ── */
+PANELS.url = () => `
+<div class="t-toolbar">
+  <div class="t-seg" id="urlMseg"><button class="t-seg-btn on" onclick="urlSetMode('encode',this)">Encode</button><button class="t-seg-btn" onclick="urlSetMode('decode',this)">Decode</button></div>
+  <div class="t-seg" id="urlFseg"><button class="t-seg-btn on" onclick="urlSetFull(false,this)">Component</button><button class="t-seg-btn" onclick="urlSetFull(true,this)">Full URI</button></div>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-pri" onclick="urlRun()">Convert</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col">${zone('Input', zoneTA('urlIn','','lg'), `<span class="t-paste-lbl" onclick="pasteIn('urlIn')">Paste</span>`)}</div>
+  <div class="t-col">${zone('Output', zoneOut('urlOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('urlOut').textContent,this)">Copy</button>`)}</div>
+</div>
+<div class="t-err" id="urlErr"></div>`;
+
+let urlMode='encode',urlFull=false;
+INITS.url=()=>{document.getElementById('urlIn').addEventListener('input',urlRun);};
+function urlSetMode(m,btn){urlMode=m;segSwitch(btn.closest('.t-seg'),btn);urlRun();}
+function urlSetFull(f,btn){urlFull=f;segSwitch(btn.closest('.t-seg'),btn);urlRun();}
+function urlRun(){const v=document.getElementById('urlIn').value;const out=document.getElementById('urlOut');const err=document.getElementById('urlErr');if(!v){out.textContent='';err.classList.remove('on');return;}try{if(urlMode==='encode')out.textContent=urlFull?encodeURI(v):encodeURIComponent(v);else out.textContent=urlFull?decodeURI(v):decodeURIComponent(v);err.classList.remove('on');}catch(e){err.textContent=e.message;err.classList.add('on');}}
+
+/* ── 5. HTML ENTITIES ── */
+PANELS.html = () => `
+<div class="t-toolbar">
+  <div class="t-seg" id="htmlMseg"><button class="t-seg-btn on" onclick="htmlSetMode('encode',this)">Encode</button><button class="t-seg-btn" onclick="htmlSetMode('decode',this)">Decode</button></div>
+  <div class="sp"></div><button class="t-btn t-btn-pri" onclick="htmlRun()">Convert</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col">${zone('Input', zoneTA('htmlIn','','lg'), `<span class="t-paste-lbl" onclick="pasteIn('htmlIn')">Paste</span>`)}</div>
+  <div class="t-col">${zone('Output', zoneOut('htmlOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('htmlOut').textContent,this)">Copy</button>`)}</div>
+</div>`;
+
+let htmlMode='encode';
+INITS.html=()=>{document.getElementById('htmlIn').addEventListener('input',htmlRun);};
+function htmlSetMode(m,btn){htmlMode=m;segSwitch(btn.closest('.t-seg'),btn);htmlRun();}
+function htmlRun(){const v=document.getElementById('htmlIn').value;const out=document.getElementById('htmlOut');if(!v){out.textContent='';return;}if(htmlMode==='encode'){out.textContent=v.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}else{const el=document.createElement('textarea');el.innerHTML=v;out.textContent=el.value;}}
+
+/* ── 6. HASH GENERATOR ── */
+PANELS.hash = () => `
+${zone('Input', zoneTA('hashIn','Text to hash…','sm'), `<span class="t-paste-lbl" onclick="pasteIn('hashIn')">Paste</span>`)}
+<div style="display:flex;justify-content:flex-end;margin:8px 0">
+  <button class="t-btn t-btn-pri" onclick="hashRun()">Compute Hashes</button>
+</div>
+<div class="t-card" id="hashCard" style="display:none">
+  <div class="t-card-hdr">Results <span id="hashMeta" style="color:var(--t2);font-size:8px;letter-spacing:0;text-transform:none;font-weight:400"></span></div>
+  <div class="t-card-body" style="padding:0">
+    <table class="hash-tbl" id="hashTbl"></table>
+  </div>
+</div>`;
+
+INITS.hash=()=>{document.getElementById('hashIn').addEventListener('input',()=>{if(document.getElementById('hashIn').value)hashRun();else document.getElementById('hashCard').style.display='none';});};
+async function hashRun(){const v=document.getElementById('hashIn').value;if(!v){document.getElementById('hashCard').style.display='none';return;}if(!GA){toast('Backend not available',true);return;}try{const r=await GA.UtilHash(v);document.getElementById('hashCard').style.display='block';document.getElementById('hashMeta').textContent=v.length+' chars · '+new Blob([v]).size+' bytes';const algos=['md5','sha1','sha256','sha512'];document.getElementById('hashTbl').innerHTML=algos.map(a=>`<tr><td>${a.replace('sha','SHA-').replace('md5','MD5')}</td><td onclick="copyText(this.textContent)" title="Click to copy">${r[a]||''}</td><td><button class="t-copy-btn" onclick="copyText(document.getElementById('hashTbl').querySelectorAll('td:nth-child(2)')[${algos.indexOf(a)}].textContent,this)">Copy</button></td></tr>`).join('');}catch(e){toast(String(e),true);}}
+
+/* ── 7. HMAC GENERATOR ── */
+PANELS.hmac = () => `
+<div class="t-toolbar">
+  <select class="t-sel" id="hmacAlgo" onchange="hmacRun()"><option value="sha256">HMAC-SHA256</option><option value="sha512">HMAC-SHA512</option></select>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-pri" onclick="hmacRun()">Generate</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col" style="flex:2">${zone('Message', zoneTA('hmacMsg','Message text…','lg'), `<span class="t-paste-lbl" onclick="pasteIn('hmacMsg')">Paste</span>`)}</div>
+  <div class="t-col">
+    <div style="margin-bottom:8px">${zone('Secret Key', `<input class="t-ta sm" style="min-height:0;padding:9px 12px;border:none;background:transparent" id="hmacKey" placeholder="Secret key…">`)}</div>
+  </div>
+</div>
+<div class="t-err" id="hmacErr"></div>
+<div class="t-card" id="hmacCard" style="display:none">
+  <div class="t-card-hdr">Result <button class="t-copy-btn" onclick="copyText(document.getElementById('hmacHex').textContent,this)" style="font-size:8px">Copy</button></div>
+  <div class="t-card-body"><div id="hmacHex" style="font-family:var(--font-mono);font-size:11px;color:var(--tc,var(--blue));word-break:break-all;cursor:pointer" onclick="copyText(this.textContent)"></div></div>
+</div>`;
+
+INITS.hmac=()=>{['hmacMsg','hmacKey'].forEach(id=>document.getElementById(id).addEventListener('input',hmacRun));};
+let hmacT;
+async function hmacRun(){clearTimeout(hmacT);hmacT=setTimeout(async()=>{const msg=document.getElementById('hmacMsg').value;const key=document.getElementById('hmacKey').value;const algo=document.getElementById('hmacAlgo').value;const err=document.getElementById('hmacErr');if(!msg||!key){document.getElementById('hmacCard').style.display='none';err.classList.remove('on');return;}if(!GA){toast('Backend not available',true);return;}try{const r=await GA.UtilHMAC(msg,key,algo);document.getElementById('hmacHex').textContent=r;document.getElementById('hmacCard').style.display='block';err.classList.remove('on');}catch(e){err.textContent=String(e);err.classList.add('on');}},300);}
+
+/* ── 8. EPOCH CONVERTER ── */
+PANELS.epoch = () => `
+<div class="epoch-clock"><div class="epoch-ts" id="epochNow">—</div><div class="epoch-human" id="epochHuman">—</div></div>
+<div class="t-row" style="gap:12px">
+  <div class="t-col">
+    <div class="t-card">
+      <div class="t-card-hdr">Epoch → Date</div>
+      <div class="t-card-body">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input class="t-inp" id="epochIn" placeholder="e.g. 1700000000 or 1700000000000" style="flex:1" oninput="epochConvert()">
+          <div class="t-seg" id="epochUnitSeg">
+            <button class="t-seg-btn on" onclick="epochSetUnit('auto',this)">auto</button>
+            <button class="t-seg-btn" onclick="epochSetUnit('s',this)">s</button>
+            <button class="t-seg-btn" onclick="epochSetUnit('ms',this)">ms</button>
+          </div>
+        </div>
+        <div id="epochDateRes"></div>
+      </div>
+    </div>
+  </div>
+  <div class="t-col">
+    <div class="t-card">
+      <div class="t-card-hdr">Date → Epoch</div>
+      <div class="t-card-body">
+        <input class="t-inp" id="epochDateIn" type="datetime-local" style="margin-bottom:8px;width:100%" oninput="epochFromDate()">
+        <div id="epochEpochRes"></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+let epochUnit='auto',epochInterval;
+INITS.epoch=()=>{epochInterval=setInterval(epochTick,1000);epochTick();};
+function epochTick(){const n=Date.now();document.getElementById('epochNow').textContent=Math.floor(n/1000).toString();document.getElementById('epochHuman').textContent=new Date(n).toUTCString();}
+function epochSetUnit(u,btn){epochUnit=u;segSwitch(btn.closest('.t-seg'),btn);epochConvert();}
+function epochConvert(){const raw=document.getElementById('epochIn').value.trim();const res=document.getElementById('epochDateRes');if(!raw){res.innerHTML='';return;}const n=Number(raw);let ms=epochUnit==='s'?n*1000:epochUnit==='ms'?n:raw.length>=13?n:n*1000;const d=new Date(ms);if(isNaN(d)){res.innerHTML='';return;}res.innerHTML=[['Local',d.toLocaleString()],['UTC',d.toUTCString()],['ISO 8601',d.toISOString()],['Milliseconds',ms]].map(([k,v])=>`<div class="t-kv"><span class="t-kv-k">${k}</span><span class="t-kv-v">${v}</span></div>`).join('');}
+function epochFromDate(){const raw=document.getElementById('epochDateIn').value;const res=document.getElementById('epochEpochRes');if(!raw){res.innerHTML='';return;}const d=new Date(raw);if(isNaN(d))return;res.innerHTML=[['Seconds',Math.floor(d.getTime()/1000)],['Milliseconds',d.getTime()]].map(([k,v])=>`<div class="t-kv"><span class="t-kv-k">${k}</span><span class="t-kv-v blue" style="cursor:pointer" onclick="copyText('${v}')" title="Click to copy">${v}</span></div>`).join('');}
+
+/* ── 9. UUID / ULID ── */
+const ULID_ENC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+PANELS.uuid = () => `
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+  <div>
+    <div class="t-card" style="margin-bottom:10px">
+      <div class="t-card-hdr">UUID v4 <button class="t-copy-btn" onclick="copyText(document.getElementById('uuidVal').textContent,this)">Copy</button></div>
+      <div class="t-card-body">
+        <div class="uuid-big" id="uuidVal" onclick="copyText(this.textContent)" title="Click to copy">—</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="t-btn t-btn-pri" onclick="uuidGen()" style="flex:1">Generate New</button>
+        </div>
+      </div>
+    </div>
+    <div class="t-card">
+      <div class="t-card-hdr">Batch UUID
+        <div style="display:flex;align-items:center;gap:6px">
+          <input class="t-inp" id="uuidN" type="number" value="10" min="1" max="100" style="width:55px;padding:3px 7px;font-size:10px">
+          <button class="t-btn t-btn-ghost" onclick="uuidBatch()">Generate</button>
+          <button class="t-copy-btn" onclick="copyText(Array.from(document.querySelectorAll('.uuid-batch-item')).map(e=>e.textContent).join('\n'),this)">Copy All</button>
+        </div>
+      </div>
+      <div class="t-card-body" style="padding:4px 6px"><div class="uuid-batch-list" id="uuidBatch"></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="t-card" style="margin-bottom:10px">
+      <div class="t-card-hdr">ULID <span style="font-size:8px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--t2)">sortable · timestamp-prefixed</span><button class="t-copy-btn" onclick="copyText(document.getElementById('ulidVal').textContent,this)">Copy</button></div>
+      <div class="t-card-body">
+        <div class="uuid-big" id="ulidVal" style="font-size:12px" onclick="copyText(this.textContent)" title="Click to copy">—</div>
+        <button class="t-btn t-btn-pri" onclick="ulidGen()" style="margin-top:8px;width:100%">Generate New</button>
+      </div>
+    </div>
+    <div class="t-card">
+      <div class="t-card-hdr">Decode ULID</div>
+      <div class="t-card-body">
+        <input class="t-inp" id="ulidDecIn" placeholder="Paste a ULID…" oninput="ulidDecode()" style="margin-bottom:8px;width:100%">
+        <div id="ulidDecRes"></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+INITS.uuid=()=>{uuidGen();ulidGen();};
+function uuidGen(){document.getElementById('uuidVal').textContent=crypto.randomUUID?(crypto.randomUUID()):('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);}));}
+function uuidBatch(){const n=Math.min(100,Math.max(1,parseInt(document.getElementById('uuidN').value)||10));const ids=Array.from({length:n},()=>crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);}));document.getElementById('uuidBatch').innerHTML=ids.map(id=>`<div class="uuid-batch-item" onclick="copyText('${id}');toast('Copied!')">${id}</div>`).join('');}
+function ulidGen(){const ts=Date.now();let t='',r='',tmp=ts;for(let i=9;i>=0;i--){t=ULID_ENC[tmp&31]+t;tmp=Math.floor(tmp/32);}for(let i=0;i<16;i++)r+=ULID_ENC[Math.floor(Math.random()*32)];document.getElementById('ulidVal').textContent=t+r;}
+function ulidDecode(){const v=document.getElementById('ulidDecIn').value.trim().toUpperCase();const res=document.getElementById('ulidDecRes');if(v.length!==26){res.innerHTML='';return;}try{let ts=0;for(let i=0;i<10;i++)ts=ts*32+ULID_ENC.indexOf(v[i]);const d=new Date(ts);res.innerHTML=[['Timestamp (ms)',ts],['Date/Time (local)',d.toLocaleString()],['UTC',d.toUTCString()],['Random part',v.slice(10)]].map(([k,v])=>`<div class="t-kv"><span class="t-kv-k">${k}</span><span class="t-kv-v">${v}</span></div>`).join('');}catch(_){res.innerHTML='';}}
+
+/* ── 10. REGEX TESTER ── */
+PANELS.regex = () => `
+<div class="t-toolbar">
+  <input class="t-inp" id="regexPat" placeholder="Pattern (without /slashes/)" style="flex:1;font-family:var(--font-mono)" oninput="regexRun()">
+  <div class="t-seg" id="regexFlagSeg" title="Toggle flags">
+    ${['g','i','m','s'].map(f=>`<button class="t-seg-btn" data-flag="${f}" onclick="regexToggle(this)">${f}</button>`).join('')}
+  </div>
+</div>
+${zone('Test String', zoneTA('regexTest','String to test against…'), `<span class="t-paste-lbl" onclick="pasteIn('regexTest')">Paste</span><span id="regexCnt" style="font-size:9px;color:var(--green);font-weight:700;margin-left:6px"></span>`)}
+<div class="t-err" id="regexErr"></div>
+<div class="t-card" style="margin-top:10px">
+  <div class="t-card-hdr">Highlighted Matches</div>
+  <div class="regex-preview" id="regexPrev"></div>
+</div>
+<div class="rmatch-list" id="regexList" style="margin-top:6px"></div>`;
+
+let regexFlags=new Set(['g']);
+INITS.regex=()=>{document.getElementById('regexFlagSeg').querySelectorAll('[data-flag="g"]')[0].classList.add('on');document.getElementById('regexTest').addEventListener('input',regexRun);};
+function regexToggle(btn){const f=btn.dataset.flag;regexFlags.has(f)?regexFlags.delete(f):regexFlags.add(f);btn.classList.toggle('on');regexRun();}
+function regexRun(){const pat=document.getElementById('regexPat').value;const test=document.getElementById('regexTest').value;const prev=document.getElementById('regexPrev');const list=document.getElementById('regexList');const err=document.getElementById('regexErr');const cnt=document.getElementById('regexCnt');if(!pat){prev.textContent=test;list.innerHTML='';cnt.textContent='';err.classList.remove('on');return;}try{const flags=[...regexFlags].join('');const re=new RegExp(pat,flags.includes('g')?flags:flags+'g');const matches=[];let m;while((m=re.exec(test))!==null){matches.push({i:m.index,l:m[0].length,v:m[0],g:m.slice(1)});if(!flags.includes('g'))break;}cnt.textContent=matches.length?`${matches.length} match${matches.length>1?'es':''}`:'No matches';let html='',last=0;matches.forEach((m,i)=>{html+=escH(test.slice(last,m.i));html+=`<mark class="rm${i===0?' rm0':''}">${escH(m.v)}</mark>`;last=m.i+m.l;});html+=escH(test.slice(last));prev.innerHTML=html||escH(test);list.innerHTML=matches.slice(0,50).map((m,i)=>`<div class="rmatch-item"><span class="rmatch-i">#${i+1}</span><span class="rmatch-v">${escH(m.v)}</span>${m.g.filter(Boolean).map((g,j)=>`<span style="color:var(--t2);font-size:8px">g${j+1}:${escH(g)}</span>`).join('')}</div>`).join('');err.classList.remove('on');}catch(e){err.textContent=e.message;err.classList.add('on');prev.textContent=test;}}
+
+/* ── 11. CASE CONVERTER ── */
+PANELS.case = () => `
+${zone('Input', `<input class="t-ta sm" style="min-height:0;padding:10px 12px;border:none;background:transparent;font-size:13px;font-family:var(--font-ui)" id="caseIn" placeholder="Enter text to convert…" oninput="caseRun()">`, `<span class="t-paste-lbl" onclick="pasteIn('caseIn')">Paste</span>`)}
+<div class="t-divider"></div>
+<div class="case-list" id="caseOut"></div>`;
+
+INITS.case=()=>{};
+function caseRun(){const v=document.getElementById('caseIn').value;const tokens=v.match(/[a-zA-Z0-9]+/g)||[];const words=tokens.map(t=>t.replace(/([A-Z])/g,' $1').split(/[\s_\-]+/).filter(Boolean).map(p=>p.toLowerCase())).flat();const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);const cases=[['camelCase',words.map((w,i)=>i===0?w:cap(w)).join('')],['PascalCase',words.map(cap).join('')],['snake_case',words.join('_')],['kebab-case',words.join('-')],['SCREAMING_SNAKE',words.join('_').toUpperCase()],['Title Case',words.map(cap).join(' ')],['lower case',words.join(' ')],['UPPER CASE',words.join(' ').toUpperCase()],['dot.case',words.join('.')],['path/case',words.join('/')]];document.getElementById('caseOut').innerHTML=cases.map(([l,val])=>`<div class="case-row"><span class="case-row-lbl">${l}</span><span class="case-row-val">${val}</span><button class="t-copy-btn" onclick="copyText(${JSON.stringify(val)},this)">Copy</button></div>`).join('');}
+
+/* ── 12. TEXT DIFF ── */
+PANELS.diff = () => `
+<div class="t-row" style="gap:10px;margin-bottom:10px">
+  <div class="t-col">${zone('Original', zoneTA('diffA','Original text…','lg'), `<span class="t-paste-lbl" onclick="pasteIn('diffA')">Paste</span>`)}</div>
+  <div class="t-col">${zone('Modified', zoneTA('diffB','Modified text…','lg'), `<span class="t-paste-lbl" onclick="pasteIn('diffB')">Paste</span>`)}</div>
+</div>
+<div class="t-card">
+  <div class="t-card-hdr">Diff <span id="diffStats" style="color:var(--t2);font-size:8px;letter-spacing:0;text-transform:none;font-weight:400"></span></div>
+  <div class="diff-out" id="diffOut"></div>
+</div>`;
+
+INITS.diff=()=>{['diffA','diffB'].forEach(id=>document.getElementById(id).addEventListener('input',diffRun));};
+function diffRun(){const a=document.getElementById('diffA').value.split('\n');const b=document.getElementById('diffB').value.split('\n');const d=myersDiff(a,b);let add=0,rem=0;const html=d.map(l=>{if(l[0]==='+'){add++;return`<div class="dl dl-add"><span class="dl-n">+</span><span>${escH(l.slice(1))}</span></div>`;}if(l[0]==='-'){rem++;return`<div class="dl dl-rem"><span class="dl-n">−</span><span>${escH(l.slice(1))}</span></div>`;}return`<div class="dl dl-ctx"><span class="dl-n"> </span><span>${escH(l.slice(1))}</span></div>`;}).join('');document.getElementById('diffOut').innerHTML=html||'<span style="color:var(--t2);font-size:10px">Identical — no differences</span>';document.getElementById('diffStats').textContent=`+${add} additions  −${rem} removals`;}
+function myersDiff(a,b){const N=a.length,M=b.length,MAX=N+M;const v=new Array(2*MAX+1).fill(0);const tr=[];outer:for(let d=0;d<=MAX;d++){tr.push([...v]);for(let k=-d;k<=d;k+=2){let x;if(k===-d||(k!==d&&v[k-1+MAX]<v[k+1+MAX]))x=v[k+1+MAX];else x=v[k-1+MAX]+1;let y=x-k;while(x<N&&y<M&&a[x]===b[y]){x++;y++;}v[k+MAX]=x;if(x>=N&&y>=M){tr.push([...v]);break outer;}}}const res=[];let x=N,y=M;for(let d=tr.length-1;d>=0;d--){const vv=tr[d];const k=x-y;let pk;if(k===-d||(k!==d&&vv[k-1+MAX]<vv[k+1+MAX]))pk=k+1;else pk=k-1;const px=vv[pk+MAX],py=px-pk;while(x>px&&y>py){res.unshift(' '+a[x-1]);x--;y--;}if(d>0){if(x===px)res.unshift('+'+b[y-1]);else res.unshift('-'+a[x-1]);}x=px;y=py;}return res;}
+
+/* ── 13. COMPRESS ── */
+PANELS.compress = () => `
+<div class="t-toolbar">
+  <div class="t-seg" id="cmpMseg"><button class="t-seg-btn on" onclick="cmpSetMode('compress',this)">Compress</button><button class="t-seg-btn" onclick="cmpSetMode('decompress',this)">Decompress</button></div>
+  <div class="t-seg" id="cmpAseg"><button class="t-seg-btn on" onclick="cmpSetAlgo('zlib',this)">zlib</button><button class="t-seg-btn" onclick="cmpSetAlgo('gzip',this)">gzip</button></div>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-ghost" onclick="cmpPickFile()">Open File</button>
+  <button class="t-btn t-btn-pri" onclick="cmpRun()">Run</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col" id="cmpInWrap"></div>
+  <div class="t-col">
+    ${zone('Output (base64)', zoneOut('cmpOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('cmpOut').textContent,this)">Copy</button>`)}
+  </div>
+</div>
+<div class="t-err" id="cmpErr"></div>
+<div class="t-card" id="cmpStats" style="display:none;margin-top:10px">
+  <div class="t-card-hdr">Compression Stats</div>
+  <div class="t-card-body" id="cmpStatsBody"></div>
+</div>`;
+
+let cmpMode='compress',cmpAlgo='zlib';
+INITS.compress=()=>{const w=document.getElementById('cmpInWrap');w.innerHTML=zone('Input Text',zoneTA('cmpIn','','lg'),`<span class="t-paste-lbl" onclick="pasteIn('cmpIn')">Paste</span>`);};
+function cmpSetMode(m,btn){cmpMode=m;segSwitch(btn.closest('.t-seg'),btn);const w=document.getElementById('cmpInWrap');const lbl=m==='compress'?'Input Text':'Input (base64)';w.innerHTML=zone(lbl,zoneTA('cmpIn','','lg'),`<span class="t-paste-lbl" onclick="pasteIn('cmpIn')">Paste</span>`);document.getElementById('cmpStats').style.display='none';}
+function cmpSetAlgo(a,btn){cmpAlgo=a;segSwitch(btn.closest('.t-seg'),btn);}
+async function cmpRun(){const val=document.getElementById('cmpIn').value.trim();const err=document.getElementById('cmpErr');const out=document.getElementById('cmpOut');if(!val)return;if(!GA){toast('Backend not available',true);return;}try{if(cmpMode==='compress'){const r=await GA.UtilCompress(val,cmpAlgo);out.textContent=r.data;document.getElementById('cmpStatsBody').innerHTML=[['Original',r.originalBytes+' bytes'],['Compressed',r.compressedBytes+' bytes'],['Saved',r.ratio.toFixed(1)+'%']].map(([k,v])=>`<div class="t-kv"><span class="t-kv-k">${k}</span><span class="t-kv-v ok">${v}</span></div>`).join('');document.getElementById('cmpStats').style.display='block';}else{out.textContent=await GA.UtilDecompress(val,cmpAlgo);document.getElementById('cmpStats').style.display='none';}err.classList.remove('on');}catch(e){err.textContent=String(e);err.classList.add('on');}}
+async function cmpPickFile(){if(!GA)return;try{const c=await GA.UtilOpenTextFile('Select file');if(c){const el=document.getElementById('cmpIn');if(el)el.value=c;else{const w=document.getElementById('cmpInWrap');w.innerHTML=zone('Input Text',zoneTA('cmpIn','','lg'),`<span class="t-paste-lbl" onclick="pasteIn('cmpIn')">Paste</span>`);document.getElementById('cmpIn').value=c;}}}catch(e){toast(String(e),true);}}
+
+/* ── 14. SSL CERT VIEWER ── */
+PANELS.cert = () => `
+<div class="t-toolbar">
+  <button class="t-btn t-btn-ghost" onclick="certPickFile('certIn',certParse)">Open File</button>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-pri" onclick="certParse()">Parse Certificate</button>
+</div>
+${zone('PEM Input', zoneTA('certIn','-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----','sm'), `<span class="t-paste-lbl" onclick="pasteIn('certIn')">Paste</span>`)}
+<div class="t-err" id="certErr"></div>
+<div id="certOut" style="display:none;margin-top:12px">
+  <div class="cert-grid" id="certGrid"></div>
+  <div class="t-row" style="gap:10px;margin-top:0">
+    <div class="t-col">
+      <div class="t-card"><div class="t-card-hdr">Fingerprints</div><div class="t-card-body" id="certFPs"></div></div>
+    </div>
+    <div class="t-col">
+      <div class="t-card"><div class="t-card-hdr">Key Usage</div><div class="t-card-body" id="certUsage"></div></div>
+    </div>
+  </div>
+  <div class="t-card" style="margin-top:8px"><div class="t-card-hdr">Subject Alternative Names</div><div class="t-card-body" id="certSANs" style="line-height:1.9"></div></div>
+</div>`;
+
+INITS.cert=()=>{};
+async function certParse(){const pem=document.getElementById('certIn').value.trim();const err=document.getElementById('certErr');const out=document.getElementById('certOut');if(!pem)return;if(!GA){toast('Backend not available',true);return;}try{const c=await GA.UtilParseCert(pem);err.classList.remove('on');out.style.display='block';const days=c.daysUntilExpiry;const expCls=c.isExpired?'err':days<30?'warn':'ok';document.getElementById('certGrid').innerHTML=[['Common Name',c.commonName,'blue'],['Organization',(c.organization||[]).join(', ')||'—'],['Issuer',c.issuerCommonName],['Not Before',c.notBefore,'ok'],['Not After',c.notAfter+` <span class="t-badge ${c.isExpired?'badge-err':days<30?'badge-warn':'badge-ok'}">${c.isExpired?'EXPIRED':days+' days left'}</span>`,expCls],['Serial',c.serialNumber],['Version','v'+c.version],['Is CA',c.isCA?'Yes':'No'],['Signature Algo',c.signatureAlgo],['Public Key',c.publicKeyAlgo]].map(([l,v,cls])=>`<div class="cert-f"><div class="cert-f-lbl">${l}</div><div class="cert-f-val ${cls||''}">${v}</div></div>`).join('');document.getElementById('certFPs').innerHTML=[['SHA-1',c.fingerprintSHA1],['SHA-256',c.fingerprintSHA256]].map(([k,v])=>`<div class="t-kv"><span class="t-kv-k">${k}</span><span class="t-kv-v" style="font-size:9px;cursor:pointer" onclick="copyText(this.textContent)">${v}</span></div>`).join('');const sans=[...(c.dnsNames||[]).map(s=>`<span class="cert-tag">${s}</span>`), ...(c.ipAddresses||[]).map(s=>`<span class="cert-tag" style="color:var(--orange)">${s}</span>`)].join(' ');document.getElementById('certSANs').innerHTML=sans||'<span style="color:var(--t2)">None</span>';const usage=[...(c.keyUsage||[]),...(c.extKeyUsage||[])].map(u=>`<span class="cert-tag">${u}</span>`).join(' ');document.getElementById('certUsage').innerHTML=usage||'<span style="color:var(--t2)">None</span>';}catch(e){err.textContent=String(e);err.classList.add('on');out.style.display='none';}}
+async function certPickFile(targetId,cb){if(!GA)return;try{const c=await GA.UtilOpenTextFile('Select Certificate');if(c){document.getElementById(targetId).value=c;if(cb)cb();}}catch(e){toast(String(e),true);}}
+
+/* ── 15. CERT → STRING ── */
+PANELS.certstr = () => `
+<div class="t-toolbar">
+  <button class="t-btn t-btn-ghost" onclick="certPickFile('certStrIn',certStrRun)">Open File</button>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-pri" onclick="certStrRun()">Convert</button>
+</div>
+${zone('PEM Input', zoneTA('certStrIn','-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----','sm'), `<span class="t-paste-lbl" onclick="pasteIn('certStrIn')">Paste</span>`)}
+<div class="t-err" id="certStrErr"></div>
+<div id="certStrOut" style="display:none;margin-top:12px">
+  <div class="t-card" style="margin-bottom:8px">
+    <div class="t-card-hdr">Single-line (escaped \n) <button class="t-copy-btn" onclick="copyText(document.getElementById('cso1').textContent,this)">Copy</button></div>
+    <div class="t-card-body" style="padding:0"><div class="t-out sm" id="cso1" style="border-radius:0 0 8px 8px;font-size:9px;overflow-x:auto;white-space:nowrap"></div></div>
+    <div style="padding:6px 12px 10px;font-size:9px;color:var(--t2)">Paste directly into <code style="background:var(--bg3);padding:1px 4px;border-radius:3px;color:var(--blue)">.env</code> or a database text column — newlines stored as literal \n</div>
+  </div>
+  <div class="t-card" style="margin-bottom:8px">
+    <div class="t-card-hdr">JSON / Go string <button class="t-copy-btn" onclick="copyText(document.getElementById('cso2').textContent,this)">Copy</button></div>
+    <div class="t-card-body" style="padding:0"><div class="t-out sm" id="cso2" style="border-radius:0 0 8px 8px;font-size:9px;overflow-x:auto;white-space:nowrap"></div></div>
+    <div style="padding:6px 12px 10px;font-size:9px;color:var(--t2)">Use inside JSON config or Go string literal — includes surrounding quotes</div>
+  </div>
+  <div class="t-card">
+    <div class="t-card-hdr">Base64 DER <button class="t-copy-btn" onclick="copyText(document.getElementById('cso3').textContent,this)">Copy</button></div>
+    <div class="t-card-body" style="padding:0"><div class="t-out sm" id="cso3" style="border-radius:0 0 8px 8px;font-size:9px;overflow-x:auto;white-space:nowrap"></div></div>
+    <div style="padding:6px 12px 10px;font-size:9px;color:var(--t2)">Raw DER bytes in Base64 — use when a binary-safe format is required</div>
+  </div>
+</div>`;
+
+INITS.certstr=()=>{document.getElementById('certStrIn').addEventListener('input',certStrRun);};
+let certStrT;
+function certStrRun(){clearTimeout(certStrT);certStrT=setTimeout(async()=>{const pem=document.getElementById('certStrIn').value.trim();const err=document.getElementById('certStrErr');const out=document.getElementById('certStrOut');if(!pem){out.style.display='none';err.classList.remove('on');return;}if(!GA){toast('Backend not available',true);return;}try{const r=await GA.UtilCertToFormats(pem);document.getElementById('cso1').textContent=r.singleLine;document.getElementById('cso2').textContent=r.jsonString;document.getElementById('cso3').textContent=r.base64DER;out.style.display='block';err.classList.remove('on');}catch(e){err.textContent=String(e);err.classList.add('on');out.style.display='none';}},400);}
+
+/* ── 16. YAML ↔ JSON ── */
+PANELS.yaml = () => `
+<div class="t-toolbar">
+  <div class="t-seg" id="yamlDseg"><button class="t-seg-btn on" onclick="yamlSetDir('y2j',this)">YAML → JSON</button><button class="t-seg-btn" onclick="yamlSetDir('j2y',this)">JSON → YAML</button></div>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-ghost" onclick="yamlPickFile()">Open File</button>
+  <button class="t-btn t-btn-pri" onclick="yamlRun()">Convert</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col">
+    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="yamlInLbl">YAML INPUT</span><span class="t-zone-acts"><span class="t-paste-lbl" onclick="pasteIn('yamlIn')">Paste</span></span></div><textarea class="t-ta lg" id="yamlIn" placeholder="Paste YAML…" oninput="yamlAuto()"></textarea></div>
+  </div>
+  <div class="t-col">
+    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="yamlOutLbl">JSON OUTPUT</span><span class="t-zone-acts"><button class="t-copy-btn" onclick="copyText(document.getElementById('yamlOut').textContent,this)">Copy</button></span></div><div class="t-out lg" id="yamlOut"></div></div>
+  </div>
+</div>
+<div class="t-err" id="yamlErr"></div>`;
+
+let yamlDir='y2j';
+INITS.yaml=()=>{};
+function yamlSetDir(d,btn){yamlDir=d;segSwitch(btn.closest('.t-seg'),btn);document.getElementById('yamlInLbl').textContent=d==='y2j'?'YAML INPUT':'JSON INPUT';document.getElementById('yamlOutLbl').textContent=d==='y2j'?'JSON OUTPUT':'YAML OUTPUT';document.getElementById('yamlIn').placeholder=d==='y2j'?'Paste YAML…':'Paste JSON…';}
+let yamlT;
+function yamlAuto(){clearTimeout(yamlT);yamlT=setTimeout(yamlRun,500);}
+async function yamlRun(){const val=document.getElementById('yamlIn').value.trim();const err=document.getElementById('yamlErr');const out=document.getElementById('yamlOut');if(!val){out.textContent='';err.classList.remove('on');return;}if(!GA){toast('Backend not available',true);return;}try{const r=yamlDir==='y2j'?await GA.UtilYAMLToJSON(val):await GA.UtilJSONToYAML(val);out.textContent=r;err.classList.remove('on');}catch(e){err.textContent=String(e);err.classList.add('on');}}
+async function yamlPickFile(){if(!GA)return;try{const c=await GA.UtilOpenTextFile('Select YAML or JSON file');if(c){document.getElementById('yamlIn').value=c;yamlRun();}}catch(e){toast(String(e),true);}}
+
+/* ── 17. CSV ↔ JSON ── */
+PANELS.csv = () => `
+<div class="t-toolbar">
+  <div class="t-seg" id="csvDseg"><button class="t-seg-btn on" onclick="csvSetDir('c2j',this)">CSV → JSON</button><button class="t-seg-btn" onclick="csvSetDir('j2c',this)">JSON → CSV</button></div>
+  <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t1);cursor:pointer"><input type="checkbox" id="csvHdr" checked onchange="csvRun()" style="accent-color:var(--tc)"> Header row</label>
+  <select class="t-sel" id="csvDelim" onchange="csvRun()"><option value=",">Comma</option><option value=";">Semicolon</option><option value="&#9;">Tab</option><option value="|">Pipe</option></select>
+  <div class="sp"></div>
+  <button class="t-btn t-btn-pri" onclick="csvRun()">Convert</button>
+</div>
+<div class="t-row" style="gap:10px">
+  <div class="t-col">
+    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="csvInLbl">CSV INPUT</span><span class="t-zone-acts"><span class="t-paste-lbl" onclick="pasteIn('csvIn')">Paste</span></span></div><textarea class="t-ta lg" id="csvIn" oninput="csvRun()" placeholder="name,age,city&#10;Alice,30,New York&#10;Bob,25,London"></textarea></div>
+  </div>
+  <div class="t-col">
+    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="csvOutLbl">JSON OUTPUT</span><span class="t-zone-acts"><button class="t-copy-btn" onclick="copyText(document.getElementById('csvOut').textContent,this)">Copy</button></span></div><div class="t-out lg" id="csvOut"></div></div>
+  </div>
+</div>
+<div class="t-err" id="csvErr"></div>`;
+
+let csvDir='c2j';
+INITS.csv=()=>{};
+function csvSetDir(d,btn){csvDir=d;segSwitch(btn.closest('.t-seg'),btn);document.getElementById('csvInLbl').textContent=d==='c2j'?'CSV INPUT':'JSON INPUT';document.getElementById('csvOutLbl').textContent=d==='c2j'?'JSON OUTPUT':'CSV OUTPUT';}
+function csvRun(){const val=document.getElementById('csvIn').value.trim();const err=document.getElementById('csvErr');const out=document.getElementById('csvOut');if(!val){out.textContent='';err.classList.remove('on');return;}const d=document.getElementById('csvDelim').value;const hdr=document.getElementById('csvHdr').checked;try{if(csvDir==='c2j'){const rows=csvParse(val,d);if(!rows.length){out.textContent='[]';return;}const res=hdr?rows.slice(1).map(r=>{const o={};rows[0].forEach((h,i)=>{o[h]=r[i]??'';});return o;}):rows;out.textContent=JSON.stringify(res,null,2);}else{const arr=JSON.parse(val);if(!Array.isArray(arr)||!arr.length){err.textContent='Expected a non-empty JSON array';err.classList.add('on');return;}const keys=Object.keys(arr[0]);const lines=[hdr?keys.map(k=>csvEsc(k,d)).join(d):null,...arr.map(o=>keys.map(k=>csvEsc(String(o[k]??''),d)).join(d))].filter(Boolean);out.textContent=lines.join('\n');}err.classList.remove('on');}catch(e){err.textContent=String(e);err.classList.add('on');}}
+function csvParse(text,d){const rows=[];for(const line of text.split('\n')){if(!line.trim())continue;const cols=[];let cur='',inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'&&!inQ){inQ=true;continue;}if(c==='"'&&inQ){if(line[i+1]==='"'){cur+='"';i++;}else inQ=false;continue;}if(c===d&&!inQ){cols.push(cur);cur='';continue;}cur+=c;}cols.push(cur);rows.push(cols);}return rows;}
+function csvEsc(v,d){if(v.includes(d)||v.includes('"')||v.includes('\n'))return'"'+v.replace(/"/g,'""')+'"';return v;}
+
+/* ── 18. CRON PARSER ── */
+PANELS.cron = () => `
+<div class="t-card" style="margin-bottom:14px">
+  <div class="t-card-hdr">Expression <span style="color:var(--t2);font-size:8px;font-weight:400;letter-spacing:0;text-transform:none">minute · hour · day · month · weekday</span><button class="t-btn-ghost" onclick="cronExample()">Load example</button></div>
+  <div class="t-card-body">
+    <input class="t-inp" id="cronIn" placeholder="* * * * *" style="font-family:var(--font-mono);font-size:16px;letter-spacing:.08em;text-align:center;font-weight:700" oninput="cronRun()">
+  </div>
+</div>
+<div class="t-err" id="cronErr"></div>
+<div id="cronOut" style="display:none">
+  <div class="t-card" style="margin-bottom:10px">
+    <div class="t-card-hdr">Description</div>
+    <div class="t-card-body"><div id="cronDesc" style="font-size:12px;color:var(--t0);line-height:1.7"></div></div>
+  </div>
+  <div class="cron-fields" id="cronFields"></div>
+  <div class="t-card">
+    <div class="t-card-hdr">Next 10 Run Times</div>
+    <div class="t-card-body" id="cronRuns" style="padding:8px 12px"></div>
+  </div>
+</div>`;
+
+INITS.cron=()=>{};
+function cronExample(){document.getElementById('cronIn').value='0 9 * * 1-5';cronRun();}
+function cronRun(){const expr=document.getElementById('cronIn').value.trim();const err=document.getElementById('cronErr');const out=document.getElementById('cronOut');if(!expr){out.style.display='none';err.classList.remove('on');return;}const parts=expr.split(/\s+/);if(parts.length!==5){err.textContent='Expected 5 fields: minute hour day month weekday';err.classList.add('on');out.style.display='none';return;}try{const[min,hour,dom,mon,dow]=parts;const labels=['Minute','Hour','Day of Month','Month','Day of Week'];document.getElementById('cronFields').innerHTML=parts.map((p,i)=>`<div class="cron-f"><div class="cron-f-val">${p}</div><div class="cron-f-lbl">${labels[i]}</div></div>`).join('');document.getElementById('cronDesc').textContent=cronDescribe(min,hour,dom,mon,dow);const runs=cronNextRuns(parts,10);document.getElementById('cronRuns').innerHTML=runs.map(d=>`<div class="cron-run">${d.toLocaleString()}</div>`).join('');err.classList.remove('on');out.style.display='block';}catch(e){err.textContent=e.message;err.classList.add('on');out.style.display='none';}}
+function cronDescribe(min,hour,dom,mon,dow){const fMin=min==='*'?'every minute':`at minute ${min}`;const fHr=hour==='*'?'every hour':`hour ${hour}`;const months=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];const fMon=mon==='*'?'':', in '+(months[parseInt(mon)]||mon);const fDow=dow==='*'?'':', on '+dow.split(',').map(d=>days[parseInt(d)]||d).join('/');const fDom=dom==='*'?'':', day '+dom;return`Runs ${fMin} of ${fHr}${fDom}${fMon}${fDow}.`;}
+function cronField(expr,min,max){const s=new Set();for(const p of expr.split(',')){if(p==='*'){for(let i=min;i<=max;i++)s.add(i);}else if(p.includes('/')){const[r,step]=p.split('/');const st=parseInt(step);const[lo,hi]=r==='*'?[min,max]:r.split('-').map(Number);for(let i=r==='*'?min:lo;i<=(r==='*'?max:hi);i+=st)s.add(i);}else if(p.includes('-')){const[lo,hi]=p.split('-').map(Number);for(let i=lo;i<=hi;i++)s.add(i);}else{const n=parseInt(p);if(!isNaN(n))s.add(n);}}return[...s].sort((a,b)=>a-b);}
+function cronNextRuns(parts,count){const mins=cronField(parts[0],0,59);const hrs=cronField(parts[1],0,23);const doms=cronField(parts[2],1,31);const mons=cronField(parts[3],1,12);const dows=cronField(parts[4],0,6);const res=[];let d=new Date();d.setSeconds(0,0);d.setMinutes(d.getMinutes()+1);const lim=new Date(d.getTime()+366*24*3600*1000);while(res.length<count&&d<lim){const dw=parts[2]==='*',dwd=parts[4]==='*',dm=dw||doms.includes(d.getDate()),dd=dwd||dows.includes(d.getDay());if(mons.includes(d.getMonth()+1)&&(dw&&dwd?true:(!dw&&!dwd?dm&&dd:dm||dd))&&hrs.includes(d.getHours())&&mins.includes(d.getMinutes()))res.push(new Date(d));d.setMinutes(d.getMinutes()+1);}return res;}
+
+/* ── INIT ── */
+document.addEventListener('DOMContentLoaded', () => {
+  SimNav.inject('utilities');
+  buildGrid();
+  window.addEventListener('pagehide', () => clearInterval(epochInterval));
+});
+</script>
+</body>
+</html>

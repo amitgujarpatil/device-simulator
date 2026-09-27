@@ -1,0 +1,2810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>API Client — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+/* Layout */
+#app{display:flex;flex-direction:column;min-height:0}
+
+/* ── Pill button-dropdowns (workspace / environment) ─────────── */
+.pill-dd{position:relative;display:inline-flex;align-items:center}
+.pill-dd-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:11px;cursor:pointer;white-space:nowrap;min-width:80px;max-width:150px;transition:all .15s}
+.pill-dd-btn:hover,.pill-dd-btn.open{background:var(--bg3);color:var(--t0);border-color:var(--t2)}
+.pill-dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.pill-dd-chevron{font-size:8px;color:var(--t2);flex-shrink:0;transition:transform .15s}
+.pill-dd-btn.open .pill-dd-chevron{transform:rotate(180deg)}
+.pill-dd-list{position:absolute;top:calc(100% + 4px);left:0;min-width:160px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:300;padding:4px;display:none;max-height:240px;overflow-y:auto}
+.pill-dd-list.open{display:block}
+.pill-dd-item{padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;color:var(--t1);display:flex;align-items:center;gap:7px;transition:background .12s;white-space:nowrap}
+.pill-dd-item:hover{background:var(--bg3);color:var(--t0)}
+.pill-dd-item.active{color:var(--blue)}
+.pill-dd-item.active::before{content:'✓';font-size:9px;color:var(--blue);flex-shrink:0}
+.pill-dd-item:not(.active)::before{content:'';width:11px;flex-shrink:0}
+.pill-dd-sep{height:1px;background:var(--border);margin:3px 0}
+.pill-dd-manage{padding:5px 10px;font-size:10px;color:var(--blue);cursor:pointer;border-top:1px solid var(--border);margin-top:3px;text-align:center}
+.pill-dd-manage:hover{background:var(--bg3)}
+
+/* ── Code gen modal ───────────────────────────────────────────── */
+.code-lang-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:10px;overflow-x:auto}
+.code-lang-tab{padding:6px 12px;cursor:pointer;color:var(--t2);font-size:11px;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0}
+.code-lang-tab:hover{color:var(--t1)}
+.code-lang-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.code-out{width:100%;min-height:260px;max-height:380px;padding:10px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-family:var(--font-mono);font-size:11px;resize:vertical;line-height:1.55;overflow:auto;white-space:pre}
+
+/* ── Tests tab badge ──────────────────────────────────────────── */
+.test-badge{font-size:9px;padding:1px 5px;border-radius:9px;margin-left:4px;font-weight:700}
+.test-pass{background:rgba(52,211,153,.18);color:var(--green)}
+.test-fail{background:rgba(248,113,113,.18);color:var(--red)}
+.test-result-row{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;font-size:11px;margin-bottom:2px}
+.test-result-row.pass{color:var(--green)}
+.test-result-row.fail{color:var(--red)}
+.test-result-icon{font-size:11px;flex-shrink:0}
+
+/* ── Drag-over indicator ──────────────────────────────────────── */
+.tree-request.drag-above{border-top:2px solid var(--blue)}
+.tree-folder.drag-over{box-shadow:inset 0 0 0 1px var(--blue);background:rgba(167,139,250,.08)!important}
+.drag-root-drop{height:4px;background:transparent;transition:background .12s;margin:2px 8px;border-radius:2px}
+.drag-root-drop.drag-active{background:var(--blue)}
+
+/* ── Save response pill ───────────────────────────────────────── */
+.saved-resp-pill{position:relative;display:inline-flex;align-items:center}
+.saved-resp-pill .pill-dd-list{right:0;left:auto;min-width:240px}
+.saved-resp-item{padding:6px 10px;cursor:pointer;font-size:10px;color:var(--t1);border-radius:4px;display:flex;align-items:center;gap:7px}
+.saved-resp-item:hover{background:var(--bg3);color:var(--t0)}
+.saved-resp-ts{font-size:9px;color:var(--t2);margin-left:auto;white-space:nowrap}
+#topbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;min-height:42px}
+#topbar .logo{font-weight:700;font-size:14px;color:var(--blue);margin-right:4px;white-space:nowrap}
+#main{display:flex;flex:1;overflow:hidden}
+
+/* Sidebar */
+#sidebar{width:260px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg1);border-right:1px solid var(--border);overflow:hidden}
+#sidebar-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.stab{flex:1;padding:8px 0;text-align:center;cursor:pointer;color:var(--t2);font-size:12px;font-weight:500;border-bottom:2px solid transparent;transition:color .15s}
+.stab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.stab:hover:not(.active){color:var(--t1)}
+#sidebar-body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+
+/* Collections panel */
+#col-panel{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+#col-search-row{padding:8px;flex-shrink:0}
+#col-search{width:100%;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0)}
+#col-actions{display:flex;gap:6px;padding:0 8px 8px;flex-shrink:0}
+.col-act-btn{flex:1;padding:5px 0;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--t1);font-size:11px;transition:background .15s}
+.col-act-btn:hover{background:var(--bg3);color:var(--t0)}
+#col-tree{flex:1;overflow-y:auto;overflow-x:hidden}
+
+/* History panel */
+#hist-panel{display:flex;flex-direction:column;height:100%;overflow:hidden}
+#hist-list{flex:1;overflow-y:auto}
+.hist-item{display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s}
+.hist-item:hover{background:var(--bg2)}
+.hist-item .hi-method{font-weight:600;font-size:10px;min-width:38px;text-align:center}
+.hist-item .hi-url{color:var(--t1);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.hist-item .hi-status{font-size:10px;margin-left:auto;white-space:nowrap}
+#hist-clear{padding:8px;flex-shrink:0;border-top:1px solid var(--border)}
+#hist-clear button{width:100%;padding:5px;border:1px solid var(--border);background:var(--bg2);color:var(--t2);border-radius:4px;font-size:11px}
+#hist-clear button:hover{background:var(--bg3);color:var(--red)}
+
+/* Collection tree items */
+.tree-folder,.tree-request{display:flex;align-items:center;padding:5px 6px;cursor:pointer;border-radius:4px;margin:1px 4px;position:relative;user-select:none}
+.tree-folder:hover,.tree-request:hover{background:var(--bg3)}
+.tree-folder.drag-over{background:var(--bg3);outline:1px dashed var(--blue)}
+.tf-arrow{width:14px;font-size:10px;color:var(--t2);flex-shrink:0;transition:transform .15s}
+.tf-arrow.open{transform:rotate(90deg)}
+.tf-icon{margin:0 4px 0 2px;font-size:13px}
+.tf-name{color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.tree-folder:hover .tf-name,.tree-request:hover .tf-name{color:var(--t0)}
+.tf-actions{display:none;align-items:center;gap:2px;flex-shrink:0}
+.tree-folder:hover .tf-actions,.tree-request:hover .tf-actions{display:flex}
+.tf-act{background:none;border:none;color:var(--t2);padding:2px 4px;border-radius:3px;font-size:12px;line-height:1}
+.tf-act:hover{background:var(--bg2);color:var(--t0)}
+.method-badge{font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px;min-width:36px;text-align:center;flex-shrink:0}
+.mb-GET{background:rgba(52,211,153,.12);color:var(--green)}
+.mb-POST{background:rgba(251,191,36,.12);color:var(--yellow)}
+.mb-PUT{background:rgba(96,165,250,.12);color:#60a5fa}
+.mb-PATCH{background:rgba(167,139,250,.12);color:var(--purple)}
+.mb-DELETE{background:rgba(248,113,113,.12);color:var(--red)}
+.mb-HEAD,.mb-OPTIONS,.mb-OTHER{background:rgba(136,120,184,.1);color:var(--t2)}
+.tr-name{color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;margin-left:4px}
+.tree-request.active-req .tr-name{color:var(--blue)}
+.tree-children{overflow:hidden}
+
+/* Content area */
+#content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* Tabs bar */
+#tabs-bar{display:flex;align-items:center;background:var(--bg1);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+#tabs-bar::-webkit-scrollbar{display:none}
+.req-tab{display:flex;align-items:center;gap:6px;padding:8px 14px 8px 14px;cursor:pointer;border-right:1px solid var(--border);color:var(--t2);white-space:nowrap;font-size:12px;flex-shrink:0;min-width:0;max-width:180px;transition:background .15s}
+.req-tab:hover{background:var(--bg2);color:var(--t1)}
+.req-tab.active{background:var(--bg0);color:var(--t0);border-bottom:2px solid var(--blue)}
+.req-tab .tab-method{font-size:9px;font-weight:700}
+.req-tab .tab-name{overflow:hidden;text-overflow:ellipsis;flex:1}
+.req-tab .tab-dirty{color:var(--yellow);font-size:10px}
+.req-tab .tab-close{color:var(--t2);font-size:14px;padding:0 2px;margin-left:2px;line-height:1;background:none;border:none}
+.req-tab .tab-close:hover{color:var(--red)}
+#add-tab-btn{padding:6px 12px;background:none;border:none;color:var(--t2);font-size:18px;flex-shrink:0;line-height:1}
+#add-tab-btn:hover{color:var(--blue)}
+
+/* Request editor */
+#req-editor{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#url-bar{display:flex;gap:6px;padding:10px;flex-shrink:0;align-items:center}
+#method-select{padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-weight:600;font-size:12px;cursor:pointer}
+#url-input{flex:1;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:13px}
+#url-input:focus{border-color:var(--blue)}
+#send-btn{padding:6px 16px;background:var(--blue);border:none;border-radius:4px;color:#fff;font-weight:600;font-size:13px;transition:opacity .15s}
+#send-btn:hover{opacity:.85}
+#send-btn:disabled{opacity:.5;cursor:not-allowed}
+#save-btn{padding:6px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:12px;transition:background .15s}
+#save-btn:hover{background:var(--bg3)}
+
+/* Request tabs */
+#req-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 10px}
+.rtab{padding:7px 14px;cursor:pointer;color:var(--t2);font-size:12px;border-bottom:2px solid transparent;transition:color .15s}
+.rtab:hover:not(.active){color:var(--t1)}
+.rtab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.rtab .badge{background:var(--bg3);color:var(--t2);border-radius:9px;font-size:10px;padding:1px 5px;margin-left:4px}
+.rtab.active .badge{background:var(--blue);color:#fff}
+
+/* Panels */
+#req-panels{flex:1;overflow-y:auto;min-height:0}
+.rpanel{display:none;padding:10px}
+.rpanel.active{display:block}
+
+/* KV editor */
+.kv-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.kv-table th{text-align:left;color:var(--t2);font-weight:500;padding:4px 6px;font-size:11px;border-bottom:1px solid var(--border)}
+.kv-table td{padding:3px 4px;vertical-align:middle}
+.kv-table .kv-en{width:24px;text-align:center}
+.kv-table .kv-key{width:35%}
+.kv-table .kv-val{width:auto}
+.kv-table .kv-del{width:24px;text-align:center}
+.kv-table input[type=text]{width:100%;padding:4px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:3px}
+.kv-table input[type=checkbox]{cursor:pointer;accent-color:var(--blue)}
+.kv-del-btn{background:none;border:none;color:var(--t2);font-size:14px;padding:2px}
+.kv-del-btn:hover{color:var(--red)}
+.kv-add-btn{margin-top:6px;padding:5px 10px;background:none;border:1px dashed var(--border);border-radius:4px;color:var(--t2);font-size:11px;width:100%}
+.kv-add-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Body types */
+#body-type-row{display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap}
+.bt-radio{display:none}
+.bt-label{padding:4px 10px;border-radius:12px;cursor:pointer;color:var(--t2);font-size:11px;border:1px solid transparent;transition:all .15s}
+.bt-radio:checked+.bt-label{background:var(--bg3);color:var(--blue);border-color:var(--blue)}
+.bt-label:hover{color:var(--t1)}
+#body-raw-wrap{display:none}
+#body-form-wrap{display:none}
+#body-url-wrap{display:none}
+#raw-body{width:100%;min-height:160px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-family:var(--font-mono);font-size:12px;resize:vertical;line-height:1.5}
+#raw-content-type{padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:11px;margin-left:8px;display:none}
+
+/* Auth panel */
+.auth-section{max-width:500px}
+.auth-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.auth-row label{color:var(--t2);font-size:11px}
+.auth-row input{padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0)}
+#auth-type-sel{padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);margin-bottom:10px;font-size:12px}
+
+/* Pre-req / Tests script */
+#prereq-script,#tests-script{width:100%;min-height:160px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-family:var(--font-mono);font-size:12px;resize:vertical;line-height:1.5}
+
+/* Splitter */
+#splitter{height:4px;background:var(--border);cursor:row-resize;flex-shrink:0;transition:background .15s}
+#splitter:hover,#splitter.dragging{background:var(--blue)}
+
+/* Response area */
+#response-area{background:var(--bg0);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#resp-toolbar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+#resp-status-badge{font-weight:700;font-size:13px;padding:3px 8px;border-radius:4px;display:none}
+.rst-2xx{background:rgba(52,211,153,.14);color:var(--green);border:1px solid rgba(52,211,153,.25)}
+.rst-3xx{background:rgba(251,191,36,.12);color:var(--yellow);border:1px solid rgba(251,191,36,.2)}
+.rst-4xx{background:rgba(251,146,60,.12);color:var(--orange);border:1px solid rgba(251,146,60,.2)}
+.rst-5xx{background:rgba(248,113,113,.14);color:var(--red);border:1px solid rgba(248,113,113,.25)}
+.rst-err{background:rgba(248,113,113,.08);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+#resp-meta{color:var(--t2);font-size:11px;display:none}
+#resp-tabs{display:flex;gap:0;margin-left:auto}
+.resptab{padding:4px 10px;cursor:pointer;color:var(--t2);font-size:11px;border-bottom:2px solid transparent}
+.resptab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.resptab:hover:not(.active){color:var(--t1)}
+#resp-action-btns{display:flex;gap:6px;display:none}
+.resp-act{padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;color:var(--t1);font-size:11px}
+.resp-act:hover{background:var(--bg3);color:var(--t0)}
+#resp-panels{flex:1;overflow:auto;min-height:0}
+.resp-panel{display:none;padding:10px}
+.resp-panel.active{display:block}
+#resp-pretty{white-space:pre;font-family:var(--font-mono);font-size:12px;line-height:1.6}
+#resp-raw{white-space:pre-wrap;word-break:break-all;font-family:var(--font-mono);font-size:12px;line-height:1.6;color:var(--t1)}
+#resp-placeholder{color:var(--t2);padding:20px;text-align:center;font-size:13px}
+
+/* JSON coloring — uses theme variables */
+.j-key{color:var(--blue)}
+.j-str{color:var(--green)}
+.j-num{color:var(--orange)}
+.j-bool{color:var(--purple)}
+.j-null{color:var(--t2)}
+
+/* Headers response table */
+#resp-hdrs-table{width:100%;border-collapse:collapse}
+#resp-hdrs-table th{text-align:left;color:var(--t2);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--border)}
+#resp-hdrs-table td{padding:4px 8px;font-size:12px;border-bottom:1px solid var(--border);word-break:break-all}
+#resp-hdrs-table tr:hover{background:var(--bg1)}
+.hdr-key{color:var(--blue);width:35%}
+.hdr-val{color:var(--t1)}
+
+/* Modals */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-overlay.hidden{display:none}
+.modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.modal-title{font-size:15px;font-weight:600;color:var(--t0);margin-bottom:14px}
+.modal-input{width:100%;padding:7px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:13px;margin-bottom:14px}
+.modal-input:focus{border-color:var(--blue)}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end}
+.modal-btn{padding:7px 16px;border-radius:4px;border:1px solid var(--border);font-size:13px;background:var(--bg3);color:var(--t1)}
+.modal-btn:hover{background:var(--bg1);color:var(--t0)}
+.modal-btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.modal-btn.primary:hover{opacity:.85}
+.modal-textarea{width:100%;min-height:200px;padding:8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-family:var(--font-mono);font-size:12px;resize:vertical;line-height:1.5;margin-bottom:14px}
+.modal-textarea:focus{border-color:var(--blue)}
+
+/* Save request modal */
+.save-req-tree{max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;margin-bottom:10px}
+.save-req-col{padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);font-size:12px;color:var(--t1)}
+.save-req-col:last-child{border-bottom:none}
+.save-req-col:hover{background:var(--bg3);color:var(--t0)}
+.save-req-col.selected{background:var(--bg3);color:var(--blue)}
+
+/* Context menu */
+#ctx-menu{position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:150px;z-index:2000;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+#ctx-menu.hidden{display:none}
+.ctx-item{padding:6px 12px;cursor:pointer;color:var(--t1);border-radius:4px;font-size:12px}
+.ctx-item:hover{background:var(--bg3);color:var(--t0)}
+.ctx-item.danger{color:var(--red)}
+.ctx-item.danger:hover{background:rgba(248,113,113,.1)}
+.ctx-sep{height:1px;background:var(--border);margin:3px 0}
+
+/* Workspace / Env selectors */
+#ws-selector,#env-selector{padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:11px;max-width:130px}
+
+/* Top bar buttons */
+.tb-btn{padding:5px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:12px;transition:all .15s;white-space:nowrap}
+.tb-btn:hover{background:var(--bg3);color:var(--t0)}
+.tb-btn.orange{border-color:rgba(251,146,60,.35);background:rgba(251,146,60,.08);color:var(--orange)}
+.tb-btn.orange:hover{background:rgba(251,146,60,.16);color:var(--orange)}
+
+/* Scrollbars */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--t2)}
+
+/* Spinner */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:4px}
+
+/* Form data */
+.fd-file-name{font-size:11px;color:var(--t2);font-style:italic}
+
+/* Empty state */
+.empty-state{color:var(--t2);text-align:center;padding:30px 10px;font-size:12px;line-height:1.7}
+
+/* Saved-response examples in tree */
+.tree-example{display:flex;align-items:center;padding:4px 6px;cursor:pointer;border-radius:4px;margin:1px 4px;user-select:none;gap:5px}
+.tree-example:hover{background:var(--bg3)}
+.ex-icon{font-size:9px;color:var(--t2);flex-shrink:0;font-weight:700;background:var(--bg3);border:1px solid var(--border);padding:1px 4px;border-radius:3px}
+.ex-name{color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-style:italic}
+.tree-example:hover .ex-name{color:var(--t1)}
+.ex-status{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;flex-shrink:0;font-family:var(--font-mono)}
+.ex-del{background:none;border:none;color:var(--t2);padding:1px 3px;border-radius:3px;font-size:12px;line-height:1;display:none;flex-shrink:0}
+.tree-example:hover .ex-del{display:block}
+.ex-del:hover{color:var(--red);background:rgba(248,113,113,.1)}
+.req-has-examples .tf-arrow{opacity:1}
+.req-examples-toggle{width:12px;font-size:9px;color:var(--t2);flex-shrink:0;transition:transform .12s;cursor:pointer;line-height:1;padding:2px}
+.req-examples-toggle.open{transform:rotate(90deg)}
+
+/* Response search highlight */
+mark{background:rgba(251,191,36,.3);color:inherit;border-radius:2px}
+
+/* Env modal */
+.env-selector-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.env-selector-row select{flex:1;padding:6px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;color:var(--t0)}
+.env-act-btn{padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:11px}
+.env-act-btn:hover{background:var(--bg1);color:var(--t0)}
+</style>
+</head>
+<body>
+<div class="app-wrap" id="app">
+  <!-- Top Bar -->
+  <div id="topbar">
+    <span class="logo">⚡ API</span>
+    <div class="pill-dd" id="ws-dd">
+      <button class="pill-dd-btn" id="ws-dd-btn" title="Switch workspace">
+        <span class="pill-dd-label" id="ws-dd-label">Workspace</span>
+        <span class="pill-dd-chevron">▾</span>
+      </button>
+      <div class="pill-dd-list" id="ws-dd-list"></div>
+    </div>
+    <div class="pill-dd" id="env-dd">
+      <button class="pill-dd-btn" id="env-dd-btn" title="Switch environment">
+        <span class="pill-dd-label" id="env-dd-label">No Env</span>
+        <span class="pill-dd-chevron">▾</span>
+      </button>
+      <div class="pill-dd-list" id="env-dd-list"></div>
+    </div>
+    <button class="tb-btn" id="env-manage-btn" style="font-size:11px">⚙ Envs</button>
+    <div style="flex:1"></div>
+    <button class="tb-btn orange" id="curl-import-btn">⌨ cURL</button>
+  </div>
+
+  <div id="main">
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div id="sidebar-tabs">
+        <div class="stab active" data-panel="collections">Collections</div>
+        <div class="stab" data-panel="history">History</div>
+      </div>
+      <div id="sidebar-body">
+        <!-- Collections Panel -->
+        <div id="col-panel">
+          <div id="col-search-row">
+            <input id="col-search" type="text" placeholder="Search…">
+          </div>
+          <div id="col-actions">
+            <button class="col-act-btn" id="new-col-btn">+ New Collection</button>
+            <button class="col-act-btn" id="import-col-btn">↓ Import</button>
+          </div>
+          <div id="col-tree"></div>
+        </div>
+        <!-- History Panel -->
+        <div id="hist-panel" style="display:none">
+          <div id="hist-list"></div>
+          <div id="hist-clear"><button id="clear-hist-btn">Clear all history</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="content">
+      <!-- Tabs Bar -->
+      <div id="tabs-bar">
+        <button id="add-tab-btn" title="New Tab (Cmd+T)">+</button>
+      </div>
+
+      <!-- Request Editor -->
+      <div id="req-editor">
+        <div id="url-bar">
+          <select id="method-select">
+            <option>GET</option><option>POST</option><option>PUT</option>
+            <option>PATCH</option><option>DELETE</option><option>HEAD</option>
+            <option>OPTIONS</option>
+          </select>
+          <input id="url-input" type="text" placeholder="Enter request URL…">
+          <button id="code-btn" class="tb-btn" title="Generate code snippet" style="flex-shrink:0">&lt;/&gt;</button>
+          <button id="save-btn">Save</button>
+          <button id="send-btn">Send</button>
+        </div>
+
+        <div id="req-tabs">
+          <div class="rtab active" data-rtab="params">Params <span class="badge" id="params-badge">0</span></div>
+          <div class="rtab" data-rtab="headers">Headers <span class="badge" id="headers-badge">0</span></div>
+          <div class="rtab" data-rtab="body">Body</div>
+          <div class="rtab" data-rtab="auth">Auth</div>
+          <div class="rtab" data-rtab="prereq">Pre-req</div>
+          <div class="rtab" data-rtab="tests">Tests <span class="test-badge" id="tests-badge" style="display:none"></span></div>
+          <div class="rtab" data-rtab="settings">Settings</div>
+        </div>
+
+        <div id="req-panels">
+          <!-- Params -->
+          <div class="rpanel active" id="rpanel-params">
+            <div id="params-kv"></div>
+            <button class="kv-add-btn" id="add-param-btn">+ Add Param</button>
+          </div>
+          <!-- Headers -->
+          <div class="rpanel" id="rpanel-headers">
+            <div id="headers-kv"></div>
+            <button class="kv-add-btn" id="add-header-btn">+ Add Header</button>
+            <div id="auto-hdrs-section" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+              <div style="color:var(--t2);font-size:10px;font-weight:600;letter-spacing:.04em;margin-bottom:6px;text-transform:uppercase">Auto-generated Headers</div>
+              <div id="auto-hdrs-list" style="color:var(--t2);font-size:11px">None</div>
+            </div>
+          </div>
+          <!-- Body -->
+          <div class="rpanel" id="rpanel-body">
+            <div id="body-type-row">
+              <span style="color:var(--t2);font-size:11px;margin-right:4px">Body type:</span>
+              <input type="radio" name="bodytype" id="bt-none" value="none" class="bt-radio" checked>
+              <label for="bt-none" class="bt-label">none</label>
+              <input type="radio" name="bodytype" id="bt-raw" value="raw" class="bt-radio">
+              <label for="bt-raw" class="bt-label">raw</label>
+              <select id="raw-content-type">
+                <option value="application/json">JSON</option>
+                <option value="text/plain">Text</option>
+                <option value="application/xml">XML</option>
+                <option value="text/html">HTML</option>
+              </select>
+              <input type="radio" name="bodytype" id="bt-form" value="form-data" class="bt-radio">
+              <label for="bt-form" class="bt-label">form-data</label>
+              <input type="radio" name="bodytype" id="bt-url" value="urlencoded" class="bt-radio">
+              <label for="bt-url" class="bt-label">x-www-form-urlencoded</label>
+            </div>
+            <div id="body-raw-wrap">
+              <textarea id="raw-body" placeholder="Enter request body…"></textarea>
+            </div>
+            <div id="body-form-wrap">
+              <div id="form-kv"></div>
+              <button class="kv-add-btn" id="add-form-btn">+ Add Field</button>
+            </div>
+            <div id="body-url-wrap">
+              <div id="urlenc-kv"></div>
+              <button class="kv-add-btn" id="add-urlenc-btn">+ Add Param</button>
+            </div>
+          </div>
+          <!-- Auth -->
+          <div class="rpanel" id="rpanel-auth">
+            <div class="auth-section">
+              <select id="auth-type-sel">
+                <option value="none">No Auth</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="basic">Basic Auth</option>
+                <option value="apikey-header">API Key (Header)</option>
+                <option value="apikey-query">API Key (Query)</option>
+              </select>
+              <div id="auth-fields"></div>
+            </div>
+          </div>
+          <!-- Pre-req -->
+          <div class="rpanel" id="rpanel-prereq">
+            <div style="margin-bottom:6px;color:var(--t2);font-size:11px">Pre-request script (JavaScript). Use <code style="color:var(--blue)">pm.environment.set(key, val)</code>, <code style="color:var(--blue)">pm.variables.get(key)</code></div>
+            <textarea id="prereq-script" placeholder="// pm.environment.set('token', pm.variables.get('token'))"></textarea>
+          </div>
+          <!-- Tests -->
+          <div class="rpanel" id="rpanel-tests">
+            <div style="margin-bottom:6px;color:var(--t2);font-size:11px">Test script — runs after each response. Use <code style="color:var(--blue)">pm.test(name, fn)</code>, <code style="color:var(--blue)">pm.expect(val).to.eql(expected)</code>, <code style="color:var(--blue)">pm.response.json()</code></div>
+            <textarea id="tests-script" placeholder="pm.test('Status is 200', () => { pm.expect(pm.response.status).to.eql(200); });"></textarea>
+            <div id="tests-results" style="margin-top:8px"></div>
+          </div>
+          <!-- Settings -->
+          <div class="rpanel" id="rpanel-settings">
+            <div class="auth-section" style="max-width:400px">
+              <div class="auth-row" style="flex-direction:row;align-items:center;gap:12px">
+                <label style="min-width:130px;color:var(--t2);font-size:11px">Timeout (seconds)</label>
+                <input id="settings-timeout" type="number" min="1" max="300" value="30" style="width:80px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0)">
+              </div>
+              <div class="auth-row" style="flex-direction:row;align-items:center;gap:12px;margin-top:10px">
+                <label style="min-width:130px;color:var(--t2);font-size:11px">Follow Redirects</label>
+                <input id="settings-redirects" type="checkbox" checked style="cursor:pointer;accent-color:var(--blue)">
+              </div>
+              <div style="margin-top:16px;padding:8px;background:var(--bg2);border-radius:4px;font-size:11px;color:var(--t2)">
+                Timeout: max seconds to wait for response.<br>Follow Redirects: automatically follow HTTP 3xx redirects.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Splitter -->
+      <div id="splitter"></div>
+
+      <!-- Response Area -->
+      <div id="response-area">
+        <div id="resp-toolbar">
+          <span id="resp-status-badge"></span>
+          <span id="resp-meta"></span>
+          <div id="resp-tabs">
+            <div class="resptab active" data-resptab="pretty">Pretty</div>
+            <div class="resptab" data-resptab="raw">Raw</div>
+            <div class="resptab" data-resptab="headers">Headers</div>
+            <div class="resptab" data-resptab="cookies">Cookies</div>
+          </div>
+          <div id="resp-action-btns">
+            <button class="resp-act" id="save-resp-btn" title="Save this response">⊞ Save</button>
+            <button class="resp-act" id="copy-resp-btn">Copy</button>
+            <button class="resp-act" id="dl-resp-btn">Download</button>
+            <button class="resp-act" id="har-btn">HAR</button>
+            <div class="saved-resp-pill pill-dd" id="saved-resp-dd" style="display:none">
+              <button class="pill-dd-btn resp-act" id="saved-resp-dd-btn" style="padding:4px 8px;min-width:0">
+                <span id="saved-resp-count">0 saved</span><span class="pill-dd-chevron" style="margin-left:4px">▾</span>
+              </button>
+              <div class="pill-dd-list" id="saved-resp-dd-list"></div>
+            </div>
+          </div>
+        </div>
+        <div id="resp-search-row" style="display:none;padding:4px 10px;border-bottom:1px solid var(--border);flex-shrink:0">
+          <input id="resp-search" type="text" placeholder="Search in response body…" style="width:100%;padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:11px;outline:none">
+        </div>
+        <div id="resp-panels">
+          <div class="resp-panel active" id="resp-pretty">
+            <div id="resp-placeholder" class="empty-state">Send a request to see the response here</div>
+          </div>
+          <div class="resp-panel" id="resp-raw"></div>
+          <div class="resp-panel" id="resp-headers-panel">
+            <table id="resp-hdrs-table">
+              <thead><tr><th>Key</th><th>Value</th></tr></thead>
+              <tbody id="resp-hdrs-body"></tbody>
+            </table>
+          </div>
+          <div class="resp-panel" id="resp-cookies-panel">
+            <table id="resp-cookies-table" style="width:100%;border-collapse:collapse">
+              <thead><tr>
+                <th style="text-align:left;color:var(--t2);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--border)">Name</th>
+                <th style="text-align:left;color:var(--t2);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--border)">Value</th>
+                <th style="text-align:left;color:var(--t2);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--border)">Attributes</th>
+              </tr></thead>
+              <tbody id="resp-cookies-body"></tbody>
+            </table>
+            <div id="resp-cookies-empty" style="display:none" class="empty-state">No cookies in response.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code Generation Modal -->
+<div class="modal-overlay hidden" id="code-modal">
+  <div class="modal-box" style="min-width:600px;max-width:780px">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>&lt;/&gt; Code Snippet</span>
+      <button class="modal-btn" id="code-modal-close" style="padding:3px 10px">✕</button>
+    </div>
+    <div class="code-lang-tabs">
+      <div class="code-lang-tab active" data-lang="curl">cURL</div>
+      <div class="code-lang-tab" data-lang="fetch">JS Fetch</div>
+      <div class="code-lang-tab" data-lang="axios">Axios</div>
+      <div class="code-lang-tab" data-lang="nodejs">Node.js</div>
+      <div class="code-lang-tab" data-lang="python">Python</div>
+      <div class="code-lang-tab" data-lang="php">PHP</div>
+      <div class="code-lang-tab" data-lang="go">Go</div>
+    </div>
+    <div class="code-out" id="code-out" contenteditable="false" spellcheck="false"></div>
+    <div class="modal-footer">
+      <button class="modal-btn" id="code-copy-btn">Copy</button>
+      <button class="modal-btn" id="code-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- New / Rename Collection Modal -->
+<div class="modal-overlay hidden" id="new-col-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="new-col-modal-title">New Collection</div>
+    <input class="modal-input" id="new-col-name" type="text" placeholder="Collection name…" autocomplete="off">
+    <div class="modal-footer">
+      <button class="modal-btn" id="new-col-cancel">Cancel</button>
+      <button class="modal-btn primary" id="new-col-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- cURL Import Modal -->
+<div class="modal-overlay hidden" id="curl-modal">
+  <div class="modal-box" style="min-width:560px">
+    <div class="modal-title">Import cURL</div>
+    <div style="color:var(--t2);font-size:11px;margin-bottom:8px">Paste a cURL command below. Multi-line with backslash continuation is supported.</div>
+    <textarea class="modal-textarea" id="curl-textarea" placeholder="curl -X POST https://api.example.com/endpoint \&#10;  -H 'Content-Type: application/json' \&#10;  -d '{&quot;key&quot;: &quot;value&quot;}'"></textarea>
+    <div class="modal-footer">
+      <button class="modal-btn" id="curl-cancel">Cancel</button>
+      <button class="modal-btn primary" id="curl-parse">Parse &amp; Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Request Modal -->
+<div class="modal-overlay hidden" id="save-req-modal">
+  <div class="modal-box">
+    <div class="modal-title">Save Request</div>
+    <div style="color:var(--t2);font-size:11px;margin-bottom:6px">Request name</div>
+    <input class="modal-input" id="save-req-name" type="text" placeholder="Request name…" autocomplete="off">
+    <div style="color:var(--t2);font-size:11px;margin-bottom:6px">Select collection</div>
+    <div class="save-req-tree" id="save-req-col-list"></div>
+    <div class="modal-footer">
+      <button class="modal-btn" id="save-req-cancel">Cancel</button>
+      <button class="modal-btn primary" id="save-req-ok">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Environment Modal -->
+<div class="modal-overlay hidden" id="env-modal">
+  <div class="modal-box" style="min-width:560px;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-title">Environments</div>
+    <div style="flex:1;overflow-y:auto;min-height:0">
+      <div class="env-selector-row">
+        <select id="env-select-dd">
+          <option value="">— select environment —</option>
+        </select>
+        <button class="env-act-btn" id="env-new-btn">+ New</button>
+        <button class="env-act-btn" id="env-delete-btn" style="color:var(--red)">Delete</button>
+      </div>
+      <div id="env-vars-section" style="display:none">
+        <div id="env-vars-kv"></div>
+        <button class="kv-add-btn" id="add-env-var-btn">+ Add Variable</button>
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top:12px">
+      <button class="modal-btn" id="env-modal-close">Close</button>
+      <button class="modal-btn primary" id="env-modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Response Name Modal -->
+<div class="modal-overlay hidden" id="save-resp-modal">
+  <div class="modal-box">
+    <div class="modal-title">Save Response Example</div>
+    <div style="color:var(--t2);font-size:11px;margin-bottom:6px">Name this saved response</div>
+    <input class="modal-input" id="save-resp-name" type="text" placeholder="e.g. Success 200, Error 404…" autocomplete="off">
+    <div class="modal-footer">
+      <button class="modal-btn" id="save-resp-modal-cancel">Cancel</button>
+      <button class="modal-btn primary" id="save-resp-modal-ok">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div id="ctx-menu" class="hidden"></div>
+
+<script>
+// ============================================================
+// BRIDGE
+// ============================================================
+const App = (window.go && window.go.main && window.go.main.App) ? window.go.main.App : null;
+const RT  = window.runtime || null;
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  workspaces:    [],
+  activeWsId:    null,
+  collections:   [],
+  requests:      [],
+  history:       [],
+  environments:  [],
+  activeEnvId:   null,
+  envVariables:  {},
+  tabs:          [],
+  activeTabId:   null,
+  openFolders:   new Set(),
+  openExamples:  new Set(),
+  dragState:     null,
+  searchQuery:   '',
+  lastResponse:  null,
+};
+
+let _colModalCallback = null;
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// ============================================================
+// TAB MODEL
+// ============================================================
+function newTab(overrides) {
+  return Object.assign({
+    id:              uid(),
+    name:            'New Request',
+    method:          'GET',
+    url:             '',
+    params:          [],
+    headers:         [],
+    bodyType:        'none',
+    bodyContent:     '',
+    formPairs:       [],
+    formFiles:       [],
+    urlencPairs:     [],
+    authType:        'none',
+    authData:        {},
+    prereqScript:    '',
+    rawContentType:  'application/json',
+    savedRequestId:  null,
+    _targetColId:    null,
+    timeoutSec:      30,
+    dirty:           false,
+  }, overrides || {});
+}
+
+function getActiveTab() {
+  return state.tabs.find(t => t.id === state.activeTabId) || null;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  SimNav.inject('apiclient');
+  if (App) {
+    try {
+      const dir = await App.GetDefaultOutputDir().catch(() => '');
+      await App.APIClientInit(dir).catch(() => {});
+    } catch(e) {}
+  }
+  await loadWorkspaces();
+  await loadCollections();
+  await loadRequests();
+  await loadHistory();
+  await loadEnvironments();
+  if (state.tabs.length === 0) addNewTab();
+  else { renderTabs(); loadTabIntoEditor(getActiveTab()); }
+  renderCollections();
+  renderHistory();
+  renderWorkspaceSelector();
+  renderEnvSelector();
+  setupSplitter();
+  setupShortcuts();
+}
+
+// ============================================================
+// WORKSPACES
+// ============================================================
+async function loadWorkspaces() {
+  if (!App) {
+    state.workspaces = [{ id: 'default', name: 'Default', createdAt: '' }];
+    state.activeWsId = 'default';
+    return;
+  }
+  try {
+    let ws = await App.ACListWorkspaces();
+    if (!ws || ws.length === 0) {
+      const w = { id: uid(), name: 'Default', createdAt: Date.now() };
+      await App.ACSaveWorkspace(w);
+      ws = [w];
+    }
+    state.workspaces = ws;
+    state.activeWsId = ws[0].id;
+  } catch(e) {
+    state.workspaces = [{ id: 'default', name: 'Default', createdAt: '' }];
+    state.activeWsId = 'default';
+  }
+}
+
+function renderWorkspaceSelector() {
+  const label = document.getElementById('ws-dd-label');
+  const list  = document.getElementById('ws-dd-list');
+  const active = state.workspaces.find(w => w.id === state.activeWsId);
+  label.textContent = active ? active.name : 'Workspace';
+  list.innerHTML = state.workspaces.map(w =>
+    `<div class="pill-dd-item${w.id === state.activeWsId ? ' active' : ''}" data-ws-id="${esc(w.id)}">${esc(w.name)}</div>`
+  ).join('') +
+  '<div class="pill-dd-sep"></div><div class="pill-dd-manage" id="ws-manage-link">Manage workspaces…</div>';
+
+  list.querySelectorAll('.pill-dd-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      state.activeWsId = el.dataset.wsId;
+      closePillDropdown('ws-dd');
+      await loadCollections(); await loadRequests(); await loadHistory(); await loadEnvironments();
+      renderCollections(); renderHistory(); renderEnvSelector(); renderWorkspaceSelector();
+    });
+  });
+  list.querySelector('#ws-manage-link')?.addEventListener('click', () => {
+    closePillDropdown('ws-dd'); openEnvModal('ws');
+  });
+}
+
+function renderEnvSelector() {
+  const label = document.getElementById('env-dd-label');
+  const list  = document.getElementById('env-dd-list');
+  const active = state.environments.find(e => e.id === state.activeEnvId);
+  label.textContent = active ? active.name : 'No Env';
+  list.innerHTML = '<div class="pill-dd-item' + (!state.activeEnvId ? ' active' : '') + '" data-env-id="">No Environment</div>' +
+    state.environments.map(e =>
+      `<div class="pill-dd-item${e.id === state.activeEnvId ? ' active' : ''}" data-env-id="${esc(e.id)}">${esc(e.name)}</div>`
+    ).join('') +
+  '<div class="pill-dd-sep"></div><div class="pill-dd-manage" id="env-manage-link">Manage environments…</div>';
+
+  list.querySelectorAll('.pill-dd-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      state.activeEnvId = el.dataset.envId || null;
+      if (App && state.activeEnvId) {
+        try { await App.ACSetActiveEnvironment(state.activeWsId, state.activeEnvId); } catch(ex) {}
+        await loadEnvVars(state.activeEnvId);
+      }
+      closePillDropdown('env-dd'); renderEnvSelector();
+    });
+  });
+  list.querySelector('#env-manage-link')?.addEventListener('click', () => {
+    closePillDropdown('env-dd'); document.getElementById('env-modal').classList.remove('hidden');
+    loadEnvModalList();
+  });
+}
+
+// ── Pill dropdown controls ─────────────────────────────────────
+function closePillDropdown(ddId) {
+  document.getElementById(ddId + '-btn')?.classList.remove('open');
+  document.getElementById(ddId + '-list')?.classList.remove('open');
+}
+function togglePillDropdown(ddId) {
+  const btn  = document.getElementById(ddId + '-btn');
+  const list = document.getElementById(ddId + '-list');
+  const isOpen = list.classList.contains('open');
+  // close all first
+  document.querySelectorAll('.pill-dd-list.open').forEach(el => { el.classList.remove('open'); el.closest('.pill-dd')?.querySelector('.pill-dd-btn')?.classList.remove('open'); });
+  if (!isOpen) { btn.classList.add('open'); list.classList.add('open'); }
+}
+document.getElementById('ws-dd-btn').addEventListener('click', e => { e.stopPropagation(); togglePillDropdown('ws-dd'); });
+document.getElementById('env-dd-btn').addEventListener('click', e => { e.stopPropagation(); togglePillDropdown('env-dd'); });
+document.addEventListener('click', () => { document.querySelectorAll('.pill-dd-list.open').forEach(el => { el.classList.remove('open'); el.closest('.pill-dd')?.querySelector('.pill-dd-btn')?.classList.remove('open'); }); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.pill-dd-list.open').forEach(el => { el.classList.remove('open'); el.closest('.pill-dd')?.querySelector('.pill-dd-btn')?.classList.remove('open'); }); });
+
+// ============================================================
+// COLLECTIONS
+// ============================================================
+async function loadCollections() {
+  if (!App) { state.collections = []; return; }
+  try { state.collections = (await App.ACListCollections(state.activeWsId)) || []; }
+  catch(e) { state.collections = []; }
+}
+
+async function loadRequests() {
+  if (!App) { state.requests = []; return; }
+  try { state.requests = (await App.ACListRequests(state.activeWsId)) || []; }
+  catch(e) { state.requests = []; }
+}
+
+async function saveCollection(col) {
+  if (App) { await App.ACSaveCollection(col); await loadCollections(); renderCollections(); return; }
+  const i = state.collections.findIndex(c => c.id === col.id);
+  if (i >= 0) state.collections[i] = col; else state.collections.push(col);
+  renderCollections();
+}
+
+async function deleteCollection(id) {
+  if (App) { await App.ACDeleteCollection(id); await loadCollections(); await loadRequests(); return; }
+  state.collections = state.collections.filter(c => c.id !== id);
+}
+
+async function saveRequest(req) {
+  if (App) { await App.ACSaveRequest(req); await loadRequests(); return; }
+  const i = state.requests.findIndex(r => r.id === req.id);
+  if (i >= 0) state.requests[i] = req; else state.requests.push(req);
+}
+
+async function deleteRequest(id) {
+  if (App) { await App.ACDeleteRequest(id); await loadRequests(); return; }
+  state.requests = state.requests.filter(r => r.id !== id);
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+async function loadHistory() {
+  if (!App) { state.history = []; return; }
+  try { state.history = (await App.ACListHistory(state.activeWsId)) || []; }
+  catch(e) { state.history = []; }
+}
+
+async function addHistoryEntry(entry) {
+  if (App) { try { await App.ACSaveHistory(entry); } catch(e) {} }
+  else { state.history.unshift(entry); if (state.history.length > 200) state.history.length = 200; }
+  await loadHistory();
+  renderHistory();
+}
+
+// ============================================================
+// ENVIRONMENTS
+// ============================================================
+async function loadEnvironments() {
+  if (!App) { state.environments = []; state.activeEnvId = null; return; }
+  try {
+    state.environments = (await App.ACListEnvironments(state.activeWsId)) || [];
+    const active = state.environments.find(e => e.isActive);
+    state.activeEnvId = active ? active.id : null;
+    if (state.activeEnvId) await loadEnvVars(state.activeEnvId);
+  } catch(e) { state.environments = []; state.activeEnvId = null; }
+}
+
+async function loadEnvVars(envId) {
+  if (!App) { state.envVariables[envId] = []; return; }
+  try { state.envVariables[envId] = (await App.ACListEnvVariables(envId)) || []; }
+  catch(e) { state.envVariables[envId] = []; }
+}
+
+// renderEnvSelector is now defined above in the workspace section
+
+// ============================================================
+// INTERPOLATION
+// ============================================================
+function interpolate(str) {
+  if (!str || !state.activeEnvId) return str || '';
+  const vars = state.envVariables[state.activeEnvId] || [];
+  return str.replace(/\{\{([^}]+)\}\}/g, (m, k) => {
+    const v = vars.find(vv => vv.key === k.trim() && vv.enabled !== false);
+    return v ? v.value : m;
+  });
+}
+
+// ============================================================
+// RENDER COLLECTION TREE
+// ============================================================
+function renderCollections() {
+  const tree = document.getElementById('col-tree');
+  const q = state.searchQuery.toLowerCase();
+
+  const rootCols = state.collections
+    .filter(c => !c.parentId || c.parentId === '')
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  const rootReqs = state.requests
+    .filter(r => !r.collectionId || r.collectionId === '')
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  let html = '';
+  for (const col of rootCols) {
+    if (q && !colMatchesQuery(col, q)) continue;
+    html += renderFolder(col, 0, q);
+  }
+  for (const req of rootReqs) {
+    if (q && !req.name.toLowerCase().includes(q) && !req.url.toLowerCase().includes(q)) continue;
+    html += renderReqRow(req, 0);
+  }
+
+  tree.innerHTML = html || '<div class="empty-state">No collections yet.<br>Create one to save requests.</div>';
+  attachTreeListeners();
+}
+
+function colMatchesQuery(col, q) {
+  if (col.name.toLowerCase().includes(q)) return true;
+  if (state.requests.filter(r => r.collectionId === col.id)
+    .some(r => r.name.toLowerCase().includes(q) || r.url.toLowerCase().includes(q))) return true;
+  return state.collections.filter(c => c.parentId === col.id).some(c => colMatchesQuery(c, q));
+}
+
+function renderFolder(col, depth, q) {
+  const isOpen = state.openFolders.has(col.id);
+  const pl = 6 + depth * 16;
+  let html = `<div class="tree-folder" data-col-id="${esc(col.id)}" draggable="true" style="padding-left:${pl}px">
+    <span class="tf-arrow${isOpen ? ' open' : ''}">▶</span>
+    <span class="tf-icon">📁</span>
+    <span class="tf-name">${esc(col.name)}</span>
+    <span class="tf-actions">
+      <button class="tf-act" data-act="add-req" data-col-id="${esc(col.id)}" title="Add request">+</button>
+      <button class="tf-act" data-act="col-menu" data-col-id="${esc(col.id)}" title="Options">⋯</button>
+    </span>
+  </div>`;
+
+  if (isOpen) {
+    html += `<div class="tree-children" data-parent-id="${esc(col.id)}">`;
+    const childCols = state.collections.filter(c => c.parentId === col.id)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const childReqs = state.requests.filter(r => r.collectionId === col.id)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    for (const cc of childCols) html += renderFolder(cc, depth + 1, q);
+    for (const rr of childReqs) {
+      if (q && !rr.name.toLowerCase().includes(q) && !rr.url.toLowerCase().includes(q)) continue;
+      html += renderReqRow(rr, depth + 1);
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+function renderReqRow(req, depth) {
+  const pl = 6 + depth * 16;
+  const tab = getActiveTab();
+  const isActive = tab && tab.savedRequestId === req.id;
+  const mb = methodBadgeClass(req.method);
+  const examples = savedResponsesMap[req.id] || [];
+  const hasEx = examples.length > 0;
+  const exOpen = state.openExamples.has(req.id);
+
+  let html = `<div class="tree-request${isActive ? ' active-req' : ''}" data-req-id="${esc(req.id)}" draggable="true" style="padding-left:${pl}px">
+    <span class="req-examples-toggle${exOpen ? ' open' : ''}" data-act="ex-toggle" data-req-id="${esc(req.id)}" style="${hasEx ? '' : 'visibility:hidden'}">▶</span>
+    <span class="method-badge ${mb}">${esc(req.method || 'GET')}</span>
+    <span class="tr-name">${esc(req.name || 'Untitled')}</span>
+    <span class="tf-actions">
+      <button class="tf-act" data-act="req-menu" data-req-id="${esc(req.id)}" title="Options">⋯</button>
+    </span>
+  </div>`;
+
+  if (hasEx && exOpen) {
+    const exPl = pl + 22;
+    html += `<div class="tree-ex-children" data-ex-parent="${esc(req.id)}">`;
+    examples.forEach((ex, i) => {
+      const sc = exStatusColor(ex.status);
+      html += `<div class="tree-example" data-ex-req-id="${esc(req.id)}" data-ex-idx="${i}" style="padding-left:${exPl}px">
+        <span class="ex-icon">Ex</span>
+        <span class="ex-name">${esc(ex.name || 'Example')}</span>
+        <span class="ex-status" style="color:${sc}">${ex.status || '—'}</span>
+        <button class="ex-del" data-ex-del-req="${esc(req.id)}" data-ex-del-idx="${i}" title="Delete example">×</button>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+function exStatusColor(s) {
+  if (!s) return 'var(--t2)';
+  if (s < 300) return 'var(--green)';
+  if (s < 400) return 'var(--yellow)';
+  if (s < 500) return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function methodBadgeClass(m) {
+  const map = { GET:'mb-GET', POST:'mb-POST', PUT:'mb-PUT', PATCH:'mb-PATCH', DELETE:'mb-DELETE', HEAD:'mb-HEAD', OPTIONS:'mb-OPTIONS' };
+  return map[m] || 'mb-OTHER';
+}
+
+function attachTreeListeners() {
+  const tree = document.getElementById('col-tree');
+
+  tree.querySelectorAll('.tree-folder').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.tf-actions')) return;
+      const id = el.dataset.colId;
+      if (state.openFolders.has(id)) state.openFolders.delete(id); else state.openFolders.add(id);
+      renderCollections();
+    });
+  });
+
+  tree.querySelectorAll('.tree-request').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.tf-actions')) return;
+      const req = state.requests.find(r => r.id === el.dataset.reqId);
+      if (req) openRequestInTab(req);
+    });
+  });
+
+  tree.querySelectorAll('[data-act]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const act = btn.dataset.act;
+      if (act === 'add-req')   openNewTabForCollection(btn.dataset.colId);
+      if (act === 'col-menu')  showColContextMenu(btn, btn.dataset.colId);
+      if (act === 'req-menu')  showReqContextMenu(btn, btn.dataset.reqId);
+      if (act === 'ex-toggle') {
+        const rid = btn.dataset.reqId;
+        if (state.openExamples.has(rid)) state.openExamples.delete(rid);
+        else state.openExamples.add(rid);
+        renderCollections();
+      }
+    });
+  });
+
+  // Example rows: click to open request + show example response
+  tree.querySelectorAll('.tree-example').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.ex-del')) return;
+      const reqId = el.dataset.exReqId;
+      const idx   = parseInt(el.dataset.exIdx);
+      const req   = state.requests.find(r => r.id === reqId);
+      if (!req) return;
+      openRequestInTab(req);
+      const ex = (savedResponsesMap[reqId] || [])[idx];
+      if (ex) showResponse(ex);
+    });
+  });
+
+  // Example delete buttons
+  tree.querySelectorAll('.ex-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const reqId = btn.dataset.exDelReq;
+      const idx   = parseInt(btn.dataset.exDelIdx);
+      if (savedResponsesMap[reqId]) {
+        savedResponsesMap[reqId].splice(idx, 1);
+        if (savedResponsesMap[reqId].length === 0) state.openExamples.delete(reqId);
+        updateSavedRespUI(reqId);
+        renderCollections();
+      }
+    });
+  });
+
+  setupDragDrop();
+}
+
+function openNewTabForCollection(colId) {
+  const tab = newTab({ _targetColId: colId });
+  state.tabs.push(tab);
+  setActiveTab(tab.id);
+}
+
+function openRequestInTab(req) {
+  const existing = state.tabs.find(t => t.savedRequestId === req.id);
+  if (existing) { setActiveTab(existing.id); return; }
+  const tab = newTab({
+    name:           req.name,
+    method:         req.method || 'GET',
+    url:            req.url || '',
+    params:         (req.params  || []).map(p => ({...p})),
+    headers:        (req.headers || []).map(h => ({...h})),
+    bodyType:       req.bodyType || 'none',
+    bodyContent:    req.bodyContent || '',
+    formPairs:      (req.formPairs  || []).map(p => ({...p})),
+    formFiles:      (req.formFiles  || []).map(f => ({...f})),
+    urlencPairs:    (req.urlencPairs || []).map(p => ({...p})),
+    authType:       req.authType || 'none',
+    authData:       req.authData ? {...req.authData} : {},
+    prereqScript:   req.prereqScript || '',
+    rawContentType: req.rawContentType || 'application/json',
+    savedRequestId: req.id,
+    dirty:          false,
+  });
+  state.tabs.push(tab);
+  setActiveTab(tab.id);
+}
+
+// ============================================================
+// DRAG AND DROP
+// ============================================================
+function setupDragDrop() {
+  const tree = document.getElementById('col-tree');
+
+  tree.querySelectorAll('[draggable=true]').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      if (el.classList.contains('tree-folder'))
+        state.dragState = { type: 'folder', id: el.dataset.colId };
+      else
+        state.dragState = { type: 'request', id: el.dataset.reqId };
+      e.dataTransfer.effectAllowed = 'move';
+    });
+  });
+
+  tree.querySelectorAll('.tree-folder').forEach(el => {
+    el.addEventListener('dragover',  e => { e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', async e => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      const colId = el.dataset.colId;
+      if (!state.dragState) return;
+      if (state.dragState.type === 'request') {
+        const req = state.requests.find(r => r.id === state.dragState.id);
+        if (req && req.collectionId !== colId) { req.collectionId = colId; await saveRequest(req); renderCollections(); }
+      }
+      state.dragState = null;
+    });
+  });
+}
+
+// ============================================================
+// CONTEXT MENUS
+// ============================================================
+function showColContextMenu(btn, colId) {
+  const col = state.collections.find(c => c.id === colId);
+  if (!col) return;
+  showCtxMenu(btn, [
+    { label: '+ Add Request',      action: () => openNewTabForCollection(colId) },
+    { label: '+ Add Sub-folder',   action: () => openNewColModalWithParent(col.id) },
+    { sep: true },
+    { label: 'Rename',             action: () => openRenameColModal(col) },
+    { label: 'Download (Postman)', action: () => exportCollection(colId) },
+    { sep: true },
+    { label: 'Delete Collection',  danger: true, action: () => confirmDeleteCollection(colId) },
+  ]);
+}
+
+function showReqContextMenu(btn, reqId) {
+  const req = state.requests.find(r => r.id === reqId);
+  if (!req) return;
+  const moveItems = state.collections.map(c => ({
+    label: '  → ' + c.name,
+    action: async () => {
+      req.collectionId = c.id; await saveRequest(req); renderCollections();
+    },
+  }));
+  showCtxMenu(btn, [
+    { label: 'Open in Tab', action: () => openRequestInTab(req) },
+    { label: 'Duplicate',   action: () => duplicateRequest(req) },
+    { label: 'Copy as cURL', action: () => {
+      saveEditorToTab();
+      const code = generateCode('curl', req);
+      navigator.clipboard.writeText(code).catch(() => {});
+    }},
+    ...(moveItems.length ? [{ sep: true }, { label: 'Move to…', disabled: true }, ...moveItems] : []),
+    { sep: true },
+    { label: 'Delete',      danger: true, action: () => confirmDeleteRequest(reqId) },
+  ]);
+}
+
+function showCtxMenu(anchor, items) {
+  const menu = document.getElementById('ctx-menu');
+  menu.innerHTML = items.map(item =>
+    item.sep
+      ? '<div class="ctx-sep"></div>'
+      : `<div class="ctx-item${item.danger ? ' danger' : ''}${item.disabled ? ' ctx-disabled' : ''}" style="${item.disabled ? 'color:var(--t2);cursor:default;font-size:10px;padding:3px 12px' : ''}">${esc(item.label)}</div>`
+  ).join('');
+  menu.classList.remove('hidden');
+
+  const rect = anchor.getBoundingClientRect();
+  let x = rect.left, y = rect.bottom + 4;
+  if (x + 180 > window.innerWidth)  x = window.innerWidth - 184;
+  if (y + 260 > window.innerHeight) y = rect.top - 4;
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+
+  const nonSep = items.filter(it => !it.sep);
+  menu.querySelectorAll('.ctx-item').forEach((el, idx) => {
+    if (nonSep[idx]?.disabled) return;
+    el.addEventListener('click', () => { menu.classList.add('hidden'); nonSep[idx]?.action?.(); });
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('ctx-menu').contains(e.target))
+    document.getElementById('ctx-menu').classList.add('hidden');
+});
+
+async function duplicateRequest(req) {
+  const copy = { ...req, id: uid(), name: req.name + ' (copy)', sortOrder: (req.sortOrder || 0) + 1 };
+  await saveRequest(copy);
+  renderCollections();
+}
+
+async function confirmDeleteCollection(id) {
+  if (!confirm('Delete this collection and all its requests?')) return;
+  await _deleteCollectionRecursive(id);
+  renderCollections();
+}
+
+async function _deleteCollectionRecursive(id) {
+  for (const r of state.requests.filter(r => r.collectionId === id)) await deleteRequest(r.id);
+  for (const c of state.collections.filter(c => c.parentId === id)) await _deleteCollectionRecursive(c.id);
+  await deleteCollection(id);
+}
+
+async function confirmDeleteRequest(id) {
+  if (!confirm('Delete this request?')) return;
+  const ti = state.tabs.findIndex(t => t.savedRequestId === id);
+  if (ti >= 0) closeTab(state.tabs[ti].id, true);
+  await deleteRequest(id);
+  renderCollections();
+}
+
+// ============================================================
+// NEW / RENAME COLLECTION MODAL
+// ============================================================
+function openNewColModal() { openNewColModalWithParent(null); }
+
+function openNewColModalWithParent(parentId) {
+  document.getElementById('new-col-modal-title').textContent = 'New Collection';
+  document.getElementById('new-col-name').value = '';
+  document.getElementById('new-col-modal').classList.remove('hidden');
+  document.getElementById('new-col-name').focus();
+  _colModalCallback = async name => {
+    if (!name.trim()) return;
+    const col = { id: uid(), workspaceId: state.activeWsId, parentId: parentId || '', name: name.trim(), sortOrder: state.collections.length };
+    await saveCollection(col);
+    if (parentId) state.openFolders.add(parentId);
+    renderCollections();
+  };
+}
+
+function openRenameColModal(col) {
+  document.getElementById('new-col-modal-title').textContent = 'Rename Collection';
+  document.getElementById('new-col-name').value = col.name;
+  document.getElementById('new-col-modal').classList.remove('hidden');
+  document.getElementById('new-col-name').focus();
+  _colModalCallback = async name => {
+    if (!name.trim()) return;
+    const c = state.collections.find(cc => cc.id === col.id);
+    if (c) { c.name = name.trim(); await saveCollection(c); }
+    renderCollections();
+  };
+}
+
+document.getElementById('new-col-btn').addEventListener('click', openNewColModal);
+
+document.getElementById('new-col-cancel').addEventListener('click', () =>
+  document.getElementById('new-col-modal').classList.add('hidden'));
+
+document.getElementById('new-col-save').addEventListener('click', async () => {
+  const name = document.getElementById('new-col-name').value;
+  document.getElementById('new-col-modal').classList.add('hidden');
+  if (_colModalCallback) await _colModalCallback(name);
+});
+
+document.getElementById('new-col-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter')  document.getElementById('new-col-save').click();
+  if (e.key === 'Escape') document.getElementById('new-col-cancel').click();
+});
+
+// ============================================================
+// IMPORT COLLECTION
+// ============================================================
+document.getElementById('import-col-btn').addEventListener('click', async () => {
+  if (!RT) { alert('File dialog not available.'); return; }
+  try {
+    const path = await RT.OpenFileDialog({ Title: 'Import Collection', Filters: [{ DisplayName: 'JSON', Pattern: '*.json' }] });
+    if (!path) return;
+    if (!App) { alert('Cannot read file in this context.'); return; }
+    const jsonStr = await App.ReadTextFile(path);
+    await App.ACImportCollection(state.activeWsId, jsonStr);
+    await loadCollections();
+    await loadRequests();
+    renderCollections();
+  } catch(e) { alert('Import failed: ' + e); }
+});
+
+// ============================================================
+// EXPORT COLLECTION
+// ============================================================
+async function exportCollection(colId) {
+  try {
+    let jsonStr;
+    if (App) {
+      jsonStr = await App.ACExportCollection(colId);
+    } else {
+      const col  = state.collections.find(c => c.id === colId);
+      const reqs = state.requests.filter(r => r.collectionId === colId);
+      jsonStr = JSON.stringify({
+        info: { name: col?.name || 'Export', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+        item: reqs.map(r => ({ name: r.name, request: { method: r.method, url: r.url } }))
+      }, null, 2);
+    }
+    if (App) { await App.SaveFile(jsonStr, 'collection.json'); }
+    else {
+      const a = document.createElement('a');
+      a.href = 'data:application/json,' + encodeURIComponent(jsonStr);
+      a.download = 'collection.json';
+      a.click();
+    }
+  } catch(e) { alert('Export failed: ' + e); }
+}
+
+// ============================================================
+// SEARCH
+// ============================================================
+document.getElementById('col-search').addEventListener('input', e => {
+  state.searchQuery = e.target.value;
+  renderCollections();
+});
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory() {
+  const list = document.getElementById('hist-list');
+  if (!state.history || state.history.length === 0) {
+    list.innerHTML = '<div class="empty-state">No history yet.</div>';
+    return;
+  }
+  list.innerHTML = state.history.slice(0, 100).map(h => {
+    const sc = statusColor(h.status);
+    return `<div class="hist-item" data-hist-id="${esc(h.id)}">
+      <span class="hi-method" style="color:${methodColor(h.method)}">${esc(h.method || 'GET')}</span>
+      <span class="hi-url" title="${esc(h.url)}">${esc(h.url)}</span>
+      <span class="hi-status" style="color:${sc}">${h.status || ''}</span>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.hist-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const h = state.history.find(hh => hh.id === el.dataset.histId);
+      if (!h) return;
+      const tab = newTab({
+        name:    h.url.split('?')[0].split('/').pop() || h.url,
+        method:  h.method || 'GET',
+        url:     h.url,
+        headers: h.headers ? Object.entries(h.headers).map(([k, v]) => ({ key: k, value: String(v), enabled: true })) : [],
+      });
+      state.tabs.push(tab);
+      setActiveTab(tab.id);
+    });
+  });
+}
+
+document.getElementById('clear-hist-btn').addEventListener('click', async () => {
+  if (!confirm('Clear all history?')) return;
+  if (App) { try { await App.ACClearHistory(state.activeWsId); } catch(e) {} }
+  state.history = [];
+  renderHistory();
+});
+
+function methodColor(m) {
+  const root = document.documentElement;
+  const cv = v => getComputedStyle(root).getPropertyValue(v).trim();
+  const map = { GET: cv('--green'), POST: cv('--yellow'), PUT: '#60a5fa', PATCH: cv('--purple'), DELETE: cv('--red') };
+  return map[m] || cv('--t2');
+}
+
+function statusColor(s) {
+  const root = document.documentElement;
+  const cv = v => getComputedStyle(root).getPropertyValue(v).trim();
+  if (!s) return cv('--t2');
+  if (s < 300) return cv('--green');
+  if (s < 400) return cv('--yellow');
+  if (s < 500) return cv('--orange');
+  return cv('--red');
+}
+
+// ============================================================
+// SIDEBAR TAB SWITCHING
+// ============================================================
+document.querySelectorAll('.stab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = tab.dataset.panel;
+    document.getElementById('col-panel').style.display  = panel === 'collections' ? 'flex' : 'none';
+    document.getElementById('hist-panel').style.display = panel === 'history'     ? 'flex' : 'none';
+  });
+});
+
+// ============================================================
+// REQUEST TABS
+// ============================================================
+function renderTabs() {
+  const bar    = document.getElementById('tabs-bar');
+  const addBtn = document.getElementById('add-tab-btn');
+  bar.querySelectorAll('.req-tab').forEach(el => el.remove());
+
+  state.tabs.forEach(tab => {
+    const el = document.createElement('div');
+    el.className  = 'req-tab' + (tab.id === state.activeTabId ? ' active' : '');
+    el.dataset.tabId = tab.id;
+    el.innerHTML = `<span class="tab-method" style="color:${methodColor(tab.method)}">${esc(tab.method || 'GET')}</span>
+      <span class="tab-name">${esc(tab.name || 'New Request')}</span>
+      ${tab.dirty ? '<span class="tab-dirty" title="Unsaved">●</span>' : ''}
+      <button class="tab-close" title="Close">×</button>`;
+    el.addEventListener('click', e => {
+      if (e.target.classList.contains('tab-close')) { closeTab(tab.id); return; }
+      setActiveTab(tab.id);
+    });
+    bar.insertBefore(el, addBtn);
+  });
+}
+
+function setActiveTab(id) {
+  state.activeTabId = id;
+  renderTabs();
+  loadTabIntoEditor(getActiveTab());
+}
+
+function addNewTab() {
+  const tab = newTab();
+  state.tabs.push(tab);
+  setActiveTab(tab.id);
+}
+
+function closeTab(id, force) {
+  const tab = state.tabs.find(t => t.id === id);
+  if (!tab) return;
+  if (!force && tab.dirty && !confirm('Close unsaved tab?')) return;
+  const idx = state.tabs.indexOf(tab);
+  state.tabs.splice(idx, 1);
+  if (state.tabs.length === 0) addNewTab();
+  else setActiveTab(state.tabs[Math.min(idx, state.tabs.length - 1)].id);
+}
+
+document.getElementById('add-tab-btn').addEventListener('click', addNewTab);
+
+function markTabDirty() {
+  const tab = getActiveTab();
+  if (tab && !tab.dirty) { tab.dirty = true; renderTabs(); }
+}
+
+// ============================================================
+// LOAD/SAVE TAB INTO EDITOR
+// ============================================================
+function loadTabIntoEditor(tab) {
+  if (!tab) return;
+  document.getElementById('method-select').value = tab.method || 'GET';
+  document.getElementById('url-input').value     = tab.url || '';
+  renderKVTable('params',  tab.params  || []);
+  renderKVTable('headers', tab.headers || []);
+  renderFormTable(tab.formPairs || [], tab.formFiles || []);
+  renderKVTable('urlenc',  tab.urlencPairs || []);
+  setBodyType(tab.bodyType || 'none', false);
+  document.getElementById('raw-body').value           = tab.bodyContent || '';
+  document.getElementById('raw-content-type').value   = tab.rawContentType || 'application/json';
+  loadAuthFields(tab.authType || 'none', tab.authData || {});
+  document.getElementById('prereq-script').value      = tab.prereqScript || '';
+  document.getElementById('settings-timeout').value   = tab.timeoutSec || 30;
+  updateBadges();
+  updateAutoHeaders();
+}
+
+function saveEditorToTab() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  tab.method         = document.getElementById('method-select').value;
+  tab.url            = document.getElementById('url-input').value;
+  tab.params         = readKVTable('params');
+  tab.headers        = readKVTable('headers');
+  const fd           = readFormTable();
+  tab.formPairs      = fd.pairs;
+  tab.formFiles      = fd.files;
+  tab.urlencPairs    = readKVTable('urlenc');
+  tab.bodyType       = getBodyType();
+  tab.bodyContent    = document.getElementById('raw-body').value;
+  tab.rawContentType = document.getElementById('raw-content-type').value;
+  tab.authType       = document.getElementById('auth-type-sel').value;
+  tab.authData       = readAuthFields(tab.authType);
+  tab.prereqScript   = document.getElementById('prereq-script').value;
+  tab.timeoutSec     = parseInt(document.getElementById('settings-timeout').value) || 30;
+}
+
+// ============================================================
+// KV TABLE
+// ============================================================
+function renderKVTable(type, rows) {
+  const container = kvContainer(type);
+  container.innerHTML = '';
+  const table = document.createElement('table');
+  table.className = 'kv-table';
+  table.innerHTML = `<thead><tr><th class="kv-en"></th><th class="kv-key">Key</th><th class="kv-val">Value</th><th class="kv-del"></th></tr></thead><tbody></tbody>`;
+  const tbody = table.querySelector('tbody');
+  (rows || []).forEach(row => tbody.appendChild(makeKVRow(type, row)));
+  container.appendChild(table);
+}
+
+function kvContainer(type) {
+  if (type === 'params')  return document.getElementById('params-kv');
+  if (type === 'headers') return document.getElementById('headers-kv');
+  return document.getElementById('urlenc-kv');
+}
+
+function makeKVRow(type, row) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="kv-en"><input type="checkbox"${row.enabled !== false ? ' checked' : ''} title="Enabled"></td>
+    <td class="kv-key"><input type="text" value="${esc(row.key || '')}" placeholder="Key"></td>
+    <td class="kv-val"><input type="text" value="${esc(row.value || '')}" placeholder="Value"></td>
+    <td class="kv-del"><button class="kv-del-btn" title="Remove">×</button></td>`;
+  tr.querySelector('.kv-del-btn').addEventListener('click', () => { tr.remove(); markTabDirty(); updateBadges(); });
+  tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => { markTabDirty(); updateBadges(); }));
+  return tr;
+}
+
+function addKVRow(type) {
+  const container = kvContainer(type);
+  let table = container.querySelector('table');
+  if (!table) { renderKVTable(type, []); table = container.querySelector('table'); }
+  table.querySelector('tbody').appendChild(makeKVRow(type, { key: '', value: '', enabled: true }));
+  markTabDirty();
+}
+
+function readKVTable(type) {
+  const rows = [];
+  kvContainer(type).querySelectorAll('tbody tr').forEach(tr => {
+    const key   = tr.cells[1]?.querySelector('input')?.value || '';
+    const value = tr.cells[2]?.querySelector('input')?.value || '';
+    const enabled = tr.cells[0]?.querySelector('input')?.checked !== false;
+    if (key || value) rows.push({ key, value, enabled });
+  });
+  return rows;
+}
+
+function updateBadges() {
+  document.getElementById('params-badge').textContent  = readKVTable('params').filter(r => r.enabled !== false && r.key).length;
+  document.getElementById('headers-badge').textContent = readKVTable('headers').filter(r => r.enabled !== false && r.key).length;
+}
+
+document.getElementById('add-param-btn').addEventListener('click',  () => addKVRow('params'));
+document.getElementById('add-header-btn').addEventListener('click', () => addKVRow('headers'));
+document.getElementById('add-urlenc-btn').addEventListener('click', () => addKVRow('urlenc'));
+
+// ============================================================
+// FORM DATA TABLE
+// ============================================================
+function renderFormTable(pairs, files) {
+  const container = document.getElementById('form-kv');
+  container.innerHTML = '';
+  const table = document.createElement('table');
+  table.className = 'kv-table';
+  table.innerHTML = `<thead><tr><th class="kv-en"></th><th class="kv-key">Key</th><th class="kv-val">Value / File</th><th style="width:60px">Type</th><th class="kv-del"></th></tr></thead><tbody></tbody>`;
+  const tbody = table.querySelector('tbody');
+  (pairs || []).forEach(row => tbody.appendChild(makeFormRow(row)));
+  (files || []).forEach(row => tbody.appendChild(makeFormRow({ ...row, type: 'file' })));
+  container.appendChild(table);
+}
+
+function makeFormRow(row) {
+  const isFile = row.type === 'file';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="kv-en"><input type="checkbox"${row.enabled !== false ? ' checked' : ''} title="Enabled"></td>
+    <td class="kv-key"><input type="text" value="${esc(row.key || '')}" placeholder="Key"></td>
+    <td class="kv-val">${isFile ? `<span class="fd-file-name">${esc(row.fileName || 'No file')}</span>` : `<input type="text" value="${esc(row.value || '')}" placeholder="Value">`}</td>
+    <td><select class="fd-type"><option value="text"${!isFile ? ' selected' : ''}>text</option><option value="file"${isFile ? ' selected' : ''}>file</option></select></td>
+    <td class="kv-del"><button class="kv-del-btn">×</button></td>`;
+  if (isFile) tr._fileData = { key: row.key, fileName: row.fileName, mimeType: row.mimeType, base64: row.base64 };
+  tr.querySelector('.kv-del-btn').addEventListener('click', () => { tr.remove(); markTabDirty(); });
+  tr.querySelector('.fd-type').addEventListener('change', async e => {
+    if (e.target.value === 'file') {
+      if (!App) { alert('File picker requires the desktop app.'); e.target.value = 'text'; return; }
+      try {
+        const f = await App.ACPickFile();
+        if (!f) { e.target.value = 'text'; return; }
+        const key = tr.cells[1]?.querySelector('input')?.value || '';
+        tr._fileData = { key, fileName: f.name, mimeType: f.mime, base64: f.base64 };
+        tr.cells[2].innerHTML = `<span class="fd-file-name">${esc(f.name)}</span>`;
+      } catch(ex) { e.target.value = 'text'; }
+    } else {
+      tr._fileData = null;
+      tr.cells[2].innerHTML = `<input type="text" placeholder="Value">`;
+      tr.cells[2].querySelector('input').addEventListener('input', () => markTabDirty());
+    }
+    markTabDirty();
+  });
+  tr.querySelectorAll('input[type=text]').forEach(inp => inp.addEventListener('input', () => markTabDirty()));
+  return tr;
+}
+
+document.getElementById('add-form-btn').addEventListener('click', () => {
+  const container = document.getElementById('form-kv');
+  let table = container.querySelector('table');
+  if (!table) { renderFormTable([], []); table = container.querySelector('table'); }
+  table.querySelector('tbody').appendChild(makeFormRow({ key: '', value: '', type: 'text', enabled: true }));
+  markTabDirty();
+});
+
+function readFormTable() {
+  const pairs = [], files = [];
+  document.querySelectorAll('#form-kv tbody tr').forEach(tr => {
+    const key  = tr.cells[1]?.querySelector('input')?.value || '';
+    const type = tr.querySelector('.fd-type')?.value || 'text';
+    const enabled = tr.cells[0]?.querySelector('input')?.checked !== false;
+    if (type === 'file') {
+      if (tr._fileData) files.push({ key: tr._fileData.key || key, fileName: tr._fileData.fileName, mimeType: tr._fileData.mimeType, base64: tr._fileData.base64, enabled });
+    } else {
+      const value = tr.cells[2]?.querySelector('input')?.value || '';
+      if (key || value) pairs.push({ key, value, enabled });
+    }
+  });
+  return { pairs, files };
+}
+
+// ============================================================
+// BODY TYPE
+// ============================================================
+function setBodyType(type, triggerDirty) {
+  document.querySelectorAll('[name=bodytype]').forEach(r => { r.checked = r.value === type; });
+  document.getElementById('body-raw-wrap').style.display  = type === 'raw'        ? '' : 'none';
+  document.getElementById('body-form-wrap').style.display = type === 'form-data'  ? '' : 'none';
+  document.getElementById('body-url-wrap').style.display  = type === 'urlencoded' ? '' : 'none';
+  document.getElementById('raw-content-type').style.display = type === 'raw'      ? '' : 'none';
+  if (triggerDirty !== false) markTabDirty();
+}
+
+function getBodyType() {
+  const r = document.querySelector('[name=bodytype]:checked');
+  return r ? r.value : 'none';
+}
+
+document.querySelectorAll('[name=bodytype]').forEach(r => r.addEventListener('change', () => { setBodyType(r.value); updateAutoHeaders(); }));
+
+// ============================================================
+// AUTH
+// ============================================================
+document.getElementById('auth-type-sel').addEventListener('change', e => {
+  const tab = getActiveTab();
+  if (tab) tab.authType = e.target.value;
+  loadAuthFields(e.target.value, tab ? (tab.authData || {}) : {});
+  markTabDirty();
+  updateAutoHeaders();
+});
+
+function loadAuthFields(type, data) {
+  document.getElementById('auth-type-sel').value = type;
+  const c = document.getElementById('auth-fields');
+  c.innerHTML = '';
+  if (type === 'bearer') {
+    c.innerHTML = `<div class="auth-row"><label>Bearer Token</label><input id="auth-token" type="text" placeholder="Token…" value="${esc(data.token || '')}"></div>`;
+  } else if (type === 'basic') {
+    c.innerHTML = `<div class="auth-row"><label>Username</label><input id="auth-user" type="text" value="${esc(data.username || '')}"></div>
+      <div class="auth-row"><label>Password</label><input id="auth-pass" type="password" value="${esc(data.password || '')}"></div>`;
+  } else if (type === 'apikey-header') {
+    c.innerHTML = `<div class="auth-row"><label>Header Name</label><input id="auth-key-name" type="text" value="${esc(data.name || 'X-API-Key')}"></div>
+      <div class="auth-row"><label>Value</label><input id="auth-key-val" type="text" value="${esc(data.value || '')}"></div>`;
+  } else if (type === 'apikey-query') {
+    c.innerHTML = `<div class="auth-row"><label>Parameter Name</label><input id="auth-qp-name" type="text" value="${esc(data.name || 'api_key')}"></div>
+      <div class="auth-row"><label>Value</label><input id="auth-qp-val" type="text" value="${esc(data.value || '')}"></div>`;
+  }
+  c.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => markTabDirty()));
+}
+
+function readAuthFields(type) {
+  if (type === 'bearer')       return { token: document.getElementById('auth-token')?.value    || '' };
+  if (type === 'basic')        return { username: document.getElementById('auth-user')?.value  || '', password: document.getElementById('auth-pass')?.value || '' };
+  if (type === 'apikey-header')return { name: document.getElementById('auth-key-name')?.value  || 'X-API-Key', value: document.getElementById('auth-key-val')?.value || '' };
+  if (type === 'apikey-query') return { name: document.getElementById('auth-qp-name')?.value   || 'api_key',   value: document.getElementById('auth-qp-val')?.value || '' };
+  return {};
+}
+
+// ============================================================
+// REQUEST PANEL TABS
+// ============================================================
+document.querySelectorAll('.rtab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.rtab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.rpanel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = document.getElementById('rpanel-' + tab.dataset.rtab);
+    if (panel) panel.classList.add('active');
+    if (tab.dataset.rtab === 'headers') updateAutoHeaders();
+  });
+});
+
+// ============================================================
+// SEND REQUEST
+// ============================================================
+document.getElementById('method-select').addEventListener('change', () => { const t = getActiveTab(); if (t) t.method = document.getElementById('method-select').value; renderTabs(); markTabDirty(); });
+document.getElementById('url-input').addEventListener('input',       () => markTabDirty());
+document.getElementById('raw-body').addEventListener('input',        () => markTabDirty());
+document.getElementById('prereq-script').addEventListener('input',   () => markTabDirty());
+
+document.getElementById('send-btn').addEventListener('click', sendRequest);
+
+async function sendRequest() {
+  saveEditorToTab();
+  const tab = getActiveTab();
+  if (!tab) return;
+
+  // Pre-request script
+  if (tab.prereqScript && tab.prereqScript.trim()) {
+    try { const fn = new Function('pm', tab.prereqScript); fn(makePmObject()); }
+    catch(e) { console.warn('Pre-req script error:', e); }
+  }
+
+  let url = interpolate(tab.url);
+  if (!url) { showRespError('Please enter a URL.'); return; }
+
+  // Build headers list
+  const headers = (tab.headers || [])
+    .filter(h => h.enabled !== false && h.key)
+    .map(h => ({ key: interpolate(h.key), value: interpolate(h.value), enabled: true }));
+
+  // Apply auth
+  const authType = tab.authType || 'none';
+  const authData = tab.authData || {};
+  if (authType === 'bearer' && authData.token) {
+    headers.push({ key: 'Authorization', value: 'Bearer ' + authData.token, enabled: true });
+  } else if (authType === 'basic' && authData.username) {
+    headers.push({ key: 'Authorization', value: 'Basic ' + btoa(authData.username + ':' + (authData.password || '')), enabled: true });
+  } else if (authType === 'apikey-header' && authData.name) {
+    headers.push({ key: authData.name, value: authData.value || '', enabled: true });
+  }
+
+  // Params → URL
+  const params = (tab.params || []).filter(p => p.enabled !== false && p.key);
+  if (params.length) {
+    try {
+      const u = new URL(url.includes('://') ? url : 'https://' + url);
+      params.forEach(p => u.searchParams.append(interpolate(p.key), interpolate(p.value)));
+      url = url.includes('://') ? u.toString() : u.toString().replace('https://', '');
+    } catch(e) {
+      const qs = params.map(p => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value)).join('&');
+      url += (url.includes('?') ? '&' : '?') + qs;
+    }
+  }
+
+  // API key in query
+  if (authType === 'apikey-query' && authData.name) {
+    url += (url.includes('?') ? '&' : '?') + encodeURIComponent(authData.name) + '=' + encodeURIComponent(authData.value || '');
+  }
+
+  // Body
+  let bodyType    = tab.bodyType || 'none';
+  let bodyContent = tab.bodyContent || '';
+
+  if (bodyType === 'raw') {
+    const ct = tab.rawContentType || 'application/json';
+    if (!headers.find(h => h.key.toLowerCase() === 'content-type'))
+      headers.push({ key: 'Content-Type', value: ct, enabled: true });
+  }
+
+  if (bodyType === 'urlencoded') {
+    bodyContent = (tab.urlencPairs || [])
+      .filter(p => p.enabled !== false && p.key)
+      .map(p => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value))
+      .join('&');
+    if (!headers.find(h => h.key.toLowerCase() === 'content-type'))
+      headers.push({ key: 'Content-Type', value: 'application/x-www-form-urlencoded', enabled: true });
+  }
+
+  const formPairs = bodyType === 'form-data' ? (tab.formPairs || []) : [];
+  const formFiles = bodyType === 'form-data' ? (tab.formFiles || []) : [];
+
+  const payload = {
+    method: tab.method || 'GET', url, headers,
+    bodyType,
+    bodyContent: bodyType === 'raw' ? bodyContent : (bodyType === 'urlencoded' ? bodyContent : ''),
+    formPairs, formFiles,
+    timeoutSec: tab.timeoutSec || 30,
+  };
+
+  const sendBtn = document.getElementById('send-btn');
+  sendBtn.disabled  = true;
+  sendBtn.innerHTML = '<span class="spin"></span>Sending…';
+  document.getElementById('resp-placeholder').innerHTML = '<span class="spin"></span> Sending…';
+  document.getElementById('resp-placeholder').style.display = '';
+
+  const t0 = Date.now();
+  try {
+    const result = App ? await App.APIClientSendRequest(payload) : await fetchFallback(payload);
+    showResponse(result);
+    runTests(tab, result);
+    await addHistoryEntry({
+      id: uid(), workspaceId: state.activeWsId,
+      method: tab.method, url: tab.url,
+      status: result.status || 0, statusText: result.statusText || '',
+      headers: result.headers || {}, body: (result.body || '').slice(0, 4096),
+      durationMs: result.durationMs || (Date.now() - t0), sizeBytes: result.sizeBytes || 0,
+      timestamp: Date.now(),
+    });
+  } catch(e) {
+    showRespError(String(e));
+  } finally {
+    sendBtn.disabled  = false;
+    sendBtn.textContent = 'Send';
+  }
+}
+
+async function fetchFallback(p) {
+  const opts = { method: p.method, headers: {} };
+  (p.headers || []).forEach(h => { if (h.enabled !== false) opts.headers[h.key] = h.value; });
+  if (p.bodyContent) opts.body = p.bodyContent;
+  const t0   = Date.now();
+  const resp = await fetch(p.url, opts);
+  const body = await resp.text();
+  const hdrs = {};
+  resp.headers.forEach((v, k) => { hdrs[k] = v; });
+  return { status: resp.status, statusText: resp.statusText, headers: hdrs, body, durationMs: Date.now() - t0, sizeBytes: body.length };
+}
+
+function makePmObject() {
+  const vars = (state.activeEnvId ? state.envVariables[state.activeEnvId] : []) || [];
+  return {
+    environment: {
+      get: k => { const v = vars.find(vv => vv.key === k); return v ? v.value : undefined; },
+      set: (k, v) => { const ex = vars.find(vv => vv.key === k); if (ex) ex.value = v; else vars.push({ id: uid(), envId: state.activeEnvId, key: k, value: v, enabled: true }); },
+    },
+    variables: {
+      get: k => { const v = vars.find(vv => vv.key === k); return v ? v.value : undefined; },
+    },
+  };
+}
+
+// ============================================================
+// RESPONSE DISPLAY
+// ============================================================
+function showResponse(result) {
+  state.lastResponse = result;
+
+  const statusBadge = document.getElementById('resp-status-badge');
+  const metaEl      = document.getElementById('resp-meta');
+  const actBtns     = document.getElementById('resp-action-btns');
+
+  statusBadge.style.display = '';
+  metaEl.style.display      = '';
+  actBtns.style.display     = 'flex';
+  document.getElementById('resp-placeholder').style.display = 'none';
+
+  const s = result.status || 0;
+  let cls = 'rst-err';
+  if (s >= 200 && s < 300) cls = 'rst-2xx';
+  else if (s >= 300 && s < 400) cls = 'rst-3xx';
+  else if (s >= 400 && s < 500) cls = 'rst-4xx';
+  else if (s >= 500) cls = 'rst-5xx';
+
+  statusBadge.className   = cls;
+  statusBadge.textContent = s ? `${s} ${result.statusText || ''}` : (result.error || 'Error');
+
+  const kb = result.sizeBytes ? (result.sizeBytes / 1024).toFixed(1) + ' KB' : '';
+  const ms = result.durationMs ? result.durationMs + ' ms' : '';
+  metaEl.textContent = [ms, kb].filter(Boolean).join(' · ');
+
+  // Pretty
+  const pretty = document.getElementById('resp-pretty');
+  const body   = result.body || '';
+  try {
+    pretty.innerHTML = syntaxHighlight(JSON.parse(body));
+  } catch(e) {
+    pretty.textContent = body;
+  }
+
+  // Raw
+  document.getElementById('resp-raw').textContent = body;
+
+  // Headers
+  const tbody = document.getElementById('resp-hdrs-body');
+  tbody.innerHTML = '';
+  Object.entries(result.headers || {}).sort((a, b) => a[0].localeCompare(b[0])).forEach(([k, v]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="hdr-key">${esc(k)}</td><td class="hdr-val">${esc(String(v))}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Cookies
+  const cookieHdr = (result.headers || {})['Set-Cookie'] || (result.headers || {})['set-cookie'] || '';
+  const cookieTbody = document.getElementById('resp-cookies-body');
+  const cookieEmpty = document.getElementById('resp-cookies-empty');
+  const cookieLines = cookieHdr ? cookieHdr.split('\n').filter(Boolean) : [];
+  cookieTbody.innerHTML = '';
+  if (cookieLines.length) {
+    cookieEmpty.style.display = 'none';
+    cookieLines.forEach(line => {
+      const parts = line.split(';').map(s => s.trim());
+      const [name, val] = (parts[0] || '').split('=');
+      const attrs = parts.slice(1).join('; ');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="padding:4px 8px;font-size:12px;border-bottom:1px solid var(--border);color:var(--blue)">${esc(name||'')}</td>
+        <td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);font-family:var(--font-mono);color:var(--t1);word-break:break-all">${esc(val||'')}</td>
+        <td style="padding:4px 8px;font-size:11px;border-bottom:1px solid var(--border);color:var(--t2)">${esc(attrs)}</td>`;
+      cookieTbody.appendChild(tr);
+    });
+  } else {
+    cookieEmpty.style.display = '';
+  }
+
+  // Show response search bar
+  document.getElementById('resp-search-row').style.display = '';
+}
+
+function showRespError(msg) {
+  state.lastResponse = { error: msg };
+  const statusBadge = document.getElementById('resp-status-badge');
+  statusBadge.style.display   = '';
+  statusBadge.className       = 'rst-err';
+  statusBadge.textContent     = 'Error';
+  document.getElementById('resp-meta').style.display          = 'none';
+  document.getElementById('resp-action-btns').style.display   = 'none';
+  document.getElementById('resp-placeholder').style.display   = 'none';
+  document.getElementById('resp-pretty').textContent          = msg;
+}
+
+function syntaxHighlight(json) {
+  const str = JSON.stringify(json, null, 2);
+  return str.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+    let cls = 'j-num';
+    if (/^"/.test(m)) { cls = /:$/.test(m) ? 'j-key' : 'j-str'; }
+    else if (/true|false/.test(m)) cls = 'j-bool';
+    else if (/null/.test(m))       cls = 'j-null';
+    return `<span class="${cls}">${esc(m)}</span>`;
+  });
+}
+
+// Response panel tabs
+document.querySelectorAll('.resptab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.resptab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.resp-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    if (tab.dataset.resptab === 'headers') document.getElementById('resp-headers-panel').classList.add('active');
+    else if (tab.dataset.resptab === 'cookies') document.getElementById('resp-cookies-panel').classList.add('active');
+    else document.getElementById('resp-' + tab.dataset.resptab)?.classList.add('active');
+  });
+});
+
+document.getElementById('copy-resp-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(state.lastResponse?.body || '').catch(() => {});
+});
+
+document.getElementById('dl-resp-btn').addEventListener('click', async () => {
+  const body = state.lastResponse?.body || '';
+  if (App) { try { await App.SaveFile(body, 'response.txt'); return; } catch(e) {} }
+  const a = document.createElement('a');
+  a.href = 'data:text/plain,' + encodeURIComponent(body);
+  a.download = 'response.txt';
+  a.click();
+});
+
+document.getElementById('har-btn').addEventListener('click', async () => {
+  const tab = getActiveTab();
+  if (!tab || !state.lastResponse) return;
+  const har = buildHAR(tab, state.lastResponse);
+  const jsonStr = JSON.stringify(har, null, 2);
+  if (App) { try { await App.SaveFile(jsonStr, 'request.har'); return; } catch(e) {} }
+  const a = document.createElement('a');
+  a.href = 'data:application/json,' + encodeURIComponent(jsonStr);
+  a.download = 'request.har';
+  a.click();
+});
+
+function buildHAR(tab, resp) {
+  return {
+    log: {
+      version: '1.2',
+      creator: { name: 'API Client', version: '1.0' },
+      entries: [{
+        startedDateTime: new Date(Date.now()).toISOString(),
+        time: resp.durationMs || 0,
+        request: {
+          method: tab.method, url: tab.url, httpVersion: 'HTTP/1.1',
+          headers: (tab.headers || []).map(h => ({ name: h.key, value: h.value })),
+          queryString: (tab.params || []).map(p => ({ name: p.key, value: p.value })),
+          postData: tab.bodyContent ? { mimeType: tab.rawContentType || 'text/plain', text: tab.bodyContent } : undefined,
+          cookies: [], headersSize: -1, bodySize: -1,
+        },
+        response: {
+          status: resp.status || 0, statusText: resp.statusText || '', httpVersion: 'HTTP/1.1',
+          headers: Object.entries(resp.headers || {}).map(([k, v]) => ({ name: k, value: String(v) })),
+          cookies: [],
+          content: { mimeType: (resp.headers || {})['content-type'] || 'text/plain', text: resp.body || '' },
+          redirectURL: '', headersSize: -1, bodySize: resp.sizeBytes || 0,
+        },
+        cache: {}, timings: { send: 0, wait: resp.durationMs || 0, receive: 0 },
+      }]
+    }
+  };
+}
+
+// ============================================================
+// SAVE REQUEST
+// ============================================================
+document.getElementById('save-btn').addEventListener('click', openSaveModal);
+
+function openSaveModal() {
+  saveEditorToTab();
+  const tab = getActiveTab();
+  if (!tab) return;
+  if (tab.savedRequestId) { saveCurrentRequest(); return; }
+  document.getElementById('save-req-name').value = tab.name || 'New Request';
+  renderSaveColList();
+  document.getElementById('save-req-modal').classList.remove('hidden');
+  document.getElementById('save-req-name').focus();
+}
+
+function renderSaveColList() {
+  const list = document.getElementById('save-req-col-list');
+  if (state.collections.length === 0) {
+    list.innerHTML = '<div style="padding:10px;color:var(--t2);font-size:12px">No collections. Create one first.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  state.collections.forEach(col => {
+    const div = document.createElement('div');
+    div.className    = 'save-req-col';
+    div.dataset.colId = col.id;
+    div.innerHTML    = `📁 ${esc(col.name)}`;
+    div.addEventListener('click', () => {
+      list.querySelectorAll('.save-req-col').forEach(d => d.classList.remove('selected'));
+      div.classList.add('selected');
+    });
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('save-req-cancel').addEventListener('click', () => document.getElementById('save-req-modal').classList.add('hidden'));
+
+document.getElementById('save-req-ok').addEventListener('click', async () => {
+  const name     = document.getElementById('save-req-name').value.trim();
+  if (!name) return;
+  const selected = document.querySelector('#save-req-col-list .selected');
+  const colId    = selected?.dataset.colId || '';
+  document.getElementById('save-req-modal').classList.add('hidden');
+  await saveCurrentRequest(name, colId);
+});
+
+document.getElementById('save-req-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('save-req-ok').click();
+});
+
+async function saveCurrentRequest(name, colId) {
+  saveEditorToTab();
+  const tab = getActiveTab();
+  if (!tab) return;
+  if (name) tab.name = name;
+  const reqId = tab.savedRequestId || uid();
+  tab.savedRequestId = reqId;
+  tab.dirty = false;
+
+  const req = {
+    id:             reqId,
+    collectionId:   colId !== undefined ? colId : (tab._targetColId || ''),
+    workspaceId:    state.activeWsId,
+    name:           tab.name,
+    method:         tab.method,
+    url:            tab.url,
+    params:         tab.params    || [],
+    headers:        tab.headers   || [],
+    bodyType:       tab.bodyType  || 'none',
+    bodyContent:    tab.bodyContent || '',
+    formPairs:      tab.formPairs  || [],
+    formFiles:      tab.formFiles  || [],
+    urlencPairs:    tab.urlencPairs || [],
+    authType:       tab.authType  || 'none',
+    authData:       tab.authData  || {},
+    prereqScript:   tab.prereqScript || '',
+    rawContentType: tab.rawContentType || 'application/json',
+    sortOrder:      0,
+    updatedAt:      Date.now(),
+  };
+
+  await saveRequest(req);
+  renderTabs();
+  renderCollections();
+}
+
+// ============================================================
+// CURL IMPORT
+// ============================================================
+document.getElementById('curl-import-btn').addEventListener('click', () => {
+  document.getElementById('curl-textarea').value = '';
+  document.getElementById('curl-modal').classList.remove('hidden');
+  document.getElementById('curl-textarea').focus();
+});
+
+document.getElementById('curl-cancel').addEventListener('click', () => document.getElementById('curl-modal').classList.add('hidden'));
+
+document.getElementById('curl-parse').addEventListener('click', () => {
+  const raw    = document.getElementById('curl-textarea').value;
+  document.getElementById('curl-modal').classList.add('hidden');
+  const parsed = parseCurl(raw);
+  if (!parsed) { alert('Could not parse cURL command.'); return; }
+  applyParsedCurl(parsed);
+});
+
+function parseCurl(raw) {
+  // Normalize line continuations and leading curl
+  let cmd = raw.trim().replace(/\\\r?\n/g, ' ');
+  cmd = cmd.replace(/^\s*curl\s+/, '');
+
+  const result = { method: null, url: null, headers: [], body: null, bodyType: 'none', formPairs: [], urlencPairs: [], authType: null, authUser: null, authPass: null, bearerToken: null };
+  const tokens = tokenize(cmd);
+  let i = 0;
+
+  while (i < tokens.length) {
+    const tok = tokens[i];
+
+    if (tok === '-X' || tok === '--request') {
+      result.method = tokens[++i]; i++; continue;
+    }
+    if (tok === '-H' || tok === '--header') {
+      const hdr = tokens[++i];
+      const ci  = hdr.indexOf(':');
+      if (ci > 0) result.headers.push({ key: hdr.slice(0, ci).trim(), value: hdr.slice(ci + 1).trim(), enabled: true });
+      i++; continue;
+    }
+    if (tok === '-d' || tok === '--data' || tok === '--data-raw' || tok === '--data-binary') {
+      result.body     = tokens[++i];
+      result.bodyType = 'raw';
+      i++; continue;
+    }
+    if (tok === '--data-urlencode') {
+      const val = tokens[++i];
+      result.urlencPairs.push(parseKVString(val));
+      result.bodyType = 'urlencoded';
+      i++; continue;
+    }
+    if (tok === '-u' || tok === '--user') {
+      const up = tokens[++i];
+      const ci = up.indexOf(':');
+      result.authType = 'basic';
+      result.authUser = ci >= 0 ? up.slice(0, ci) : up;
+      result.authPass = ci >= 0 ? up.slice(ci + 1) : '';
+      i++; continue;
+    }
+    if (tok === '-F' || tok === '--form') {
+      result.formPairs.push(parseKVString(tokens[++i]));
+      result.bodyType = 'form-data';
+      i++; continue;
+    }
+    // Skip flags that consume one more token
+    if (['-o','--output','-A','--user-agent','--connect-timeout','-m','--max-time','--proxy','-e','--referer'].includes(tok)) {
+      i += 2; continue;
+    }
+    // Skip pure flags
+    if (tok.startsWith('-')) { i++; continue; }
+    // URL
+    if (!result.url) result.url = tok;
+    i++;
+  }
+
+  if (!result.url) return null;
+  if (!result.method) result.method = (result.body || result.formPairs.length || result.urlencPairs.length) ? 'POST' : 'GET';
+
+  // Detect auth from Authorization header
+  if (!result.authType) {
+    const ai = result.headers.findIndex(h => h.key.toLowerCase() === 'authorization');
+    if (ai >= 0) {
+      const val = result.headers[ai].value;
+      if (/^bearer /i.test(val)) {
+        result.authType   = 'bearer';
+        result.bearerToken = val.slice(7);
+        result.headers.splice(ai, 1);
+      } else if (/^basic /i.test(val)) {
+        try {
+          const decoded = atob(val.slice(6));
+          const ci      = decoded.indexOf(':');
+          result.authType  = 'basic';
+          result.authUser  = ci >= 0 ? decoded.slice(0, ci) : decoded;
+          result.authPass  = ci >= 0 ? decoded.slice(ci + 1) : '';
+          result.headers.splice(ai, 1);
+        } catch(e) {}
+      }
+    }
+  }
+
+  return result;
+}
+
+function parseKVString(s) {
+  const ei = s.indexOf('=');
+  if (ei >= 0) return { key: s.slice(0, ei), value: s.slice(ei + 1), enabled: true };
+  return { key: s, value: '', enabled: true };
+}
+
+function tokenize(cmd) {
+  const tokens = [];
+  let i = 0;
+  while (i < cmd.length) {
+    while (i < cmd.length && /\s/.test(cmd[i])) i++;
+    if (i >= cmd.length) break;
+    let tok = '';
+    if (cmd[i] === '"' || cmd[i] === "'") {
+      const q = cmd[i++];
+      while (i < cmd.length && cmd[i] !== q) {
+        if (cmd[i] === '\\' && i + 1 < cmd.length) { tok += cmd[++i]; }
+        else tok += cmd[i];
+        i++;
+      }
+      i++;
+    } else {
+      while (i < cmd.length && !/\s/.test(cmd[i])) tok += cmd[i++];
+    }
+    if (tok) tokens.push(tok);
+  }
+  return tokens;
+}
+
+function applyParsedCurl(p) {
+  let tab = getActiveTab();
+  if (!tab) { addNewTab(); tab = getActiveTab(); }
+
+  // Parse URL and extract query params
+  let baseUrl    = p.url;
+  const urlParams = [];
+  try {
+    const u = new URL(p.url.includes('://') ? p.url : 'https://' + p.url);
+    baseUrl = p.url.includes('://') ? (u.origin + u.pathname) : (u.host + u.pathname);
+    u.searchParams.forEach((v, k) => urlParams.push({ key: k, value: v, enabled: true }));
+  } catch(e) {
+    const qi = p.url.indexOf('?');
+    if (qi >= 0) {
+      baseUrl = p.url.slice(0, qi);
+      p.url.slice(qi + 1).split('&').forEach(part => {
+        const ei = part.indexOf('=');
+        if (ei >= 0) urlParams.push({ key: decodeURIComponent(part.slice(0, ei)), value: decodeURIComponent(part.slice(ei + 1)), enabled: true });
+      });
+    }
+  }
+
+  tab.method      = p.method || 'GET';
+  tab.url         = baseUrl;
+  tab.params      = urlParams;
+  tab.headers     = p.headers || [];
+  tab.bodyType    = p.bodyType || 'none';
+  tab.bodyContent = p.body || '';
+  tab.formPairs   = p.formPairs || [];
+  tab.urlencPairs = p.urlencPairs || [];
+
+  // Auth
+  if (p.authType === 'bearer') {
+    tab.authType = 'bearer';
+    tab.authData = { token: p.bearerToken || '' };
+  } else if (p.authType === 'basic') {
+    tab.authType = 'basic';
+    tab.authData = { username: p.authUser || '', password: p.authPass || '' };
+  }
+
+  // Detect rawContentType
+  const ctHdr = (p.headers || []).find(h => h.key.toLowerCase() === 'content-type');
+  if (ctHdr) {
+    const ct = ctHdr.value.split(';')[0].trim();
+    if (['application/json','text/plain','application/xml','text/html'].includes(ct))
+      tab.rawContentType = ct;
+  }
+
+  // Name from URL
+  const parts = baseUrl.split('/').filter(Boolean);
+  tab.name  = parts[parts.length - 1] || baseUrl;
+  tab.dirty = true;
+
+  loadTabIntoEditor(tab);
+  renderTabs();
+}
+
+// ============================================================
+// ENVIRONMENT MODAL
+// ============================================================
+document.getElementById('env-manage-btn').addEventListener('click', openEnvModal);
+
+async function openEnvModal() {
+  await loadEnvironments();
+  renderEnvModalDD();
+  document.getElementById('env-modal').classList.remove('hidden');
+}
+
+function renderEnvModalDD() {
+  const dd = document.getElementById('env-select-dd');
+  dd.innerHTML = '<option value="">— select environment —</option>' +
+    state.environments.map(e => `<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('');
+  if (state.activeEnvId) dd.value = state.activeEnvId;
+  onEnvDDChange();
+}
+
+async function onEnvDDChange() {
+  const envId   = document.getElementById('env-select-dd').value;
+  const section = document.getElementById('env-vars-section');
+  if (!envId) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  if (!state.envVariables[envId]) await loadEnvVars(envId);
+  renderEnvVarsTable(envId);
+}
+
+document.getElementById('env-select-dd').addEventListener('change', onEnvDDChange);
+
+document.getElementById('env-new-btn').addEventListener('click', async () => {
+  const name = prompt('Environment name:');
+  if (!name || !name.trim()) return;
+  const env = { id: uid(), workspaceId: state.activeWsId, name: name.trim(), isActive: false };
+  if (App) { try { await App.ACSaveEnvironment(env); } catch(e) {} }
+  state.environments.push(env);
+  state.envVariables[env.id] = [];
+  renderEnvModalDD();
+  renderEnvSelector();
+  document.getElementById('env-select-dd').value = env.id;
+  await onEnvDDChange();
+});
+
+document.getElementById('env-delete-btn').addEventListener('click', async () => {
+  const envId = document.getElementById('env-select-dd').value;
+  if (!envId || !confirm('Delete this environment?')) return;
+  if (App) { try { await App.ACDeleteEnvironment(envId); } catch(e) {} }
+  delete state.envVariables[envId];
+  if (state.activeEnvId === envId) state.activeEnvId = null;
+  await loadEnvironments();
+  renderEnvModalDD();
+  renderEnvSelector();
+});
+
+function renderEnvVarsTable(envId) {
+  const container = document.getElementById('env-vars-kv');
+  container.innerHTML = '';
+  const vars  = state.envVariables[envId] || [];
+  const table = document.createElement('table');
+  table.className = 'kv-table';
+  table.innerHTML = `<thead><tr><th class="kv-en"></th><th class="kv-key">Variable</th><th class="kv-val">Value</th><th class="kv-del"></th></tr></thead><tbody></tbody>`;
+  const tbody = table.querySelector('tbody');
+  vars.forEach(v => tbody.appendChild(makeEnvVarRow(v)));
+  container.appendChild(table);
+}
+
+function makeEnvVarRow(v) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="kv-en"><input type="checkbox"${v.enabled !== false ? ' checked' : ''} title="Enabled"></td>
+    <td class="kv-key"><input type="text" value="${esc(v.key || '')}" placeholder="Variable"></td>
+    <td class="kv-val"><input type="text" value="${esc(v.value || '')}" placeholder="Value"></td>
+    <td class="kv-del"><button class="kv-del-btn">×</button></td>`;
+  tr.querySelector('.kv-del-btn').addEventListener('click', () => tr.remove());
+  return tr;
+}
+
+function addEnvVarRow() {
+  const container = document.getElementById('env-vars-kv');
+  let table = container.querySelector('table');
+  if (!table) {
+    const envId = document.getElementById('env-select-dd').value;
+    renderEnvVarsTable(envId);
+    table = container.querySelector('table');
+  }
+  table.querySelector('tbody').appendChild(makeEnvVarRow({ key: '', value: '', enabled: true }));
+}
+
+document.getElementById('add-env-var-btn').addEventListener('click', addEnvVarRow);
+
+document.getElementById('env-modal-close').addEventListener('click', () =>
+  document.getElementById('env-modal').classList.add('hidden'));
+
+document.getElementById('env-modal-save').addEventListener('click', async () => {
+  const envId = document.getElementById('env-select-dd').value;
+  if (!envId) { document.getElementById('env-modal').classList.add('hidden'); return; }
+
+  const vars = [];
+  document.querySelectorAll('#env-vars-kv tbody tr').forEach(tr => {
+    const key     = tr.cells[1]?.querySelector('input')?.value || '';
+    const value   = tr.cells[2]?.querySelector('input')?.value || '';
+    const enabled = tr.cells[0]?.querySelector('input')?.checked !== false;
+    if (key) vars.push({ id: uid(), envId, key, value, enabled });
+  });
+
+  state.envVariables[envId] = vars;
+  if (App) { try { await App.ACSaveEnvVariables(envId, vars); } catch(e) {} }
+
+  state.activeEnvId = envId;
+  if (App) { try { await App.ACSetActiveEnvironment(state.activeWsId, envId); } catch(e) {} }
+  await loadEnvironments();
+  renderEnvSelector();
+  document.getElementById('env-modal').classList.add('hidden');
+});
+
+// ============================================================
+// SPLITTER
+// ============================================================
+function setupSplitter() {
+  const splitter  = document.getElementById('splitter');
+  const reqEditor = document.getElementById('req-editor');
+  const respArea  = document.getElementById('response-area');
+  const content   = document.getElementById('content');
+
+  let startY, startReqH, startRespH, dragging = false;
+
+  splitter.addEventListener('mousedown', e => {
+    dragging  = true;
+    startY    = e.clientY;
+    startReqH = reqEditor.offsetHeight;
+    startRespH = respArea.offsetHeight;
+    splitter.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor     = 'row-resize';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dy     = e.clientY - startY;
+    const totalH = content.offsetHeight - splitter.offsetHeight;
+    const newReqH = Math.max(100, Math.min(totalH - 80, startReqH + dy));
+    reqEditor.style.flex   = 'none';
+    reqEditor.style.height = newReqH + 'px';
+    respArea.style.flex    = 'none';
+    respArea.style.height  = (totalH - newReqH) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    splitter.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor     = '';
+  });
+
+  // Default response panel height
+  respArea.style.height = '220px';
+  respArea.style.flex   = 'none';
+}
+
+// ============================================================
+// KEYBOARD SHORTCUTS
+// ============================================================
+function setupShortcuts() {
+  document.addEventListener('keydown', e => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key === 's')     { e.preventDefault(); openSaveModal(); }
+    if (mod && e.key === 'Enter') { e.preventDefault(); sendRequest(); }
+    if (mod && e.key === 't')     { e.preventDefault(); addNewTab(); }
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+      document.getElementById('ctx-menu').classList.add('hidden');
+    }
+  });
+}
+
+// ============================================================
+// CODE GENERATION
+// ============================================================
+const CODE_LANGS = ['curl','fetch','axios','nodejs','python','php','go'];
+let _codeLang = 'curl';
+
+document.getElementById('code-btn').addEventListener('click', () => openCodeModal());
+document.getElementById('code-modal-close').addEventListener('click', () => document.getElementById('code-modal').classList.add('hidden'));
+document.getElementById('code-close-btn').addEventListener('click',   () => document.getElementById('code-modal').classList.add('hidden'));
+document.getElementById('code-copy-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('code-out').textContent).catch(() => {});
+});
+document.querySelectorAll('.code-lang-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.code-lang-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    _codeLang = tab.dataset.lang;
+    renderCodeSnippet();
+  });
+});
+
+function openCodeModal() {
+  saveEditorToTab();
+  _codeLang = 'curl';
+  document.querySelectorAll('.code-lang-tab').forEach(t => t.classList.toggle('active', t.dataset.lang === 'curl'));
+  renderCodeSnippet();
+  document.getElementById('code-modal').classList.remove('hidden');
+}
+
+function renderCodeSnippet() {
+  const tab = getActiveTab();
+  if (!tab) return;
+  document.getElementById('code-out').textContent = generateCode(_codeLang, tab);
+}
+
+function generateCode(lang, tab) {
+  const m    = tab.method || 'GET';
+  const url  = tab.url || '';
+  const hdrs = (tab.headers || []).filter(h => h.enabled !== false && h.key);
+  const body = tab.bodyContent || '';
+  const hasBody = tab.bodyType === 'raw' && body;
+
+  // build auth headers
+  const authH = [];
+  if (tab.authType === 'bearer' && tab.authData?.token)
+    authH.push({ key: 'Authorization', value: 'Bearer ' + tab.authData.token });
+  else if (tab.authType === 'basic' && tab.authData?.username)
+    authH.push({ key: 'Authorization', value: 'Basic ' + btoa(tab.authData.username + ':' + (tab.authData.password || '')) });
+  else if (tab.authType === 'apikey-header' && tab.authData?.key)
+    authH.push({ key: tab.authData.key, value: tab.authData.value || '' });
+
+  const allHdrs = [...hdrs, ...authH];
+  const ct = tab.rawContentType || 'application/json';
+  if (hasBody && !allHdrs.find(h => h.key.toLowerCase() === 'content-type'))
+    allHdrs.push({ key: 'Content-Type', value: ct });
+
+  if (lang === 'curl') {
+    const parts = [`curl -X ${m} '${url}'`];
+    allHdrs.forEach(h => parts.push(`  -H '${h.key}: ${h.value}'`));
+    if (hasBody) parts.push(`  -d '${body.replace(/'/g, "\\'")}'`);
+    return parts.join(' \\\n');
+  }
+  if (lang === 'fetch') {
+    const opts = [`  method: '${m}'`];
+    if (allHdrs.length) opts.push(`  headers: {\n${allHdrs.map(h => `    '${h.key}': '${h.value}'`).join(',\n')}\n  }`);
+    if (hasBody) opts.push(`  body: \`${body}\``);
+    return `const response = await fetch('${url}', {\n${opts.join(',\n')}\n});\nconst data = await response.json();\nconsole.log(data);`;
+  }
+  if (lang === 'axios') {
+    const cfg = [];
+    if (allHdrs.length) cfg.push(`  headers: {\n${allHdrs.map(h => `    '${h.key}': '${h.value}'`).join(',\n')}\n  }`);
+    const axMethod = m.toLowerCase();
+    const bodyArg  = hasBody ? `, ${body}` : ((['post','put','patch'].includes(axMethod)) ? ', null' : '');
+    return `import axios from 'axios';\n\nconst { data } = await axios.${axMethod}('${url}'${bodyArg}${cfg.length ? `, {\n${cfg.join(',\n')}\n}` : ''});\nconsole.log(data);`;
+  }
+  if (lang === 'nodejs') {
+    const opts = [`  method: '${m}'`];
+    if (allHdrs.length) opts.push(`  headers: {\n${allHdrs.map(h => `    '${h.key}': '${h.value}'`).join(',\n')}\n  }`);
+    if (hasBody) opts.push(`  body: JSON.stringify(${body})`);
+    return `import fetch from 'node-fetch';\n\nconst res = await fetch('${url}', {\n${opts.join(',\n')}\n});\nconst json = await res.json();\nconsole.log(json);`;
+  }
+  if (lang === 'python') {
+    const hdrDict = allHdrs.length ? `{\n${allHdrs.map(h => `    '${h.key}': '${h.value}'`).join(',\n')}\n}` : '{}';
+    const pyMethod = m.toLowerCase();
+    const bodyArg  = hasBody ? `,\n    data='''${body}'''` : '';
+    return `import requests\n\nresponse = requests.${pyMethod}(\n    '${url}',\n    headers=${hdrDict}${bodyArg}\n)\nprint(response.status_code)\nprint(response.json())`;
+  }
+  if (lang === 'php') {
+    const hdrLines = allHdrs.map(h => `    '${h.key}: ${h.value}',`).join('\n');
+    const bodyLine = hasBody ? `\ncurl_setopt($ch, CURLOPT_POSTFIELDS, '${body.replace(/'/g, "\\'")}');` : '';
+    return `<?php\n$ch = curl_init('${url}');\ncurl_setopt($ch, CURLOPT_CUSTOMREQUEST, '${m}');\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\n${hdrLines}\n]);${bodyLine}\n$response = curl_exec($ch);\ncurl_close($ch);\necho $response;`;
+  }
+  if (lang === 'go') {
+    const hdrLines = allHdrs.map(h => `\treq.Header.Set("${h.key}", "${h.value}")`).join('\n');
+    const bodyPart = hasBody
+      ? `\tbody := strings.NewReader(\`${body}\`)\n\treq, _ := http.NewRequest("${m}", "${url}", body)`
+      : `\treq, _ := http.NewRequest("${m}", "${url}", nil)`;
+    return `package main\n\nimport (\n\t"fmt"\n\t"net/http"\n\t"strings"\n)\n\nfunc main() {\n${bodyPart}\n${hdrLines}\n\tresp, _ := http.DefaultClient.Do(req)\n\tdefer resp.Body.Close()\n\tfmt.Println(resp.Status)\n}`;
+  }
+  return '';
+}
+
+// ============================================================
+// TESTS RUNNER
+// ============================================================
+function runTests(tab, resp) {
+  const script = document.getElementById('tests-script')?.value?.trim();
+  const badge  = document.getElementById('tests-badge');
+  const results= document.getElementById('tests-results');
+  if (!script || !badge || !results) return;
+
+  const testResults = [];
+  const pm = {
+    test(name, fn) {
+      try { fn(); testResults.push({ name, pass: true }); }
+      catch(e) { testResults.push({ name, pass: false, err: e.message || String(e) }); }
+    },
+    expect(val) {
+      return {
+        to: {
+          eql:   (exp) => { if (val !== exp) throw new Error(`Expected ${JSON.stringify(exp)} but got ${JSON.stringify(val)}`); },
+          equal: (exp) => { if (val !== exp) throw new Error(`Expected ${JSON.stringify(exp)} but got ${JSON.stringify(val)}`); },
+          include: (exp) => { if (!String(val).includes(exp)) throw new Error(`Expected "${val}" to include "${exp}"`); },
+          be: { ok: () => { if (!val) throw new Error(`Expected truthy but got ${val}`); } },
+        },
+      };
+    },
+    response: {
+      status: resp?.status || 0,
+      json() { try { return JSON.parse(resp?.body || ''); } catch(e) { throw new Error('Response is not valid JSON'); } },
+      text() { return resp?.body || ''; },
+    },
+  };
+
+  try { new Function('pm', script)(pm); } catch(e) { testResults.push({ name: 'Script error', pass: false, err: e.message }); }
+
+  const pass = testResults.filter(r => r.pass).length;
+  const fail = testResults.filter(r => !r.pass).length;
+  badge.style.display = '';
+  badge.textContent   = `${pass}/${testResults.length}`;
+  badge.className     = 'test-badge ' + (fail ? 'test-fail' : 'test-pass');
+  results.innerHTML   = testResults.map(r =>
+    `<div class="test-result-row ${r.pass ? 'pass' : 'fail'}">
+      <span class="test-result-icon">${r.pass ? '✓' : '✗'}</span>
+      <span>${esc(r.name)}${r.err ? ' — ' + esc(r.err) : ''}</span>
+    </div>`).join('');
+}
+
+// ============================================================
+// SAVE RESPONSE
+// ============================================================
+const savedResponsesMap = {}; // requestId → [{id,name,ts,status,body,headers}]
+
+function updateSavedRespUI(reqId) {
+  const saved  = reqId ? (savedResponsesMap[reqId] || []) : [];
+  const ddEl   = document.getElementById('saved-resp-dd');
+  const cntEl  = document.getElementById('saved-resp-count');
+  if (!ddEl || !cntEl) return;
+  ddEl.style.display = saved.length ? 'inline-flex' : 'none';
+  cntEl.textContent  = saved.length + ' saved';
+  const list = document.getElementById('saved-resp-dd-list');
+  list.innerHTML = saved.map((s, i) =>
+    `<div class="saved-resp-item" data-idx="${i}" style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+      <span style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
+        <span style="font-weight:700;color:var(--t0);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name || 'Saved Response')}</span>
+        <span style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:10px;font-weight:600;color:${statusColor(s.status)}">${s.status}</span>
+          <span class="saved-resp-ts">${new Date(s.ts).toLocaleTimeString()}</span>
+        </span>
+      </span>
+      <button class="kv-del-btn saved-resp-del" data-del-idx="${i}" title="Delete" style="flex-shrink:0">×</button>
+    </div>`).join('');
+  list.querySelectorAll('.saved-resp-item').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.saved-resp-del')) return;
+      const s = saved[+el.dataset.idx];
+      if (s) { showResponse(s); closePillDropdown('saved-resp-dd'); }
+    });
+  });
+  list.querySelectorAll('.saved-resp-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = +btn.dataset.delIdx;
+      saved.splice(idx, 1);
+      if (saved.length === 0) state.openExamples.delete(reqId);
+      updateSavedRespUI(reqId);
+      renderCollections();
+    });
+  });
+}
+
+document.getElementById('saved-resp-dd-btn')?.addEventListener('click', e => { e.stopPropagation(); togglePillDropdown('saved-resp-dd'); });
+
+// Save response button — opens naming modal
+let _saveRespPending = null;
+document.getElementById('save-resp-btn')?.addEventListener('click', () => {
+  if (!state.lastResponse || state.lastResponse.error) return;
+  const tab   = getActiveTab();
+  const reqId = tab?.savedRequestId || '_unsaved';
+  _saveRespPending = { tab, reqId };
+  const nameInput = document.getElementById('save-resp-name');
+  nameInput.value = '';
+  document.getElementById('save-resp-modal').classList.remove('hidden');
+  nameInput.focus();
+});
+
+document.getElementById('save-resp-modal-cancel')?.addEventListener('click', () => {
+  document.getElementById('save-resp-modal').classList.add('hidden');
+  _saveRespPending = null;
+});
+
+document.getElementById('save-resp-modal-ok')?.addEventListener('click', () => {
+  if (!_saveRespPending || !state.lastResponse) return;
+  const name  = document.getElementById('save-resp-name').value.trim() || 'Saved Response';
+  const { tab, reqId } = _saveRespPending;
+  _saveRespPending = null;
+  document.getElementById('save-resp-modal').classList.add('hidden');
+  if (!savedResponsesMap[reqId]) savedResponsesMap[reqId] = [];
+  savedResponsesMap[reqId].unshift({
+    id: uid(), name, ts: Date.now(), method: tab?.method || 'GET',
+    status: state.lastResponse.status, statusText: state.lastResponse.statusText,
+    headers: state.lastResponse.headers, body: state.lastResponse.body,
+    durationMs: state.lastResponse.durationMs, sizeBytes: state.lastResponse.sizeBytes,
+  });
+  if (savedResponsesMap[reqId].length > 10) savedResponsesMap[reqId].length = 10;
+  if (reqId !== '_unsaved') state.openExamples.add(reqId);
+  updateSavedRespUI(reqId);
+  renderCollections();
+});
+
+document.getElementById('save-resp-name')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('save-resp-modal-ok').click();
+  if (e.key === 'Escape') document.getElementById('save-resp-modal-cancel').click();
+});
+
+// ============================================================
+// AUTO-GENERATED HEADERS
+// ============================================================
+function updateAutoHeaders() {
+  const list = document.getElementById('auto-hdrs-list');
+  if (!list) return;
+  const tab = getActiveTab();
+  if (!tab) { list.textContent = 'None'; return; }
+  const items = [];
+  if (tab.authType === 'bearer' && tab.authData?.token)
+    items.push({ key: 'Authorization', value: 'Bearer ' + tab.authData.token });
+  else if (tab.authType === 'basic' && tab.authData?.username)
+    items.push({ key: 'Authorization', value: 'Basic ' + btoa((tab.authData.username||'') + ':' + (tab.authData.password||'')) });
+  else if (tab.authType === 'apikey-header' && tab.authData?.name)
+    items.push({ key: tab.authData.name, value: tab.authData.value || '' });
+  if (tab.bodyType === 'raw')
+    items.push({ key: 'Content-Type', value: tab.rawContentType || 'application/json' });
+  else if (tab.bodyType === 'urlencoded')
+    items.push({ key: 'Content-Type', value: 'application/x-www-form-urlencoded' });
+  else if (tab.bodyType === 'form-data')
+    items.push({ key: 'Content-Type', value: 'multipart/form-data (auto boundary)' });
+  if (!items.length) { list.textContent = 'None'; return; }
+  list.innerHTML = items.map(h =>
+    `<div style="display:flex;gap:4px;padding:2px 0;font-family:var(--font-mono)"><span style="color:var(--blue)">${esc(h.key)}</span><span style="color:var(--t2)">:</span><span style="color:var(--t1);word-break:break-all">${esc(h.value)}</span></div>`
+  ).join('');
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+});
+
+// ============================================================
+// RESPONSE SEARCH
+// ============================================================
+document.getElementById('resp-search').addEventListener('input', e => {
+  const q = e.target.value.trim();
+  const activePanel = document.querySelector('.resp-panel.active');
+  if (!activePanel) return;
+  // Work on the raw text content to avoid corrupting existing HTML spans
+  if (activePanel.id === 'resp-pretty') {
+    if (!q) {
+      // Re-render from last response
+      if (state.lastResponse) {
+        const body = state.lastResponse.body || '';
+        try { activePanel.innerHTML = syntaxHighlight(JSON.parse(body)); }
+        catch(ex) { activePanel.textContent = body; }
+      }
+      return;
+    }
+    // Highlight in the rendered HTML text nodes
+    highlightInElement(activePanel, q);
+  } else if (activePanel.id === 'resp-raw') {
+    const body = state.lastResponse?.body || '';
+    if (!q) { activePanel.textContent = body; return; }
+    activePanel.innerHTML = escAndHighlight(body, q);
+  }
+});
+
+function highlightInElement(el, q) {
+  // Walk text nodes and wrap matches
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  const nodes = [];
+  let node;
+  while ((node = walker.nextNode())) nodes.push(node);
+  nodes.forEach(tn => {
+    const idx = tn.nodeValue.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return;
+    const span = document.createElement('span');
+    span.innerHTML = escAndHighlight(tn.nodeValue, q);
+    tn.parentNode.replaceChild(span, tn);
+  });
+}
+
+function escAndHighlight(text, q) {
+  if (!q) return esc(text);
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  return esc(text).replace(re, m => `<mark>${m}</mark>`);
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+init().catch(err => console.error('API Client init error:', err));
+</script>
+</body>
+</html>

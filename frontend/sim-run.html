@@ -175,6 +175,37 @@ select.lf-inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,2
 .cs-clr-btn{margin-left:auto;font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:var(--red);cursor:pointer;transition:background .15s;user-select:none;outline:none}
 .cs-clr-btn:hover{background:rgba(248,113,113,.22)}
 .cs-hdr:has(.cs-clr-btn) .ch{margin-left:0}
+/* ── Fetch download card ── */
+.fetch-dl{background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:12px 14px;display:none}
+.fetch-dl.ready{border-color:rgba(52,211,153,.3);display:block}
+.fetch-dl-hdr{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+.fetch-dl-title{font-size:11px;font-weight:700;color:var(--t0);flex:1}
+.fetch-dl-badge{font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.3)}
+.fetch-stat-row{display:flex;gap:8px;margin-bottom:11px}
+.fetch-stat{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 10px}
+.fetch-stat-val{font-size:17px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;line-height:1.2}
+.fetch-stat-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-top:2px}
+.fetch-dl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fetch-dl-lbl{font-size:9px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.04em;min-width:46px}
+.fetch-chip{padding:3px 9px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s;outline:none}
+.fetch-chip.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.fetch-chip.fmt.on{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
+.fetch-dl-sep{width:1px;height:16px;background:var(--border);margin:0 2px}
+/* ── Responsive layout ── */
+@media (max-width:1000px){
+  .sb{width:200px;min-width:180px}
+  .logs{width:260px;min-width:240px}
+}
+@media (max-width:820px){
+  .sb{width:180px;min-width:160px}
+  .logs{width:220px;min-width:200px}
+  .metrics-grid{grid-template-columns:1fr 1fr}
+  .ring-elapsed{font-size:18px}
+}
+@media (max-width:680px){
+  .logs{display:none}
+  .sb{width:160px;min-width:140px}
+}
 /* ── Flatpickr overrides ── */
 .flatpickr-calendar{background:var(--bg1)!important;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 1px var(--border)!important;border-radius:8px!important;font-family:var(--font-ui)!important}
 .flatpickr-calendar.arrowTop:before{border-bottom-color:var(--border)!important}.flatpickr-calendar.arrowTop:after{border-bottom-color:var(--bg2)!important}
@@ -289,6 +320,36 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
     </div>
   </div>
 
+  <!-- Fetch-only mode download card -->
+  <div class="fetch-dl" id="fetchDlCard">
+    <div class="fetch-dl-hdr">
+      <span style="font-size:13px">↓</span>
+      <span class="fetch-dl-title">Download Fetched Data</span>
+      <span class="fetch-dl-badge" id="fetchDlBadge">0 packets</span>
+    </div>
+    <div class="fetch-stat-row">
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--blue)" id="fdTotal">0</div><div class="fetch-stat-lbl">Total</div></div>
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--green)" id="fdGPS">0</div><div class="fetch-stat-lbl">GPS</div></div>
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--orange)" id="fdOBD">0</div><div class="fetch-stat-lbl">OBD</div></div>
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--t2)" id="fdOther">0</div><div class="fetch-stat-lbl">Other</div></div>
+    </div>
+    <div class="fetch-dl-row" style="margin-bottom:8px">
+      <span class="fetch-dl-lbl">Filter</span>
+      <button class="fetch-chip on" id="fdAll"   onclick="setFdFilter('all',this)">ALL</button>
+      <button class="fetch-chip"    id="fdGpsBtn" onclick="setFdFilter('gps',this)">GPS</button>
+      <button class="fetch-chip"    id="fdObdBtn" onclick="setFdFilter('obd',this)">OBD</button>
+      <div class="fetch-dl-sep"></div>
+      <span class="fetch-dl-lbl">Format</span>
+      <button class="fetch-chip fmt on" id="fdJson"  onclick="setFdFmt('json',this)">JSON</button>
+      <button class="fetch-chip fmt"    id="fdJsonl" onclick="setFdFmt('jsonl',this)">JSONL</button>
+      <button class="fetch-chip fmt"    id="fdCsv"   onclick="setFdFmt('csv',this)">CSV</button>
+    </div>
+    <div class="fetch-dl-row">
+      <button class="btn btn-go" style="font-size:10px;padding:5px 14px" onclick="downloadFetchedData()">↓ Download</button>
+      <span style="font-size:9px;color:var(--t2);margin-left:4px" id="fdHint">Select filter &amp; format then download</span>
+    </div>
+  </div>
+
   <div class="ph" id="ph1">
     <div class="ph-hdr"><span>⟳</span><span class="ph-title">Phase 1</span><span class="ph-sub">— concurrent streams</span><div class="ph-badge" id="ph1Badge">Pending</div></div>
     <div class="streams">
@@ -395,6 +456,29 @@ function loadFromState() {
   renderTestList();
   renderCfgSummary();
   adaptForMode((activeTest||{}).mode || 'simulate');
+  // Reconnect if a simulation was running when user navigated away
+  const g2 = SimState.getGlobal();
+  if (g2._simRunning && g2._simRunId) reconnectSim(g2._simRunId);
+}
+
+async function reconnectSim(runId) {
+  running = true; _runId = runId; T0 = Date.now();
+  paused = false; pendingEvs = []; _simFinished = false;
+  g('btnGo').disabled = true; g('btnStop').disabled = false; g('btnPause').disabled = false;
+  setStatus('run', 'Running');
+  setRingPhase('Running');
+  rafId = requestAnimationFrame(rafLoop);
+  addLog('+  0.0s', 'SYS', 'fe', 'Reconnected to running simulation', 'info');
+  try { await waitForRuntime(5000); } catch(e) { return; }
+  if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
+  try {
+    _evListenerOff = window.runtime.EventsOn('simulation:event', function(ev) {
+      const elapsed = ev.elapsed || 0;
+      const tsStr = '+' + (elapsed/1000).toFixed(1).padStart(5) + 's';
+      addLog(tsStr, ev.tag, ev.cls, ev.msg, ev.ty, ev.data || null);
+      handleSimStep(ev);
+    });
+  } catch(e) { addLog('+  0.0s', 'SYS', 'er', 'Re-attach events failed: ' + String(e), 'err'); }
 }
 
 function renderTestList() {
@@ -572,16 +656,49 @@ function renderCfgSummary() {
     <div class="cs-sec">
       <div class="cs-hdr" onclick="togCs(this)"><span>💾</span>Resume State<button class="cs-clr-btn" onclick="event.stopPropagation();clearTestState()">✕ Clear</button><span class="ch">›</span></div>
       <div class="cs-body">
-        <div class="kv"><span class="k">Fetch Done</span><span class="v" id="rsFetch">false</span></div>
+        <div class="kv"><span class="k">Fetched</span><span class="v" id="rsFetch">false</span></div>
         <div class="kv"><span class="k">Pkts</span><span class="v" id="rsPkts">0</span></div>
-        <div class="kv"><span class="k">Batches</span><span class="v" id="rsBatches">0</span></div>
-        <div class="kv"><span class="k">OBD Idx</span><span class="v" id="rsObd">0</span></div>
+        <div class="kv"><span class="k">Uploaded</span><span class="v" id="rsBatches">0/0</span></div>
+        <div class="kv"><span class="k">OBD Rows</span><span class="v" id="rsObd">0/0</span></div>
         <div class="kv"><span class="k">Ph1 Done</span><span class="v" id="rsP1">false</span></div>
-        <div class="kv"><span class="k">Ph2 Done</span><span class="v" id="rsP2">false</span></div>
+        <div class="kv"><span class="k">Ph2 Done</span><span class="v" id="rsP2">—</span></div>
       </div>
     </div>
   `;
   initDatePickers();
+  loadResumeState();
+}
+
+async function loadResumeState() {
+  const t = activeTest;
+  const set = (id, val, color) => { const el = g(id); if (!el) return; el.textContent = val; if (color !== undefined) el.style.color = color; };
+  if (!t || !t.tgtImei) {
+    set('rsFetch','false','var(--t2)'); set('rsPkts','0','var(--t2)');
+    set('rsBatches','0/0','var(--t2)'); set('rsObd','0/0','var(--t2)');
+    set('rsP1','false','var(--t2)'); set('rsP2','—','');
+    return;
+  }
+  const outDir = (SimState.getGlobal().outputDir) || '';
+  try {
+    const rs = await window.go.main.App.GetResumeState(outDir, t.tgtImei);
+    const batchFiles      = rs.batchFiles      || 0;
+    const batchesUploaded = rs.batchesUploaded  || 0;
+    const pkts            = rs.totalPackets     || 0;
+    const totalObd        = rs.totalOBDPackets  || 0;
+    const obdRows         = rs.obdRowsInDB      || 0;
+    const obdOk           = rs.obdExists        || false;
+    const p1Done          = rs.phase1Complete   || false;
+    const fetchDone       = batchFiles > 0;
+
+    set('rsFetch',   fetchDone ? 'true' : 'false',  fetchDone ? 'var(--green)' : 'var(--t2)');
+    set('rsPkts',    pkts > 0 ? pkts.toLocaleString() : '0', pkts > 0 ? 'var(--t0)' : 'var(--t2)');
+    const bStr = batchFiles > 0 ? `${batchesUploaded}/${batchFiles}` : '0/0';
+    set('rsBatches', bStr, batchesUploaded > 0 ? (batchesUploaded >= batchFiles ? 'var(--green)' : 'var(--yellow)') : 'var(--t2)');
+    const oStr = totalObd > 0 ? `${obdRows}/${totalObd}` : (obdOk ? `${obdRows} rows` : '0');
+    set('rsObd', oStr, obdRows > 0 ? (obdRows >= totalObd ? 'var(--green)' : 'var(--yellow)') : 'var(--t2)');
+    set('rsP1', p1Done ? 'true' : 'false', p1Done ? 'var(--green)' : (batchesUploaded > 0 ? 'var(--yellow)' : 'var(--t2)'));
+    set('rsP2', '—', '');
+  } catch(e) { console.warn('[Resume] GetResumeState failed:', e); }
 }
 
 function togCs(h) { h.classList.toggle('open'); h.nextElementSibling.classList.toggle('open'); }
@@ -604,10 +721,12 @@ function adaptForMode(mode) {
     if (arrM && arrM.classList.contains('arr')) arrM.style.display = isFetch ? 'none' : '';
   }
   // Phase 1/2 cards: hidden in mqtt-pub and fetch
-  const ph1 = g('ph1'), ph2 = g('ph2'), md = g('mqttDirectCard');
+  const ph1 = g('ph1'), ph2 = g('ph2'), md = g('mqttDirectCard'), fdCard = g('fetchDlCard');
   if (ph1) ph1.style.display = (isMD || isFetch) ? 'none' : '';
   if (ph2) ph2.style.display = (isMD || isFetch) ? 'none' : '';
   if (md)  md.style.display  = isMD ? '' : 'none';
+  // fetch-dl card is only structurally shown in fetch mode (becomes .ready after batch:done)
+  if (fdCard) fdCard.style.display = isFetch ? '' : 'none';
   // Rename Split step label
   const splitName = document.querySelector('#cSplit .sn');
   if (splitName) splitName.textContent = isMD ? 'Filter' : 'Split';
@@ -702,6 +821,7 @@ function saveRunRecord(status) {
 // ── Wails-backed simulation ────────────────────────────────────────────────────
 let _evListenerOff = null; // cleanup handle
 let _simFinished = false;
+let _fdFilter = 'all', _fdFmt = 'json', _fdCounts = { total:0, gps:0, obd:0, other:0 };
 
 function waitForRuntime(timeoutMs) {
   timeoutMs = timeoutMs || 5000;
@@ -775,10 +895,12 @@ function buildSimConfig() {
 async function startSim() {
   if (running || !activeTest) return;
   _resetUI(); clearLog();
+  loadResumeState(); // show disk state before simulation begins
   paused = false; pendingEvs = []; _simFinished = false;
   running = true; T0 = Date.now();
   _liveMetrics = { totalPackets:0, historicPackets:0, liveGps:0, liveObd:0, batchesUploaded:0, errors:0 };
   _runId = SimState.newRunId();
+  SimState.setGlobal({ _simRunning: true, _simRunId: _runId });
   SimState.addRun({ id:_runId, testId:activeTest.id, testName:activeTest.name, regionKey:SimState.getActiveRegionKey(), srcImei:activeTest.srcImei, tgtImei:activeTest.tgtImei, from:activeTest.from, until:activeTest.until, histEnd:activeTest.histEnd, mode:activeTest.mode, startedAt:new Date().toISOString(), completedAt:null, status:'running', durationSec:null, metrics:{}, logSnapshot:[] });
   g('btnGo').disabled = true; g('btnStop').disabled = false; g('btnPause').disabled = false;
   setStatus('run', 'Running');
@@ -847,11 +969,16 @@ function handleSimStep(ev) {
       mc('stObd','mcObd',String(d.liveObd||0),d.liveObd||0,Math.max(1,d.totalLive||1),'rmObd','rmObdLbl');
       _liveMetrics.historicPackets = d.historic||0; _liveMetrics.liveGps = d.liveGps||0; _liveMetrics.liveObd = d.liveObd||0;
       if (d.batches) { g('totB').textContent=String(d.batches); g('p2Tot').textContent=String(d.totalLive||0); g('p2Imei').textContent=(activeTest||{}).tgtImei||'—'; }
+      // Prefill fetch download card counts (historic + live combined)
+      _fdCounts = { total: _liveMetrics.totalPackets||0, gps: d.liveGps||0, obd: d.liveObd||0, other: 0 };
       break;
     case 'batch:creating':
       run('cBatch','sBatch'); setRingPhase('Batching'); break;
     case 'batch:done':
-      done('cBatch','sBatch','pBatch'); setS('iBatch',(d.count||0)+' / '+(d.count||0)+' ✓'); break;
+      done('cBatch','sBatch','pBatch'); setS('iBatch',(d.count||0)+' / '+(d.count||0)+' ✓');
+      // Show download card when in fetch mode — data is now on disk
+      if ((activeTest||{}).mode === 'fetch') showFetchDlCard();
+      break;
     case 'mqtt:connect':
       run('cMqtt','sMqtt'); setRingPhase('MQTT Connect'); break;
     case 'mqtt:connected':
@@ -925,11 +1052,14 @@ async function stopSim() {
   if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
   timers.forEach(clearTimeout); timers = []; running = false; paused = false; pendingEvs = [];
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  SimState.setGlobal({ _simRunning: false, _simRunId: null });
   g('btnGo').disabled = false; g('btnStop').disabled = true;
   const bp = g('btnPause'); bp.disabled = true;
   bp.textContent = '⏸ PAUSE'; bp.onclick = pauseSim;
   bp.style.background = ''; bp.style.color = '';
   try { await window.go.main.App.StopSimulation(); } catch(e) {}
+  // Refresh resume state after a short delay so DB writes have flushed
+  setTimeout(loadResumeState, 800);
 }
 
 async function pauseSim() {
@@ -966,12 +1096,12 @@ function _resetUI() {
   setS('iA','Batch <strong>0</strong>/<strong>—</strong>');setS('iB','Published: <strong>0</strong>');setS('iC','Rows: <strong>0</strong>');setS('iP2U','live_obd_<strong>—</strong>.db');setS('iP2S','Published: <strong>0</strong>/<strong>—</strong>');
   ['stA','stB','stC','p2Up','p2Str','ph1','ph2','mqttDirectCard'].forEach(id=>g(id).classList.remove('on'));
   phBadge('ph1Badge','Pending');phBadge('ph2Badge','Pending');phBadge('mqttDirectBadge','Pending');
+  const fdCard = g('fetchDlCard'); if (fdCard) fdCard.classList.remove('ready');
+  _fdCounts = { total:0, gps:0, obd:0, other:0 };
   ['mdGpsFill','mdObdFill','mdErrFill'].forEach(id=>{const e=g(id);if(e)e.style.width='0'});
   setS('mdGpsStat','Published: <strong>0</strong> / <strong id="mdGpsTotal">—</strong>');
   setS('mdObdStat','Published: <strong>0</strong> / <strong id="mdObdTotal">—</strong>');
   setS('mdErrStat','Errors: <strong>0</strong>');
-  ['rsFetch','rsP1','rsP2'].forEach(id=>{const e=g(id);if(e){e.textContent='false';e.className='v'}});
-  ['rsPkts','rsBatches','rsObd'].forEach(id=>{const e=g(id);if(e){e.textContent='0';e.className='v'}});
   g('elapsed').textContent='';g('ringElapsed').textContent='00:00.0';
   updateRing(0);setRingPhase('Idle');T0=null;_runId=null;setStatus('','Idle');
   _liveMetrics={totalPackets:0,historicPackets:0,liveGps:0,liveObd:0,batchesUploaded:0,errors:0};
@@ -1030,6 +1160,72 @@ function initDatePickers() {
   });
 }
 
+// ── Fetch download card ───────────────────────────────────────
+function showFetchDlCard() {
+  const card = g('fetchDlCard');
+  if (!card) return;
+  const c = _fdCounts;
+  card.classList.add('ready');
+  const hist = _liveMetrics.historicPackets || 0;
+  const gps  = c.gps  || _liveMetrics.liveGps  || 0;
+  const obd  = c.obd  || _liveMetrics.liveObd  || 0;
+  const tot  = hist; // batch files contain historic packets only
+  const other = Math.max(0, tot - gps - obd);
+  setText('fdTotal', tot.toLocaleString());
+  setText('fdGPS',   gps.toLocaleString());
+  setText('fdOBD',   obd.toLocaleString());
+  setText('fdOther', other.toLocaleString());
+  setText('fetchDlBadge', tot.toLocaleString() + ' packets');
+}
+
+function setText(id, v) { const e = g(id); if (e) e.textContent = v; }
+
+function setFdFilter(f, el) {
+  _fdFilter = f;
+  ['fdAll','fdGpsBtn','fdObdBtn'].forEach(id => g(id).classList.remove('on'));
+  el.classList.add('on');
+  updateFdHint();
+}
+
+function setFdFmt(f, el) {
+  _fdFmt = f;
+  ['fdJson','fdJsonl','fdCsv'].forEach(id => g(id).classList.remove('on'));
+  el.classList.add('on');
+  updateFdHint();
+}
+
+function updateFdHint() {
+  const filterLabel = { all:'all packets', gps:'GPS packets only', obd:'OBD packets only' }[_fdFilter];
+  const extMap = { json:'data.json', jsonl:'data.jsonl', csv:'data.csv' };
+  const hint = g('fdHint');
+  if (hint) hint.textContent = `Will export ${filterLabel} as ${extMap[_fdFmt]}`;
+}
+
+async function downloadFetchedData() {
+  if (!activeTest || !activeTest.tgtImei) return;
+  const btn = document.querySelector('#fetchDlCard .btn-go');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Exporting…'; }
+  const hint = g('fdHint');
+  if (hint) hint.textContent = 'Reading batch files…';
+  try {
+    const outDir = (SimState.getGlobal().outputDir) || '';
+    const content = await window.go.main.App.ExportFetchedData(outDir, activeTest.tgtImei, _fdFilter, _fdFmt);
+    const extMap  = { json:'json', jsonl:'jsonl', csv:'csv' };
+    const imei    = activeTest.tgtImei;
+    const date    = new Date().toISOString().slice(0,10);
+    const fname   = `telemetry_${imei}_${_fdFilter}_${date}.${extMap[_fdFmt]}`;
+    await window.go.main.App.SaveFile(content, fname);
+    if (hint) hint.textContent = `Saved as ${fname}`;
+    addLog('+  0.0s', 'EXPORT', 'fe', `Exported ${_fdFilter.toUpperCase()} packets as ${_fdFmt.toUpperCase()} → ${fname}`, 'ok');
+  } catch(e) {
+    const msg = String(e);
+    if (hint) hint.textContent = 'Export failed: ' + msg;
+    addLog('+  0.0s', 'EXPORT', 'er', 'Export failed: ' + msg, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↓ Download'; }
+  }
+}
+
 // ── Clear test state ──────────────────────────────────────────
 async function clearTestState() {
   if (!activeTest) return;
@@ -1038,9 +1234,8 @@ async function clearTestState() {
   const outDir = (SimState.getGlobal().outputDir) || '';
   try {
     await window.go.main.App.ClearTestState(outDir, tgtImei);
-    ['rsFetch','rsP1','rsP2'].forEach(id=>{const e=g(id);if(e){e.textContent='false';e.className='v'}});
-    ['rsPkts','rsBatches','rsObd'].forEach(id=>{const e=g(id);if(e){e.textContent='0';e.className='v'}});
     addLog('+  0.0s', 'SYS', 'fe', 'Cleared batch & OBD state for ' + tgtImei, 'ok');
+    loadResumeState();
   } catch(err) {
     addLog('+  0.0s', 'SYS', 'er', 'Clear state failed: ' + String(err), 'err');
   }
@@ -1050,7 +1245,9 @@ async function clearTestState() {
 window.addEventListener('DOMContentLoaded', () => {
   SimNav.inject('run');
   loadFromState();
-  // Wails runtime is auto-injected — no extra setup needed
+  // Retry resume-state query after 1.5 s — covers the case where the Go bridge
+  // responds slowly on first load (first call in loadFromState may race it).
+  setTimeout(loadResumeState, 1500);
 });
 </script>
 </body>

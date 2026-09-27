@@ -6,8 +6,12 @@ const NAV_CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
 html{zoom:1.25}
 body{font-family:var(--font-ui);background:var(--bg0);color:var(--t0);height:100vh;display:flex;flex-direction:row;overflow:hidden;font-size:12px}
-.side-nav{width:44px;min-width:44px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:6px 0 8px;gap:2px;flex-shrink:0;z-index:20}
-.sn-logo{font-size:14px;font-weight:900;color:var(--blue);margin-bottom:10px;user-select:none;padding-top:2px}
+.side-nav{width:44px;min-width:44px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:0 0 8px;gap:2px;flex-shrink:0;z-index:20}
+.sn-trafficpad{height:36px;width:100%;flex-shrink:0;--wails-draggable:drag}
+.sn-logo{font-size:14px;font-weight:900;color:var(--blue);margin-bottom:10px;user-select:none;--wails-draggable:no-drag}
+/* ── Window drag regions (Wails v2 uses --wails-draggable, not -webkit-app-region) ── */
+.hdr,.hist-header,.page-hdr,.ac-hdr,.ctrl-bar,.conn-status{--wails-draggable:drag}
+button,select,input,textarea,a,.tg,.ibtn,.icon-btn,.fpill,.sn-icon,.status-badge,.tg-wrap,.sn-region,label{--wails-draggable:no-drag}
 .sn-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--t2);text-decoration:none;transition:all .15s;position:relative;cursor:pointer}
 .sn-icon:hover{background:var(--bg2);color:var(--t0)}
 .sn-icon.on{background:rgba(167,139,250,.15);color:var(--blue)}
@@ -88,17 +92,20 @@ window.SimNav = {
     document.head.appendChild(style);
 
     const pages = [
-      { href:'sim-run.html',      icon:'▶', tip:'Run',      key:'run'      },
-      { href:'sim-logs.html',     icon:'≡', tip:'Data Logs', key:'logs'     },
-      { href:'sim-mqtt.html',     icon:'⇄', tip:'MQTT Client', key:'mqtt'  },
-      { href:'sim-history.html',  icon:'⧖', tip:'History',  key:'history'  },
-      { href:'sim-settings.html', icon:'⚙', tip:'Settings', key:'settings' },
-      { href:'sim-theme.html',    icon:'◈', tip:'Theme',    key:'theme'    },
+      { href:'sim-run.html',      icon:'▶', tip:'Run',        key:'run'       },
+      { href:'sim-logs.html',     icon:'≡', tip:'Data Logs',  key:'logs'      },
+      { href:'sim-mqtt.html',     icon:'⇄', tip:'MQTT Client',key:'mqtt'      },
+      { href:'api-client.html',   icon:'⚡', tip:'API Client', key:'apiclient' },
+      { href:'utilities.html',    icon:'⊞', tip:'Utilities',  key:'utilities' },
+      { href:'sim-history.html',  icon:'⧖', tip:'History',    key:'history'   },
+      { href:'sim-metrics.html',  icon:'⊹', tip:'Metrics',    key:'metrics'   },
+      { href:'sim-settings.html', icon:'⚙', tip:'Settings',   key:'settings'  },
+      { href:'sim-theme.html',    icon:'◈', tip:'Theme',      key:'theme'     },
     ];
 
     const nav = document.createElement('nav');
     nav.className = 'side-nav';
-    nav.innerHTML = '<div class="sn-logo">◉</div>' +
+    nav.innerHTML = '<div class="sn-trafficpad"></div><div class="sn-logo">◉</div>' +
       pages.map(p => `<a href="${p.href}" class="sn-icon${activePage===p.key?' on':''}" data-tip="${p.tip}">${p.icon}</a>`).join('') +
       '<div class="sn-spacer"></div>' +
       '<div class="sn-region" id="snRegion">' +

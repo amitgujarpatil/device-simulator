@@ -19,6 +19,34 @@ import (
 // EventEmitter is a function that emits a SimEvent to the frontend.
 type EventEmitter func(SimEvent)
 
+// simRunState records Phase 1 upload progress so a stopped run can resume
+// exactly where it left off without re-uploading or re-accumulating data.
+type simRunState struct {
+	BatchesUploaded int  `json:"batchesUploaded"`
+	TotalBatches    int  `json:"totalBatches"`
+	TotalOBDPackets int  `json:"totalOBDPackets"`
+	Phase1Complete  bool `json:"phase1Complete"`
+}
+
+func runStateFile(outDir, tgtIMEI string) string {
+	return filepath.Join(outDir, fmt.Sprintf("sim_state_%s.json", tgtIMEI))
+}
+
+func loadRunState(outDir, tgtIMEI string) simRunState {
+	b, err := os.ReadFile(runStateFile(outDir, tgtIMEI))
+	if err != nil {
+		return simRunState{}
+	}
+	var st simRunState
+	json.Unmarshal(b, &st) //nolint:errcheck
+	return st
+}
+
+func saveRunState(outDir, tgtIMEI string, st simRunState) {
+	b, _ := json.Marshal(st)
+	os.WriteFile(runStateFile(outDir, tgtIMEI), b, 0644) //nolint:errcheck
+}
+
 // Simulator manages the simulation lifecycle.
 type Simulator struct {
 	ctx      context.Context
@@ -31,6 +59,25 @@ type Simulator struct {
 	liveMu    sync.RWMutex
 	liveGpsMs int
 	liveObdMs int
+
+	// Raw packets stored after a fetch-only run so the app can export them
+	// without touching the (possibly encrypted) SQLite batch files.
+	fetchMu       sync.RWMutex
+	fetchedPackets []Packet
+}
+
+// StoreFetchedPackets saves the raw (pre-encryption) packets for later export.
+func (s *Simulator) StoreFetchedPackets(pkts []Packet) {
+	s.fetchMu.Lock()
+	s.fetchedPackets = pkts
+	s.fetchMu.Unlock()
+}
+
+// GetFetchedPackets returns the last set of fetched packets (nil if not set).
+func (s *Simulator) GetFetchedPackets() []Packet {
+	s.fetchMu.RLock()
+	defer s.fetchMu.RUnlock()
+	return s.fetchedPackets
 }
 
 func (s *Simulator) SetLiveIntervals(gpsMs, obdMs int) {
@@ -307,7 +354,15 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		Data:    map[string]interface{}{"count": len(batchFiles)},
 	})
 
+	// Persist totals in run-state file so UI and next resume can read them.
+	runState := loadRunState(outDir, cfg.TgtIMEI)
+	runState.TotalBatches = len(batchFiles)
+	runState.TotalOBDPackets = len(liveObdPackets)
+	saveRunState(outDir, cfg.TgtIMEI, runState)
+
 	if cfg.Mode == "fetch" {
+		// Keep raw packets in memory so the frontend can export without decrypting SQLite files.
+		s.StoreFetchedPackets(allPackets)
 		// Fetch-only mode: done after creating batch files
 		emit(SimEvent{
 			Elapsed: elap(),
@@ -402,34 +457,48 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 	}
 
 	// ── Phase 1 ───────────────────────────────────────────────────────────────
-	emit(SimEvent{
-		Elapsed: elap(),
-		Tag:     "PHASE 1",
-		Cls:     "ph",
-		Msg:     "=== Phase 1: Historic upload + GPS L1 + OBD accumulation ===",
-		Ty:      "ph",
-		Step:    "phase1:start",
-	})
-
-	if err := s.checkPause(ctx); err != nil {
+	if runState.Phase1Complete {
+		emit(SimEvent{
+			Elapsed: elap(), Tag: "PHASE 1", Cls: "ph",
+			Msg:  "Phase 1 already complete — skipping to Phase 2",
+			Ty:   "ph", Step: "phase1:done",
+			Data: map[string]interface{}{"elapsed": elap()},
+		})
 		obdDb.Close()
-		return nil
-	}
+	} else {
+		emit(SimEvent{
+			Elapsed: elap(),
+			Tag:     "PHASE 1",
+			Cls:     "ph",
+			Msg:     "=== Phase 1: Historic upload + GPS L1 + OBD accumulation ===",
+			Ty:      "ph",
+			Step:    "phase1:start",
+		})
 
-	if err := runPhase1(ctx, cfg, batchFiles, liveGpsPackets, liveObdPackets, mqttPublish, obdDb, publicKeyPEM, emit, startT, s); err != nil && ctx.Err() == nil {
-		emit(SimEvent{Elapsed: elap(), Tag: "PHASE 1", Cls: "er", Msg: fmt.Sprintf("Phase 1 error: %v", err), Ty: "warn"})
-	}
-	obdDb.Close()
+		if err := s.checkPause(ctx); err != nil {
+			obdDb.Close()
+			return nil
+		}
 
-	emit(SimEvent{
-		Elapsed: elap(),
-		Tag:     "PHASE 1",
-		Cls:     "ph",
-		Msg:     fmt.Sprintf("=== Phase 1 complete in %.1fs ===", float64(elap())/1000.0),
-		Ty:      "ok",
-		Step:    "phase1:done",
-		Data:    map[string]interface{}{"elapsed": elap()},
-	})
+		if err := runPhase1(ctx, cfg, batchFiles, liveGpsPackets, liveObdPackets, mqttPublish, obdDb, publicKeyPEM, emit, startT, s, outDir, &runState); err != nil && ctx.Err() == nil {
+			emit(SimEvent{Elapsed: elap(), Tag: "PHASE 1", Cls: "er", Msg: fmt.Sprintf("Phase 1 error: %v", err), Ty: "warn"})
+		}
+		obdDb.Close()
+
+		if ctx.Err() == nil {
+			runState.Phase1Complete = true
+			saveRunState(outDir, cfg.TgtIMEI, runState)
+		}
+		emit(SimEvent{
+			Elapsed: elap(),
+			Tag:     "PHASE 1",
+			Cls:     "ph",
+			Msg:     fmt.Sprintf("=== Phase 1 complete in %.1fs ===", float64(elap())/1000.0),
+			Ty:      "ok",
+			Step:    "phase1:done",
+			Data:    map[string]interface{}{"elapsed": elap()},
+		})
+	}
 
 	if ctx.Err() != nil {
 		return nil
@@ -490,7 +559,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 // A: sequential historic batch uploads
 // B: GPS L1 MQTT streaming (cycles until A is done)
 // C: OBD accumulation into SQLite (interval-based until A is done)
-func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPackets []map[string]interface{}, liveObdPackets []map[string]interface{}, publish func(string, []byte) error, obdDb *sql.DB, publicKeyPEM string, emit func(SimEvent), startT time.Time, s *Simulator) error {
+func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPackets []map[string]interface{}, liveObdPackets []map[string]interface{}, publish func(string, []byte) error, obdDb *sql.DB, publicKeyPEM string, emit func(SimEvent), startT time.Time, s *Simulator, outDir string, runState *simRunState) error {
 	elap := func() int64 { return time.Since(startT).Milliseconds() }
 	phaseStart := time.Now()
 	topic := cfg.TgtIMEI + "/obd"
@@ -529,6 +598,17 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 				return
 			}
 
+			// Skip batches already uploaded in a previous run
+			if i < runState.BatchesUploaded {
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
+					Msg: fmt.Sprintf("SKIP batch_%d/%d (already uploaded)", i+1, len(batchFiles)), Ty: "info",
+					Step: "p1:upload",
+					Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
+				})
+				continue
+			}
+
 			if cfg.DryRun {
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "DRY/UPLOAD", Cls: "up",
@@ -562,6 +642,10 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 				Step: "p1:upload",
 				Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 			})
+
+			// Persist upload progress so we can resume after a stop
+			runState.BatchesUploaded = i + 1
+			saveRunState(outDir, cfg.TgtIMEI, *runState)
 
 			if i < len(batchFiles)-1 {
 				select {
@@ -655,7 +739,17 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 			return
 		}
 
-		obdIdx := 0
+		// Resume OBD accumulation from where the previous run stopped.
+		var obdIdx int
+		obdDb.QueryRow("SELECT COUNT(*) FROM oData").Scan(&obdIdx) //nolint:errcheck
+		if obdIdx > 0 && obdIdx < len(liveObdPackets) {
+			emit(SimEvent{
+				Elapsed: elap(), Tag: "P1/OBD", Cls: "bt",
+				Msg: fmt.Sprintf("Resuming OBD accumulation from row %d/%d", obdIdx+1, len(liveObdPackets)),
+				Ty:  "info", Step: "p1:obd",
+				Data: map[string]interface{}{"rows": obdIdx, "total": len(liveObdPackets)},
+			})
+		}
 		insertErrors := 0
 		ticker := time.NewTicker(obdInterval)
 		defer ticker.Stop()

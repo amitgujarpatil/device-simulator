@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "a0829a29b9b9ee9e7a1ea280b0e4aee4566d3fe3",
+    "indexed_at": "2026-09-27T16:48:11Z",
+    "project": "device-simulator",
+    "nodes": 744,
+    "edges": 1641,
+    "original_size": 3080192,
+    "compressed_size": 682233,
+    "compression_level": 9
+}

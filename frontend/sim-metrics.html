@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>System Metrics — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+.app-wrap{flex-direction:column!important}
+.page-hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 18px;height:44px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.page-title{font-size:13px;font-weight:700;color:var(--t0)}
+.page-sub{font-size:10px;color:var(--t2)}
+.refresh-chip{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:9px;color:var(--t2)}
+.refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.refresh-dot.live{animation:blink 2s ease-in-out infinite}
+.metrics-body{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.metrics-body::-webkit-scrollbar{width:4px}.metrics-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── Cards ── */
+.mx-row{display:flex;gap:12px;flex-wrap:wrap}
+.mx-card{background:var(--bg1);border:1px solid var(--border);border-radius:9px;padding:14px 16px;flex:1;min-width:220px}
+.mx-card-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.mx-card-title .mx-icon{font-size:13px;opacity:.7}
+
+/* Gauge */
+.gauge-wrap{position:relative;width:100px;height:100px;margin:0 auto 10px}
+.gauge-svg{width:100%;height:100%}
+.gauge-bg{fill:none;stroke:var(--bg3);stroke-width:10;stroke-linecap:round}
+.gauge-fill{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s ease,stroke .4s}
+.gauge-val{font-size:22px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;fill:var(--t0);text-anchor:middle;dominant-baseline:middle}
+.gauge-unit{font-size:9px;font-weight:700;fill:var(--t2);text-anchor:middle}
+
+/* Mini bar rows */
+.mx-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:9px}
+.mx-bar-row:last-child{margin-bottom:0}
+.mx-bar-lbl{color:var(--t2);min-width:76px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;flex-shrink:0}
+.mx-bar-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.mx-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;background:var(--blue)}
+.mx-bar-fill.green{background:var(--green)}
+.mx-bar-fill.purple{background:var(--purple)}
+.mx-bar-fill.orange{background:var(--orange)}
+.mx-bar-fill.yellow{background:var(--yellow)}
+.mx-bar-val{color:var(--t0);font-family:monospace;min-width:52px;text-align:right;font-size:9px}
+
+/* Big KV stats */
+.mx-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.mx-stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.mx-stat-val{font-size:19px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;color:var(--t0);line-height:1.2}
+.mx-stat-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-top:2px}
+.mx-stat-val.green{color:var(--green)}
+.mx-stat-val.blue{color:var(--blue)}
+.mx-stat-val.purple{color:var(--purple)}
+.mx-stat-val.orange{color:var(--orange)}
+
+/* Comparison table */
+.cmp-table{width:100%;border-collapse:collapse;font-size:10px}
+.cmp-table th{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);padding:4px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.cmp-table td{padding:6px 8px;border-bottom:1px solid rgba(45,42,64,.5);color:var(--t1)}
+.cmp-table tr:last-child td{border-bottom:none}
+.cmp-table td:nth-child(2){font-family:monospace;color:var(--t0)}
+.cmp-table td:nth-child(3){font-size:9px}
+.cmp-ours td{background:rgba(167,139,250,.05)}
+.cmp-ours td:nth-child(1){color:var(--blue);font-weight:700}
+.cmp-bar-cell{width:120px}
+.cmp-bar-wrap{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.cmp-bar-inner{height:100%;border-radius:3px;background:var(--blue);transition:width .6s}
+.cmp-bar-inner.red{background:var(--red)}
+.cmp-bar-inner.yellow{background:var(--yellow)}
+.badge-light{display:inline-flex;align-items:center;gap:4px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3);color:var(--green);font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;margin-left:auto}
+.badge-heavy{display:inline-flex;align-items:center;gap:4px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:var(--red);font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;margin-left:auto}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+  <div class="page-hdr">
+    <span class="page-title">System Metrics</span>
+    <span class="page-sub">Live process &amp; host stats</span>
+    <div class="refresh-chip">
+      <div class="refresh-dot live" id="rdot"></div>
+      <span id="lastRefresh">—</span>
+    </div>
+  </div>
+
+  <div class="metrics-body">
+
+    <!-- Row 1: Memory + CPU -->
+    <div class="mx-row">
+
+      <!-- System Memory -->
+      <div class="mx-card" style="max-width:280px">
+        <div class="mx-card-title"><span class="mx-icon">◫</span>System Memory</div>
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 100 100">
+            <circle class="gauge-bg" cx="50" cy="50" r="42" stroke-dasharray="220 220" stroke-dashoffset="-20" transform="rotate(-210 50 50)"/>
+            <circle class="gauge-fill" id="memGaugeFill" cx="50" cy="50" r="42"
+              stroke="var(--blue)" stroke-dasharray="220 220" stroke-dashoffset="220"
+              transform="rotate(-210 50 50)"/>
+            <text class="gauge-val" id="memGaugePct" x="50" y="46">—%</text>
+            <text class="gauge-unit" id="memGaugeSub" x="50" y="62">used</text>
+          </svg>
+        </div>
+        <div class="mx-bar-row">
+          <span class="mx-bar-lbl">Used</span>
+          <div class="mx-bar-track"><div class="mx-bar-fill" id="memUsedBar" style="width:0"></div></div>
+          <span class="mx-bar-val" id="memUsedVal">—</span>
+        </div>
+        <div class="mx-bar-row">
+          <span class="mx-bar-lbl">Available</span>
+          <div class="mx-bar-track"><div class="mx-bar-fill green" id="memFreeBar" style="width:0"></div></div>
+          <span class="mx-bar-val" id="memFreeVal">—</span>
+        </div>
+        <div class="mx-bar-row" style="margin-top:4px">
+          <span class="mx-bar-lbl">Total RAM</span>
+          <div class="mx-bar-track"><div class="mx-bar-fill" style="width:100%;background:var(--border)"></div></div>
+          <span class="mx-bar-val" id="memTotalVal">—</span>
+        </div>
+      </div>
+
+      <!-- CPU / Load -->
+      <div class="mx-card" style="max-width:280px">
+        <div class="mx-card-title"><span class="mx-icon">⊹</span>CPU Load</div>
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 100 100">
+            <circle class="gauge-bg" cx="50" cy="50" r="42" stroke-dasharray="220 220" stroke-dashoffset="-20" transform="rotate(-210 50 50)"/>
+            <circle class="gauge-fill" id="cpuGaugeFill" cx="50" cy="50" r="42"
+              stroke="var(--purple)" stroke-dasharray="220 220" stroke-dashoffset="220"
+              transform="rotate(-210 50 50)"/>
+            <text class="gauge-val" id="cpuGaugeVal" x="50" y="46">—</text>
+            <text class="gauge-unit" id="cpuGaugeSub" x="50" y="62">load avg</text>
+          </svg>
+        </div>
+        <div class="mx-bar-row">
+          <span class="mx-bar-lbl">Load 1m</span>
+          <div class="mx-bar-track"><div class="mx-bar-fill purple" id="load1Bar" style="width:0"></div></div>
+          <span class="mx-bar-val" id="load1Val">—</span>
+        </div>
+        <div class="mx-bar-row">
+          <span class="mx-bar-lbl">Load 5m</span>
+          <div class="mx-bar-track"><div class="mx-bar-fill" style="background:var(--t2);width:0" id="load5Bar"></div></div>
+          <span class="mx-bar-val" id="load5Val">—</span>
+        </div>
+        <div class="mx-bar-row" style="margin-top:4px">
+          <span class="mx-bar-lbl">CPU Cores</span>
+          <div class="mx-bar-track"><div class="mx-bar-fill" style="width:100%;background:var(--border)"></div></div>
+          <span class="mx-bar-val" id="cpuCoresVal">—</span>
+        </div>
+      </div>
+
+      <!-- App Process -->
+      <div class="mx-card" style="flex:1.5">
+        <div class="mx-card-title"><span class="mx-icon">◉</span>App Process <span id="lightBadge"></span></div>
+        <div class="mx-stats-grid">
+          <div class="mx-stat">
+            <div class="mx-stat-val green" id="appRSSVal">—</div>
+            <div class="mx-stat-lbl">RSS (resident)</div>
+          </div>
+          <div class="mx-stat">
+            <div class="mx-stat-val blue" id="appCPUVal">—%</div>
+            <div class="mx-stat-lbl">CPU %</div>
+          </div>
+          <div class="mx-stat">
+            <div class="mx-stat-val purple" id="appHeapVal">—</div>
+            <div class="mx-stat-lbl">Go Heap Live</div>
+          </div>
+          <div class="mx-stat">
+            <div class="mx-stat-val orange" id="goRoutinesVal">—</div>
+            <div class="mx-stat-lbl">Goroutines</div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="mx-bar-row">
+            <span class="mx-bar-lbl">RSS / RAM</span>
+            <div class="mx-bar-track"><div class="mx-bar-fill green" id="appRSSBar" style="width:0"></div></div>
+            <span class="mx-bar-val" id="appRSSPct">—</span>
+          </div>
+          <div class="mx-bar-row">
+            <span class="mx-bar-lbl">Heap / RSS</span>
+            <div class="mx-bar-track"><div class="mx-bar-fill purple" id="appHeapBar" style="width:0"></div></div>
+            <span class="mx-bar-val" id="appHeapPct">—</span>
+          </div>
+          <div class="mx-bar-row">
+            <span class="mx-bar-lbl">Go Sys / RSS</span>
+            <div class="mx-bar-track"><div class="mx-bar-fill orange" id="appSysBar" style="width:0"></div></div>
+            <span class="mx-bar-val" id="appSysPct">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lightweight comparison -->
+    <div class="mx-card">
+      <div class="mx-card-title"><span class="mx-icon">▤</span>Footprint Comparison &nbsp;<span style="font-size:8px;color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0">typical resident memory (RSS) at idle/active</span></div>
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>App / Runtime</th>
+            <th>Typical RSS</th>
+            <th>Notes</th>
+            <th class="cmp-bar-cell">Relative size</th>
+          </tr>
+        </thead>
+        <tbody id="cmpBody">
+          <tr class="cmp-ours">
+            <td>◉ This app (Wails/Go)</td>
+            <td id="cmpOursRSS">—</td>
+            <td>Native binary, no Node runtime</td>
+            <td class="cmp-bar-cell"><div class="cmp-bar-wrap"><div class="cmp-bar-inner" id="cmpOursBar" style="width:0"></div></div></td>
+          </tr>
+          <tr>
+            <td>Electron (e.g. VS Code, Slack)</td>
+            <td>250 – 500 MB</td>
+            <td>Chromium + Node.js per window</td>
+            <td class="cmp-bar-cell"><div class="cmp-bar-wrap"><div class="cmp-bar-inner red" style="width:80%"></div></div></td>
+          </tr>
+          <tr>
+            <td>Java / Spring Boot service</td>
+            <td>150 – 350 MB</td>
+            <td>JVM heap + metaspace overhead</td>
+            <td class="cmp-bar-cell"><div class="cmp-bar-wrap"><div class="cmp-bar-inner yellow" style="width:55%"></div></div></td>
+          </tr>
+          <tr>
+            <td>Node.js standalone app</td>
+            <td>60 – 150 MB</td>
+            <td>V8 + libuv + npm modules</td>
+            <td class="cmp-bar-cell"><div class="cmp-bar-wrap"><div class="cmp-bar-inner yellow" style="width:30%"></div></div></td>
+          </tr>
+          <tr>
+            <td>Python 3 script (no GUI)</td>
+            <td>30 – 80 MB</td>
+            <td>Interpreter + stdlib modules</td>
+            <td class="cmp-bar-cell"><div class="cmp-bar-wrap"><div class="cmp-bar-inner" style="width:15%;background:var(--t2)"></div></div></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;font-size:9px;color:var(--t2)">
+        RSS is sampled every 3 s via <code style="color:var(--t1)">ps -o rss</code>. Electron/Java/Node figures are industry averages; actual usage varies with window count and loaded modules.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function fmtBytes(b) {
+  if (!b) return '—';
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1024*1024*1024) return (b/1024/1024).toFixed(1) + ' MB';
+  return (b/1024/1024/1024).toFixed(2) + ' GB';
+}
+function fmtMB(b) { return b ? (b/1024/1024).toFixed(1) + ' MB' : '—'; }
+function pct(a, b) { return b ? Math.min(100, Math.round(a/b*100)) : 0; }
+function setW(id, p) { const e = document.getElementById(id); if (e) e.style.width = p + '%'; }
+function setText(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+
+async function refresh() {
+  let m;
+  try { m = await window.go.main.App.GetSystemMetrics(); } catch(e) { return; }
+
+  const total    = m.sysTotalBytes || 0;
+  const used     = m.sysUsedBytes  || 0;
+  const free     = m.sysFreeBytes  || 0;
+  const usedPct  = pct(used, total);
+
+  // Memory gauge (arc = 220 units for 100%)
+  const arcLen = 220;
+  const fill = document.getElementById('memGaugeFill');
+  if (fill) {
+    const offset = arcLen - (arcLen * usedPct / 100);
+    fill.style.strokeDashoffset = offset;
+    fill.style.stroke = usedPct > 85 ? 'var(--red)' : usedPct > 65 ? 'var(--yellow)' : 'var(--blue)';
+  }
+  setText('memGaugePct', usedPct + '%');
+  setText('memGaugeSub', 'of ' + fmtBytes(total));
+  setW('memUsedBar', usedPct); setText('memUsedVal', fmtMB(used));
+  setW('memFreeBar', pct(free, total)); setText('memFreeVal', fmtMB(free));
+  setText('memTotalVal', fmtBytes(total));
+
+  // CPU / load
+  const load1  = m.loadAvg1 || 0;
+  const load5  = m.loadAvg5 || 0;
+  const cores  = m.cpuCores || 1;
+  const loadPct = Math.min(100, Math.round(load1 / cores * 100));
+  const cpuFill = document.getElementById('cpuGaugeFill');
+  if (cpuFill) {
+    cpuFill.style.strokeDashoffset = arcLen - (arcLen * loadPct / 100);
+    cpuFill.style.stroke = loadPct > 80 ? 'var(--red)' : loadPct > 50 ? 'var(--yellow)' : 'var(--purple)';
+  }
+  setText('cpuGaugeVal', load1.toFixed(2));
+  setText('cpuGaugeSub', 'load avg');
+  setW('load1Bar', loadPct); setText('load1Val', load1.toFixed(2));
+  setW('load5Bar', Math.min(100, Math.round(load5/cores*100))); setText('load5Val', load5.toFixed(2));
+  setText('cpuCoresVal', cores + ' cores');
+
+  // App process
+  const rss     = m.appRSSBytes   || 0;
+  const heap    = m.appHeapAlloc  || 0;
+  const goSys   = m.appSys        || 0;
+  const appCPU  = m.appCPUPct     || 0;
+  const gorout  = m.goroutines    || 0;
+
+  setText('appRSSVal',     fmtMB(rss));
+  setText('appCPUVal',     appCPU.toFixed(1) + '%');
+  setText('appHeapVal',    fmtMB(heap));
+  setText('goRoutinesVal', String(gorout));
+  setW('appRSSBar',  pct(rss,  total));  setText('appRSSPct',  pct(rss, total) + '% of RAM');
+  setW('appHeapBar', pct(heap, rss));    setText('appHeapPct', pct(heap, rss) + '% of RSS');
+  setW('appSysBar',  pct(goSys, rss));   setText('appSysPct',  pct(goSys, rss) + '% of RSS');
+
+  // Comparison bar (max ref = 400 MB for Electron)
+  const refMax = 400 * 1024 * 1024;
+  const oursPct = Math.max(2, pct(rss, refMax));
+  setW('cmpOursBar', oursPct);
+  setText('cmpOursRSS', fmtMB(rss));
+
+  // Lightweight badge
+  const badge = document.getElementById('lightBadge');
+  if (badge) {
+    if (rss > 0 && rss < 100 * 1024 * 1024) {
+      badge.className = 'badge-light';
+      badge.textContent = '✓ Lightweight';
+    } else if (rss >= 100 * 1024 * 1024) {
+      badge.className = '';
+      badge.textContent = '';
+    }
+  }
+
+  setText('lastRefresh', 'Updated ' + new Date().toLocaleTimeString());
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  SimNav.inject('metrics');
+  refresh();
+  setInterval(refresh, 3000);
+});
+</script>
+</body>
+</html>
