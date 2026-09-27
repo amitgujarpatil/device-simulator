@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>Run — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<link rel="stylesheet" href="flatpickr-dark.css">
+<script src="flatpickr.min.js"></script>
+<style>
+.app-wrap{flex-direction:column!important}
+/* ── Header ── */
+.hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 12px;height:44px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.hdr-logo{font-size:12px;font-weight:700;color:var(--t0)}.hdr-logo span{color:var(--blue)}
+.hdr-sep{width:1px;height:22px;background:var(--border)}
+.status-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t1);background:var(--bg2);padding:2px 8px;border-radius:4px;border:1px solid var(--border)}
+.tg-wrap{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t1)}
+.sp{flex:1}
+/* ── Main 3-col ── */
+.main{flex:1;display:flex;overflow:hidden}
+/* ── Left sidebar ── */
+.sb{width:238px;min-width:238px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-hdr{padding:8px 10px 6px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sb-title{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t0);flex:1}
+.icon-btn{width:20px;height:20px;border-radius:3px;border:1px solid var(--border);background:var(--bg2);color:var(--t1);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s;outline:none}
+.icon-btn:hover{background:var(--bg3);color:var(--t0)}
+/* Test list */
+.test-list{overflow-y:auto;flex-shrink:0;max-height:195px;border-bottom:1px solid var(--border)}
+.test-list::-webkit-scrollbar{width:3px}.test-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ti{display:flex;align-items:stretch;cursor:pointer;border-bottom:1px solid rgba(45,42,64,.5);transition:background .12s;position:relative}
+.ti:hover{background:var(--bg2)}.ti.on{background:rgba(167,139,250,.07)}
+.ti-accent{width:3px;flex-shrink:0}
+.ti-body{flex:1;padding:6px 9px 5px}
+.ti-name{font-size:10px;font-weight:600;color:var(--t0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.ti-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.ti-del{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--t2);opacity:0;cursor:pointer;padding:2px 4px}
+.ti:hover .ti-del{opacity:1}.ti-del:hover{color:var(--red)}
+/* Config summary */
+.cfg-sum{overflow-y:auto;flex:1}
+.cfg-sum::-webkit-scrollbar{width:3px}.cfg-sum::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.cs-sec{border-bottom:1px solid var(--border)}
+.cs-hdr{padding:7px 10px;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:800;letter-spacing:.09em;color:var(--t0);text-transform:uppercase;cursor:pointer;user-select:none}
+.cs-hdr:hover{background:rgba(45,42,64,.5);color:var(--blue)}.cs-hdr .ch{margin-left:auto;font-size:8px;opacity:.7;transition:transform .2s}.cs-hdr.open .ch{transform:rotate(90deg)}
+.cs-body{padding:7px 12px 11px;display:none}.cs-body.open{display:block}
+.locked-field{display:flex;align-items:center;gap:8px;padding:4px 2px;border-bottom:1px solid rgba(45,42,64,.5)}
+.locked-field:last-child{border-bottom:none}
+.lf-lbl{font-size:9px;color:var(--t2);font-weight:700;min-width:60px;flex-shrink:0;letter-spacing:.03em;text-transform:uppercase}
+.lf-val{font-size:10px;color:var(--t0);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;padding:3px 0}
+.lf-val.hi{color:var(--blue)}
+.lf-val.hidden{color:var(--t2);letter-spacing:.1em}
+.cfg-edit-link{display:block;padding:6px 10px;font-size:9px;color:var(--blue);text-decoration:none;border-top:1px solid var(--border);text-align:center}
+.cfg-edit-link:hover{background:rgba(167,139,250,.07)}
+/* Resume state */
+.rs-section{padding:7px 10px;border-top:1px solid var(--border)}
+/* ── Center ── */
+.pipe{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:12px;gap:11px}
+.pipe::-webkit-scrollbar{width:3px}.pipe::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ptitle{font-size:9px;color:var(--t0);text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin-bottom:7px}
+/* Ring section */
+.ring-section{display:flex;align-items:center;gap:14px;background:var(--bg1);border:1px solid var(--border);border-radius:9px;padding:13px 16px}
+.ring-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.ring-info{display:flex;flex-direction:column;gap:7px;flex:1}
+.ring-elapsed-lbl{font-size:8px;color:var(--t1);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1px;font-weight:700}
+.ring-elapsed{font-size:24px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;color:var(--t0);line-height:1;letter-spacing:.04em}
+.ring-phase-lbl{font-size:8px;color:var(--t1);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;margin-bottom:2px;font-weight:700}
+.ring-phase-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;background:var(--bg2);border:1px solid var(--border);color:var(--t1)}
+.ring-phase-badge.run{background:rgba(167,139,250,.12);border-color:var(--blue);color:var(--blue)}
+.ring-phase-badge.done{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
+.ring-phase-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.ring-divider{width:1px;background:var(--border);align-self:stretch;margin:0 2px}
+.ring-stats-mini{display:flex;flex-direction:column;gap:5px;flex:2;min-width:0}
+.rsm-item{display:flex;align-items:center;gap:6px;font-size:9px}
+.rsm-bar-wrap{flex:1;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.rsm-bar-fill{height:100%;border-radius:2px;width:0;transition:width .5s ease}
+/* 2×2 counters */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mc{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:11px}
+.mc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
+.mc-num{font-size:24px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;line-height:1}
+.mc-num.b{color:var(--blue)}.mc-num.p{color:var(--purple)}.mc-num.g{color:var(--green)}.mc-num.o{color:var(--orange)}
+.mc-icon{font-size:15px;opacity:.3}
+.mc-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t1);margin-bottom:1px}
+.mc-sub{font-size:8px;color:var(--t2)}
+.mc-bar{height:2px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:5px}
+.mc-bar-fill{height:100%;border-radius:2px;width:0;transition:width .6s ease}
+.mc-bar-fill.b{background:var(--blue)}.mc-bar-fill.p{background:var(--purple)}.mc-bar-fill.g{background:var(--green)}.mc-bar-fill.o{background:var(--orange)}
+/* Pipeline steps */
+.steps-row{display:flex;align-items:stretch}
+.step{flex:1;min-width:90px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 11px}
+.step.run{border-color:var(--blue);box-shadow:0 0 8px rgba(167,139,250,.15)}.step.done{border-color:rgba(52,211,153,.35)}.step.err{border-color:rgba(248,113,113,.35)}
+.arr{color:var(--t2);font-size:14px;padding:0 4px;flex-shrink:0;display:flex;align-items:center}
+.sh{display:flex;align-items:center;gap:4px;margin-bottom:5px}
+.sn{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.ss{margin-left:auto;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px}
+.ss.p{background:var(--bg2);color:var(--t2)}.ss.r{background:rgba(167,139,250,.14);color:var(--blue);animation:blink 1.5s infinite}.ss.d{background:rgba(52,211,153,.12);color:var(--green)}
+.sp-bar{height:3px;background:var(--bg2);border-radius:2px;margin-bottom:4px;overflow:hidden}
+.sp-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .5s ease;width:0}.sp-fill.done{background:var(--green)}
+.si{font-size:9px;color:var(--t1)}.si strong{color:var(--t0)}
+/* Phase cards */
+.ph{background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px}
+.ph.on{border-color:rgba(167,139,250,.3);box-shadow:0 0 10px rgba(167,139,250,.06)}
+.ph-hdr{display:flex;align-items:center;gap:6px;margin-bottom:9px}
+.ph-title{font-size:11px;font-weight:700}.ph-sub{font-size:9px;color:var(--t1);margin-left:1px}
+.ph-badge{margin-left:auto;font-size:8px;padding:2px 6px;border-radius:3px;font-weight:700;background:var(--bg2);color:var(--t2)}
+.streams{display:flex;gap:7px}
+.st{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 8px}
+.st.on{border-color:rgba(167,139,250,.3)}
+.st-hdr{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.st-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--t1)}
+.badge-circle{width:15px;height:15px;border-radius:50%;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--bg0)}
+.ba{background:var(--blue)}.bb{background:var(--green)}.bc{background:var(--purple)}
+.st-prog{height:3px;background:var(--bg0);border-radius:2px;margin:3px 0;overflow:hidden}
+.st-fill{height:100%;border-radius:2px;width:0;transition:width .5s ease}
+.fa{background:var(--blue)}.fb{background:var(--green)}.fc{background:var(--purple)}.fg2{background:var(--green)}.fblue{background:var(--blue)}
+.st-stat{font-size:9px;color:var(--t1)}.st-stat strong{color:var(--t0)}.st-detail{font-size:8px;color:var(--t2);margin-top:1px}
+/* ── Log panel ── */
+.logs{width:320px;min-width:320px;background:var(--bg1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.log-hdr{padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0}
+.log-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t1)}
+.pills{display:flex;gap:3px}
+.pill{padding:2px 5px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1)}
+.pill.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.pill.on.g{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
+.pill.on.y{background:rgba(251,191,36,.12);border-color:var(--yellow);color:var(--yellow)}
+.pill.on.r{background:rgba(248,113,113,.12);border-color:var(--red);color:var(--red)}
+.clr{margin-left:auto;font-size:10px;color:var(--t2);cursor:pointer}.clr:hover{color:var(--t1)}
+.log-body{flex:1;overflow-y:auto;font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:10px;line-height:1.55}
+.log-body::-webkit-scrollbar{width:3px}.log-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.le{padding:2px 10px;display:flex;gap:5px;border-bottom:1px solid rgba(45,42,64,.4)}
+.le:hover{background:var(--bg2)}
+.lts{color:var(--t2);min-width:46px;flex-shrink:0}
+.ltg{min-width:66px;flex-shrink:0;font-weight:700}
+.ltg.fe{color:var(--blue)}.ltg.sp{color:var(--purple)}.ltg.bt{color:var(--orange)}.ltg.up{color:var(--green)}.ltg.mq{color:var(--yellow)}.ltg.ph{color:var(--t0)}.ltg.er{color:var(--red)}
+.lm{color:var(--t1);flex:1;word-break:break-word}.lm.ok{color:var(--green)}.lm.warn{color:var(--yellow)}.lm.err{color:var(--red)}.lm.ph{color:var(--t0);font-weight:600}
+.log-ftr{padding:5px 10px;border-top:1px solid var(--border);display:flex;gap:4px;flex-shrink:0}
+.xbtn{flex:1;padding:4px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:9px;cursor:pointer;text-align:center}
+.xbtn:hover{background:var(--bg3);color:var(--blue)}
+.elapsed-bar{font-size:9px;color:var(--t2);text-align:center;padding:2px 0;font-family:monospace}
+/* Timing number-input rows */
+.ct-row{display:flex;align-items:center;padding:4px 2px;gap:8px;border-bottom:1px solid rgba(45,42,64,.5)}
+.ct-row:last-child{border-bottom:none}
+.ct-lbl{font-size:9px;color:var(--t2);font-weight:700;letter-spacing:.03em;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ct-inp-wrap{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.ct-inp{width:58px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:10px;font-family:var(--font-mono,'SF Mono','Cascadia Code',Consolas,monospace);padding:3px 6px;outline:none;text-align:right;-moz-appearance:textfield}
+.ct-inp:focus{border-color:var(--blue);background:var(--bg3);box-shadow:0 0 0 2px rgba(167,139,250,.12)}
+.ct-inp:hover:not(:focus){border-color:var(--t2)}
+.ct-inp::-webkit-outer-spin-button,.ct-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.ct-unit{font-size:9px;color:var(--t2);font-weight:600;min-width:12px}
+/* Log payload expansion */
+.le-exp{font-size:8px;color:var(--blue);cursor:pointer;padding:0 4px;flex-shrink:0;opacity:.7;user-select:none}
+.le-exp:hover{opacity:1}
+.le-payload{font-size:9px;font-family:var(--font-mono,'SF Mono','Cascadia Code',Consolas,monospace);color:var(--t1);background:var(--bg0);border:1px solid var(--border);border-radius:3px;padding:6px 8px;margin:3px 0 3px 51px;white-space:pre-wrap;word-break:break-all;display:none;max-height:200px;overflow-y:auto}
+/* Inline-editable sidebar fields */
+.lf-inp{font-size:10px;color:var(--t0);font-family:monospace;background:var(--bg2);border:1px solid transparent;border-radius:4px;padding:3px 6px;flex:1;min-width:0;outline:none;width:100%;height:24px;transition:background .2s,border-color .15s,box-shadow .2s}
+.lf-inp:focus{background:var(--bg3);border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,.12)}
+.lf-inp:hover:not(:focus){border-color:var(--border)}
+select.lf-inp{padding:3px 20px 3px 6px;border:1px solid var(--border);-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%238878b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center;cursor:pointer;transition:border-color .15s,background-color .15s}
+select.lf-inp:hover{border-color:var(--t2);background-color:var(--bg3)}
+select.lf-inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,.12)}
+/* Toggle in locked-field rows */
+.lf-tg-wrap{display:flex;align-items:center;gap:7px;flex:1}
+.lf-tg-lbl{font-size:9px;color:var(--t1);user-select:none}
+/* Pause button */
+.btn-pause{background:var(--yellow);color:#000}.btn-pause:hover{filter:brightness(1.15)}.btn-pause:disabled{background:var(--bg2);color:var(--t2);cursor:not-allowed}
+.dot-pause{background:var(--yellow)}
+/* Resume State section */
+.kv{display:flex;align-items:center;gap:6px;padding:3px 2px;border-bottom:1px solid rgba(45,42,64,.4);font-size:9px}
+.kv:last-child{border-bottom:none}
+.k{color:var(--t2);min-width:70px;flex-shrink:0;font-weight:600}
+.v{color:var(--t0);font-family:monospace;flex:1}
+.v.ok{color:var(--green)}.v.hi{color:var(--blue)}
+/* Clear state button in section header */
+.cs-clr-btn{margin-left:auto;font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:var(--red);cursor:pointer;transition:background .15s;user-select:none;outline:none}
+.cs-clr-btn:hover{background:rgba(248,113,113,.22)}
+.cs-hdr:has(.cs-clr-btn) .ch{margin-left:0}
+/* ── Flatpickr overrides ── */
+.flatpickr-calendar{background:var(--bg1)!important;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 1px var(--border)!important;border-radius:8px!important;font-family:var(--font-ui)!important}
+.flatpickr-calendar.arrowTop:before{border-bottom-color:var(--border)!important}.flatpickr-calendar.arrowTop:after{border-bottom-color:var(--bg2)!important}
+.flatpickr-calendar.arrowBottom:before{border-top-color:var(--border)!important}.flatpickr-calendar.arrowBottom:after{border-top-color:var(--bg1)!important}
+.flatpickr-months{background:var(--bg2)!important;border-radius:7px 7px 0 0}
+.flatpickr-months .flatpickr-month{background:transparent!important;color:var(--t0)!important;fill:var(--t0)!important}
+.flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{color:var(--t2)!important;fill:var(--t2)!important}
+.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:var(--blue)!important}
+.flatpickr-current-month{color:var(--t0)!important}.flatpickr-current-month input.cur-year{color:var(--t0)!important}
+.flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--bg2)!important;color:var(--t0)!important}
+.flatpickr-weekdays{background:var(--bg1)!important}
+span.flatpickr-weekday{background:transparent!important;color:var(--t2)!important;font-size:9px!important;font-weight:700!important;letter-spacing:.05em!important}
+.flatpickr-days,.dayContainer{border:none!important}
+.flatpickr-day{color:var(--t1)!important;border:none!important;border-radius:5px!important;font-size:11px!important}
+.flatpickr-day:hover{background:var(--bg3)!important;color:var(--t0)!important}
+.flatpickr-day.today{border:1px solid var(--blue)!important;font-weight:700}
+.flatpickr-day.today:hover,.flatpickr-day.selected,.flatpickr-day.selected:hover{background:var(--blue)!important;border-color:var(--blue)!important;color:#09080e!important;font-weight:700!important}
+.flatpickr-day.disabled,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:var(--border)!important}
+.flatpickr-time{background:var(--bg2)!important;border-top:1px solid var(--border)!important;border-radius:0 0 7px 7px!important}
+.flatpickr-time input{background:var(--bg1)!important;color:var(--t0)!important;border-radius:4px!important;font-size:12px!important;font-family:var(--font-mono)!important}
+.flatpickr-time input:hover,.flatpickr-time input:focus{background:var(--bg3)!important}
+.flatpickr-time .flatpickr-time-separator{color:var(--t2)!important}
+.numInputWrapper span{border-color:var(--border)!important}.numInputWrapper span svg path{fill:var(--t2)!important}
+.numInputWrapper:hover{background:var(--bg3)!important}
+input.flatpickr-alt-input[readonly]{cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-logo">◉ <span>DeviceSimulator</span></div>
+  <div class="hdr-sep"></div>
+  <div class="status-badge"><div class="dot dot-idle" id="sDot"></div><span id="sTxt">Idle</span></div>
+  <div class="hdr-sep"></div>
+  <span style="font-size:9px;color:var(--t2);letter-spacing:.06em;text-transform:uppercase">Region</span>
+  <select id="hdrRegion" class="inp" style="width:130px;font-size:11px" onchange="onHdrRegionChange(this.value)"></select>
+  <div class="sp"></div>
+  <div class="tg-wrap"><span>DRY RUN</span><div class="tg" id="dryTg" onclick="this.classList.toggle('on');dry=this.classList.contains('on')"></div></div>
+  <div class="hdr-sep"></div>
+  <button class="btn btn-go" id="btnGo" onclick="startSim()">▶ START</button>
+  <button class="btn btn-stop" id="btnStop" onclick="stopSim()" disabled>■ STOP</button>
+  <button class="btn btn-pause" id="btnPause" onclick="pauseSim()" disabled>⏸ PAUSE</button>
+  <button class="btn btn-ghost" onclick="resetSim()">↺ RESET</button>
+</div>
+
+<div class="main">
+
+<!-- Left sidebar -->
+<div class="sb">
+  <div class="sb-hdr">
+    <span class="sb-title">Tests</span>
+    <button class="icon-btn" title="New test" onclick="goNewTest()">+</button>
+  </div>
+  <div class="test-list" id="testList"></div>
+
+  <!-- Config summary (read-only, from state) -->
+  <div class="cfg-sum" id="cfgSum"></div>
+  <a class="cfg-edit-link" href="sim-settings.html">⚙ Edit in Settings →</a>
+</div>
+
+<!-- Center metrics -->
+<div class="pipe">
+  <div class="ring-section">
+    <div class="ring-wrap">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="55" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 8" opacity=".5"/>
+        <circle cx="60" cy="60" r="46" fill="none" stroke="var(--border)" stroke-width="7"/>
+        <circle id="ringArc" cx="60" cy="60" r="46" fill="none" stroke="var(--blue)" stroke-width="7"
+          stroke-dasharray="289" stroke-dashoffset="289" stroke-linecap="round"
+          transform="rotate(-90,60,60)"
+          style="transition:stroke-dashoffset .1s linear;filter:drop-shadow(0 0 5px rgba(167,139,250,.6))"/>
+        <text id="ringPct" x="60" y="57" text-anchor="middle" dominant-baseline="middle"
+          font-size="18" font-weight="800" fill="var(--t0)" font-family="'SF Mono',Consolas,monospace">0%</text>
+        <text x="60" y="72" text-anchor="middle" font-size="8" fill="var(--t2)" font-family="-apple-system,sans-serif" letter-spacing="1">overall</text>
+      </svg>
+    </div>
+    <div class="ring-divider"></div>
+    <div class="ring-info">
+      <div><div class="ring-elapsed-lbl">Elapsed</div><div class="ring-elapsed" id="ringElapsed">00:00.0</div></div>
+      <div><div class="ring-phase-lbl">Phase</div><div class="ring-phase-badge" id="ringPhase"><span class="ring-phase-dot"></span>Idle</div></div>
+    </div>
+    <div class="ring-divider"></div>
+    <div class="ring-stats-mini">
+      <div class="ptitle" style="margin-bottom:3px">Live metrics</div>
+      <div class="rsm-item"><span style="color:var(--blue);min-width:54px">Packets</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmPkts" style="background:var(--blue)"></div></div><span id="rmPktsLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
+      <div class="rsm-item"><span style="color:var(--purple);min-width:54px">Historic</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmHist" style="background:var(--purple)"></div></div><span id="rmHistLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
+      <div class="rsm-item"><span style="color:var(--green);min-width:54px">Live GPS</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmGps" style="background:var(--green)"></div></div><span id="rmGpsLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
+      <div class="rsm-item"><span style="color:var(--orange);min-width:54px">Live OBD</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmObd" style="background:var(--orange)"></div></div><span id="rmObdLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
+    </div>
+  </div>
+
+  <div><div class="ptitle">Counters</div>
+    <div class="metrics-grid">
+      <div class="mc"><div class="mc-top"><div class="mc-num b" id="stPkts">0</div><span class="mc-icon" style="color:var(--blue)">📦</span></div><div class="mc-lbl">Total Packets</div><div class="mc-sub">OBD + GPS fetched</div><div class="mc-bar"><div class="mc-bar-fill b" id="mcPkts"></div></div></div>
+      <div class="mc"><div class="mc-top"><div class="mc-num p" id="stHist">0</div><span class="mc-icon" style="color:var(--purple)">🗂</span></div><div class="mc-lbl">Historic</div><div class="mc-sub">Before history-end</div><div class="mc-bar"><div class="mc-bar-fill p" id="mcHist"></div></div></div>
+      <div class="mc"><div class="mc-top"><div class="mc-num g" id="stGps">0</div><span class="mc-icon" style="color:var(--green)">📡</span></div><div class="mc-lbl">Live GPS</div><div class="mc-sub">Phase 1 &amp; 2</div><div class="mc-bar"><div class="mc-bar-fill g" id="mcGps"></div></div></div>
+      <div class="mc"><div class="mc-top"><div class="mc-num o" id="stObd">0</div><span class="mc-icon" style="color:var(--orange)">⚙</span></div><div class="mc-lbl">Live OBD</div><div class="mc-sub">Phase 1 accumulate</div><div class="mc-bar"><div class="mc-bar-fill o" id="mcObd"></div></div></div>
+    </div>
+  </div>
+
+  <div><div class="ptitle">Pipeline Steps</div>
+    <div class="steps-row">
+      <div class="step" id="cFetch"><div class="sh"><span style="color:var(--blue)">⬇</span><span class="sn" style="color:var(--blue)">Fetch</span><span class="ss p" id="sFetch">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pFetch"></div></div><div class="si" id="iFetch">Pages: <strong>—</strong></div></div>
+      <div class="arr">›</div>
+      <div class="step" id="cSplit"><div class="sh"><span style="color:var(--purple)">⟋</span><span class="sn" style="color:var(--purple)">Split</span><span class="ss p" id="sSplit">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pSplit"></div></div><div class="si" id="iSplit">Hist/Live: <strong>—</strong></div></div>
+      <div class="arr">›</div>
+      <div class="step" id="cBatch"><div class="sh"><span style="color:var(--orange)">🗄</span><span class="sn" style="color:var(--orange)">Batch</span><span class="ss p" id="sBatch">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pBatch"></div></div><div class="si" id="iBatch">Files: <strong>—</strong></div></div>
+      <div class="arr">›</div>
+      <div class="step" id="cMqtt"><div class="sh"><span style="color:var(--yellow)">⚡</span><span class="sn" style="color:var(--yellow)">MQTT</span><span class="ss p" id="sMqtt">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pMqtt"></div></div><div class="si" id="iMqtt">Broker: <strong>—</strong></div></div>
+    </div>
+  </div>
+
+  <div class="ph" id="ph1">
+    <div class="ph-hdr"><span>⟳</span><span class="ph-title">Phase 1</span><span class="ph-sub">— concurrent streams</span><div class="ph-badge" id="ph1Badge">Pending</div></div>
+    <div class="streams">
+      <div class="st" id="stA"><div class="st-hdr"><div class="badge-circle ba">A</div><span class="st-lbl">Historic Upload</span></div><div class="st-prog"><div class="st-fill fa" id="pA"></div></div><div class="st-stat" id="iA">Batch <strong>0</strong> / <strong id="totB">—</strong></div><div class="st-detail" id="dA">seq-id:1 · encrypted</div></div>
+      <div class="st" id="stB"><div class="st-hdr"><div class="badge-circle bb">B</div><span class="st-lbl">GPS L1 MQTT</span></div><div class="st-prog"><div class="st-fill fb" id="pB"></div></div><div class="st-stat" id="iB">Published: <strong>0</strong></div><div class="st-detail">topic: TARGET/obd · l:"1"</div></div>
+      <div class="st" id="stC"><div class="st-hdr"><div class="badge-circle bc">C</div><span class="st-lbl">OBD Accumulation</span></div><div class="st-prog"><div class="st-fill fc" id="pC"></div></div><div class="st-stat" id="iC">Rows: <strong>0</strong></div><div class="st-detail">live_obd_TARGET.db</div></div>
+    </div>
+  </div>
+
+  <div class="ph" id="ph2">
+    <div class="ph-hdr"><span>▶</span><span class="ph-title">Phase 2</span><span class="ph-sub">— sequential</span><div class="ph-badge" id="ph2Badge">Pending</div></div>
+    <div class="streams">
+      <div class="st" id="p2Up"><div class="st-hdr"><div class="badge-circle" style="background:var(--green)">↑</div><span class="st-lbl">OBD Upload</span></div><div class="st-prog"><div class="st-fill fg2" id="pP2U"></div></div><div class="st-stat" id="iP2U">live_obd_<strong id="p2Imei">—</strong>.db</div><div class="st-detail">Accumulated in Phase 1</div></div>
+      <div class="st" id="p2Str" style="flex:2"><div class="st-hdr"><div class="badge-circle" style="background:var(--blue)">⟳</div><span class="st-lbl">Normal Mode Streaming</span></div><div class="st-prog"><div class="st-fill fblue" id="pP2S"></div></div><div class="st-stat" id="iP2S">Published: <strong>0</strong> / <strong id="p2Tot">—</strong></div><div class="st-detail">GPS + OBD · 60s interval</div></div>
+    </div>
+  </div>
+
+  <!-- MQTT Direct mode publish card (shown instead of Phase 1/2) -->
+  <div class="ph" id="mqttDirectCard" style="display:none">
+    <div class="ph-hdr"><span>⚡</span><span class="ph-title">MQTT Direct</span><span class="ph-sub">— one packet at a time</span><div class="ph-badge" id="mqttDirectBadge">Pending</div></div>
+    <div class="streams">
+      <div class="st" id="mdGps">
+        <div class="st-hdr"><div class="badge-circle" style="background:var(--green)">G</div><span class="st-lbl">GPS</span></div>
+        <div class="st-prog"><div class="st-fill" style="background:var(--green)" id="mdGpsFill"></div></div>
+        <div class="st-stat" id="mdGpsStat">Published: <strong>0</strong> / <strong id="mdGpsTotal">—</strong></div>
+        <div class="st-detail" id="mdGpsInterval">interval: —</div>
+      </div>
+      <div class="st" id="mdObd">
+        <div class="st-hdr"><div class="badge-circle" style="background:var(--orange)">O</div><span class="st-lbl">OBD</span></div>
+        <div class="st-prog"><div class="st-fill" style="background:var(--orange)" id="mdObdFill"></div></div>
+        <div class="st-stat" id="mdObdStat">Published: <strong>0</strong> / <strong id="mdObdTotal">—</strong></div>
+        <div class="st-detail" id="mdObdInterval">interval: —</div>
+      </div>
+      <div class="st" id="mdErr">
+        <div class="st-hdr"><div class="badge-circle" style="background:var(--red)">!</div><span class="st-lbl">Errors</span></div>
+        <div class="st-prog"><div class="st-fill" style="background:var(--red)" id="mdErrFill"></div></div>
+        <div class="st-stat" id="mdErrStat">Errors: <strong>0</strong></div>
+        <div class="st-detail">auto-reconnect on drop</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="elapsed-bar" id="elapsed"></div>
+</div>
+
+<!-- Log panel -->
+<div class="logs">
+  <div class="log-hdr">
+    <span class="log-title">Live Logs</span>
+    <div class="pills">
+      <span class="pill on" id="pAll" onclick="filt('all',this)">ALL</span>
+      <span class="pill" id="pInfo" onclick="filt('info',this)">INFO</span>
+      <span class="pill" id="pWarn" onclick="filt('warn',this)">WARN</span>
+      <span class="pill" id="pErr" onclick="filt('err',this)">ERR</span>
+    </div>
+    <span class="clr" onclick="clearLog()">✕</span>
+  </div>
+  <div class="log-body" id="logBody"></div>
+  <div class="log-ftr">
+    <button class="xbtn" onclick="xport('txt')">↓ .txt</button>
+    <button class="xbtn" onclick="xport('json')">↓ .json</button>
+    <button class="xbtn" onclick="xport('csv')">↓ .csv</button>
+  </div>
+</div>
+</div><!-- end .main -->
+</div><!-- end .app-wrap -->
+
+<script>
+// ── State bridge ──────────────────────────────────────────────
+let activeTest = null;
+let activeRegion = null;
+let dry = false, logs = [], timers = [], running = false, T0 = null, rafId = null, af = 'all';
+let paused = false, pausedAt = null, pendingEvs = [];
+let _runId = null;
+let _liveMetrics = { totalPackets:0, historicPackets:0, liveGps:0, liveObd:0, batchesUploaded:0, errors:0 };
+
+function populateRegionDropdown() {
+  const sel = g('hdrRegion');
+  const regions = SimState.getRegions();
+  sel.innerHTML = Object.entries(regions).map(([k, r]) =>
+    `<option value="${k}">${r.label} — ${r.sub}</option>`
+  ).join('');
+  sel.value = SimState.getActiveRegionKey();
+}
+
+function onHdrRegionChange(key) {
+  SimState.setActiveRegionKey(key);
+  SimNav._refreshRegion();
+  activeRegion = SimState.getRegion(key);
+  renderCfgSummary();
+}
+
+window.onRegionChange = function(key) {
+  g('hdrRegion').value = key;
+  activeRegion = SimState.getRegion(key);
+  renderCfgSummary();
+};
+
+function loadFromState() {
+  activeTest = SimState.getActiveTest();
+  if (!activeTest) return;
+  activeRegion = SimState.getRegion(SimState.getActiveRegionKey());
+  populateRegionDropdown();
+  renderTestList();
+  renderCfgSummary();
+  adaptForMode((activeTest||{}).mode || 'simulate');
+}
+
+function renderTestList() {
+  const tests = SimState.getTests();
+  g('testList').innerHTML = tests.map(t => {
+    const r = SimState.getRegion(t.regionKey) || {};
+    const isOn = activeTest && t.id === activeTest.id;
+    return `<div class="ti${isOn?' on':''}" onclick="selectTest(${t.id})">
+      <div class="ti-accent" style="background:${r.color||'var(--t2)'}"></div>
+      <div class="ti-body">
+        <div class="ti-name">${t.name}</div>
+        <div class="ti-meta">
+          <span class="${SimNav.regionBadgeClass(t.regionKey)}">${SimNav.regionShort(t.regionKey)}</span>
+          <span class="badge badge-${t.mode||'simulate'}">${t.mode||'simulate'}</span>
+        </div>
+      </div>
+      <span class="ti-del" onclick="delTest(event,${t.id})">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function updGlobal(key, raw, dispId) {
+  const n = parseFloat(raw);
+  if (!isFinite(n)) return;
+  SimState.setGlobal({ [key]: n });
+  // Legacy display update (sliders have been replaced by inputs that show their own values)
+  if (dispId) { const el = document.getElementById(dispId); if (el) el.textContent = Math.round(n); }
+}
+
+function updGlobalMs(key, secVal) {
+  const sec = parseFloat(secVal);
+  if (!isFinite(sec) || sec <= 0) return;
+  const ms = Math.round(sec * 1000);
+  SimState.setGlobal({ [key]: ms });
+  // Push live changes to running MQTT Direct simulation
+  if (running && (key === 'gpsL1IntervalMs' || key === 'obdAccumIntervalMs') && (activeTest||{}).mode === 'mqtt-pub') {
+    const g2 = SimState.getGlobal();
+    const gps = Math.round(clampInterval(g2.gpsL1IntervalMs || 10000));
+    const obd = Math.round(clampInterval(g2.obdAccumIntervalMs || 5000));
+    window.go.main.App.UpdateMQTTPubIntervals(gps, obd).catch(() => {});
+    const gi = g('mdGpsInterval'), oi = g('mdObdInterval');
+    if (gi) gi.textContent = 'interval: ' + fmtInterval(gps);
+    if (oi) oi.textContent = 'interval: ' + fmtInterval(obd);
+  }
+}
+function clampInterval(ms) { return Math.min(Math.max(ms, 1000), 60000); }
+function fmtInterval(ms) { return ms >= 1000 ? (ms/1000).toFixed(1)+'s' : ms+'ms'; }
+
+function patchActiveTest(key, val) {
+  if (!activeTest || running) return;
+  activeTest[key] = val;
+  SimState.saveTest(activeTest);
+  updateWindowDurations();
+  if (key === 'mode') { renderCfgSummary(); adaptForMode(val); }
+}
+
+function updateWindowDurations() {
+  if (!activeTest) return;
+  const sd = s => { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d.getTime(); };
+  const fromMs = sd(activeTest.from), untilMs = sd(activeTest.until), histMs = sd(activeTest.histEnd);
+  const fmtDur = ms => { if (!ms || ms <= 0) return '—'; const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000); return h > 0 ? h+'h '+m+'m' : m+'m'; };
+  const wt = document.getElementById('wdTotal'); if (wt) wt.textContent = fromMs && untilMs ? fmtDur(untilMs - fromMs) : '—';
+  const wh = document.getElementById('wdHist');  if (wh) wh.textContent = fromMs && histMs  ? fmtDur(histMs - fromMs)  : '—';
+  const wl = document.getElementById('wdLive');  if (wl) wl.textContent = histMs && untilMs ? fmtDur(untilMs - histMs) : '—';
+}
+
+function renderCfgSummary() {
+  if (!activeTest || !activeRegion) { g('cfgSum').innerHTML=''; return; }
+  const t = activeTest, r = activeRegion;
+  const masked = v => v ? '••••••••' : '(not set)';
+  const lf = (lbl,val,hi,isMasked) =>
+    `<div class="locked-field"><span class="lf-lbl">${lbl}</span><span class="lf-val${hi?' hi':''}${isMasked?' hidden':''}">${isMasked?masked(val):val||'—'}</span></div>`;
+  const lfIn = (lbl, key, val, type) =>
+    `<div class="locked-field"><span class="lf-lbl">${lbl}</span><input class="lf-inp" type="${type||'text'}" value="${val||''}" oninput="patchActiveTest('${key}',this.value)"></div>`;
+  const lfSel = (lbl, key, val, opts) =>
+    `<div class="locked-field"><span class="lf-lbl">${lbl}</span><select class="lf-inp" onchange="patchActiveTest('${key}',this.value)">${opts.map(([v,l])=>`<option value="${v}"${val===v?' selected':''}>${l}</option>`).join('')}</select></div>`;
+  const lfTg = (lbl, key, val, offLbl, onLbl) =>
+    `<div class="locked-field"><span class="lf-lbl">${lbl}</span><div class="lf-tg-wrap"><div class="tg${val?' on':''}" data-flag="${key}" onclick="toggleTestFlag('${key}','${onLbl}','${offLbl}')"></div><span class="lf-tg-lbl">${val ? onLbl : offLbl}</span></div></div>`;
+
+  // Window durations
+  const sd = s => { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d.getTime(); };
+  const fromMs = sd(t.from), untilMs = sd(t.until), histMs = sd(t.histEnd);
+  const fmtDur = ms => { if (!ms || ms <= 0) return '—'; const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000); return h > 0 ? h+'h '+m+'m' : m+'m'; };
+  const totalDur = fromMs && untilMs ? fmtDur(untilMs - fromMs) : '—';
+  const histDur  = fromMs && histMs  ? fmtDur(histMs - fromMs)  : '—';
+  const liveDur  = histMs && untilMs ? fmtDur(untilMs - histMs) : '—';
+
+  // MQTT connection strings — highlight whichever is active
+  const mqttTls   = `${r.mqttProtocol||'mqtts'}://${r.mqttBroker||'—'}:${r.mqttPort||8884}`;
+  const mqttPlain = r.mqttBrokerPlain ? `mqtt://${r.mqttBrokerPlain}:${r.mqttPortPlain||1883}` : '—';
+  const _usePlain = !!t.usePlainMqtt;
+  const _effPlain = _usePlain && !!r.mqttBrokerPlain;
+  const mqttFallbackNote = _usePlain && !r.mqttBrokerPlain ? '<div style="font-size:8px;color:#f59e0b;margin-top:3px">⚠ Plain broker not set — using TLS as fallback</div>' : '';
+
+  // Global timing
+  const gl = SimState.getGlobal();
+  // tRow: time-based (ms stored, shown in seconds) or count-based (isCount=true)
+  const tRow = (lbl, key, minMs, maxMs, stepMs, valMs, isCount) => {
+    if (isCount) {
+      return `<div class="ct-row"><span class="ct-lbl">${lbl}</span><div class="ct-inp-wrap"><input class="ct-inp" type="number" min="${minMs}" max="${maxMs}" step="${stepMs}" value="${Math.round(valMs)}" onchange="updGlobal('${key}',this.value,null)" oninput="updGlobal('${key}',this.value,null)"></div></div>`;
+    }
+    const sec = Math.round(valMs / 1000);
+    return `<div class="ct-row"><span class="ct-lbl">${lbl}</span><div class="ct-inp-wrap"><input class="ct-inp" type="number" min="${Math.round(minMs/1000)}" max="${Math.round(maxMs/1000)}" step="${Math.max(1,Math.round(stepMs/1000))}" value="${sec}" onchange="updGlobalMs('${key}',this.value)" oninput="updGlobalMs('${key}',this.value)"><span class="ct-unit">s</span></div></div>`;
+  };
+
+  const isMqttDirect = (t.mode || 'simulate') === 'mqtt-pub';
+  const isFetch = (t.mode || 'simulate') === 'fetch';
+
+  g('cfgSum').innerHTML = `
+    <div class="cs-sec">
+      <div class="cs-hdr open" onclick="togCs(this)"><span>⊙</span>Device<span class="ch">›</span></div>
+      <div class="cs-body open">
+        ${lfIn('Src IMEI', 'srcImei', t.srcImei)}
+        ${lfIn('Tgt IMEI', 'tgtImei', t.tgtImei)}
+        ${lfSel('Switch', 'mode', t.mode||'simulate', [['simulate','Simulate'],['pipeline','Pipeline'],['fetch','Fetch only'],['mqtt-pub','MQTT Direct']])}
+        ${lfTg('Connection', 'usePlainMqtt', !!t.usePlainMqtt, 'Secure (TLS)', 'Plain (TCP)')}
+        ${lfTg('Encrypt', 'encrypt', !!t.encrypt, 'Off', 'On')}
+        ${lfTg('L1 Enrich', 'enrichL1', !!t.enrichL1, 'Off', 'On')}
+        ${lfIn('From', 'from', t.from, 'datetime-local')}
+        ${lfIn('Until', 'until', t.until, 'datetime-local')}
+        ${lfIn('Hist End', 'histEnd', t.histEnd, 'datetime-local')}
+      </div>
+    </div>
+    ${!isFetch ? `<div class="cs-sec">
+      <div class="cs-hdr" onclick="togCs(this)"><span>⚡</span>MQTT<span class="ch">›</span></div>
+      <div class="cs-body">
+        ${lf('TLS', mqttTls, !_effPlain)}
+        ${lf('Plain', mqttPlain, _effPlain)}
+        ${lf('Certs', r.tlsCerts)}
+        ${mqttFallbackNote}
+      </div>
+    </div>` : ''}
+    ${!isMqttDirect && !isFetch ? `<div class="cs-sec">
+      <div class="cs-hdr" onclick="togCs(this)"><span>↑</span>Upload<span class="ch">›</span></div>
+      <div class="cs-body">
+        ${lf('URL', r.uploadUrl)}
+        ${lf('API Token', r.apiToken, false, true)}
+        ${lf('User Token', r.userToken, false, true)}
+        ${lf('Session', r.sessionToken, false, true)}
+      </div>
+    </div>` : ''}
+    ${!isMqttDirect && !isFetch ? `<div class="cs-sec">
+      <div class="cs-hdr" onclick="togCs(this)"><span>🔐</span>Encryption<span class="ch">›</span></div>
+      <div class="cs-body">
+        ${lf('Active', t.encrypt ? 'On' : 'Off', !!t.encrypt)}
+        ${lf('AES Ver', r.aesVersion==='2'?'v2 (256-ECB)':'v1 (128-ECB)')}
+        ${lf('RSA Key', r.rsaKey||'embedded')}
+      </div>
+    </div>` : ''}
+    <div class="cs-sec">
+      <div class="cs-hdr" onclick="togCs(this)"><span>⊡</span>Window<span class="ch">›</span></div>
+      <div class="cs-body">
+        <div class="locked-field"><span class="lf-lbl">Total</span><span class="lf-val" id="wdTotal">${totalDur}</span></div>
+        <div class="locked-field"><span class="lf-lbl">Historic</span><span class="lf-val hi" id="wdHist">${histDur}</span></div>
+        <div class="locked-field"><span class="lf-lbl">Live</span><span class="lf-val" id="wdLive">${liveDur}</span></div>
+      </div>
+    </div>
+    <div class="cs-sec">
+      <div class="cs-hdr" onclick="togCs(this)"><span>⏱</span>Timing<span class="ch">›</span></div>
+      <div class="cs-body">
+        ${isFetch ? `
+        ${tRow('Batch Size', 'batchSize', 5, 100, 5, gl.batchSize||30, true)}
+        ` : isMqttDirect ? `
+        ${tRow('GPS Interval', 'gpsL1IntervalMs', 1000, 60000, 1000, Math.min(Math.max(gl.gpsL1IntervalMs||10000,1000),60000))}
+        ${tRow('OBD Interval', 'obdAccumIntervalMs', 1000, 60000, 1000, Math.min(Math.max(gl.obdAccumIntervalMs||5000,1000),60000))}
+        ` : `
+        ${tRow('Batch Upload', 'batchUploadDelayMs', 30000, 600000, 10000, gl.batchUploadDelayMs||120000)}
+        ${tRow('GPS L1 Interval', 'gpsL1IntervalMs', 5000, 60000, 5000, gl.gpsL1IntervalMs||10000)}
+        ${tRow('OBD Accum', 'obdAccumIntervalMs', 30000, 600000, 10000, gl.obdAccumIntervalMs||120000)}
+        ${tRow('Normal Mode', 'normalModeIntervalMs', 10000, 300000, 5000, gl.normalModeIntervalMs||60000)}
+        ${tRow('Batch Size', 'batchSize', 5, 100, 5, gl.batchSize||30, true)}
+        `}
+      </div>
+    </div>
+    <div class="cs-sec">
+      <div class="cs-hdr" onclick="togCs(this)"><span>💾</span>Resume State<button class="cs-clr-btn" onclick="event.stopPropagation();clearTestState()">✕ Clear</button><span class="ch">›</span></div>
+      <div class="cs-body">
+        <div class="kv"><span class="k">Fetch Done</span><span class="v" id="rsFetch">false</span></div>
+        <div class="kv"><span class="k">Pkts</span><span class="v" id="rsPkts">0</span></div>
+        <div class="kv"><span class="k">Batches</span><span class="v" id="rsBatches">0</span></div>
+        <div class="kv"><span class="k">OBD Idx</span><span class="v" id="rsObd">0</span></div>
+        <div class="kv"><span class="k">Ph1 Done</span><span class="v" id="rsP1">false</span></div>
+        <div class="kv"><span class="k">Ph2 Done</span><span class="v" id="rsP2">false</span></div>
+      </div>
+    </div>
+  `;
+  initDatePickers();
+}
+
+function togCs(h) { h.classList.toggle('open'); h.nextElementSibling.classList.toggle('open'); }
+
+function adaptForMode(mode) {
+  const isMD = mode === 'mqtt-pub';
+  const isFetch = mode === 'fetch';
+  // Batch step + its arrow: hidden in mqtt-pub
+  const cBatch = g('cBatch');
+  if (cBatch) {
+    cBatch.style.display = isMD ? 'none' : '';
+    const arrB = cBatch.previousElementSibling;
+    if (arrB && arrB.classList.contains('arr')) arrB.style.display = isMD ? 'none' : '';
+  }
+  // MQTT step + its arrow: hidden in fetch (no MQTT in fetch-only mode)
+  const cMqtt = g('cMqtt');
+  if (cMqtt) {
+    cMqtt.style.display = isFetch ? 'none' : '';
+    const arrM = cMqtt.previousElementSibling;
+    if (arrM && arrM.classList.contains('arr')) arrM.style.display = isFetch ? 'none' : '';
+  }
+  // Phase 1/2 cards: hidden in mqtt-pub and fetch
+  const ph1 = g('ph1'), ph2 = g('ph2'), md = g('mqttDirectCard');
+  if (ph1) ph1.style.display = (isMD || isFetch) ? 'none' : '';
+  if (ph2) ph2.style.display = (isMD || isFetch) ? 'none' : '';
+  if (md)  md.style.display  = isMD ? '' : 'none';
+  // Rename Split step label
+  const splitName = document.querySelector('#cSplit .sn');
+  if (splitName) splitName.textContent = isMD ? 'Filter' : 'Split';
+}
+
+function selectTest(id) {
+  if (running) return;
+  SimState.setActiveTest(id);
+  activeTest = SimState.getActiveTest();
+  activeRegion = SimState.getRegion(SimState.getActiveRegionKey());
+  renderTestList();
+  renderCfgSummary();
+}
+
+function delTest(ev, id) {
+  ev.stopPropagation();
+  if (running) return;
+  const el = ev.currentTarget;
+  if (el.dataset.confirm === '1') {
+    SimState.deleteTest(id);
+    activeTest = SimState.getActiveTest();
+    activeRegion = SimState.getRegion(SimState.getActiveRegionKey());
+    renderTestList();
+    renderCfgSummary();
+  } else {
+    el.dataset.confirm = '1';
+    el.textContent = '✓?';
+    el.style.color = 'var(--red)';
+    el.style.opacity = '1';
+    setTimeout(() => {
+      el.dataset.confirm = '';
+      el.textContent = '✕';
+      el.style.color = '';
+      el.style.opacity = '';
+    }, 2000);
+  }
+}
+
+function toggleTestFlag(key, onLbl, offLbl) {
+  if (!activeTest || running) return;
+  const newVal = !activeTest[key];
+  activeTest[key] = newVal;
+  SimState.saveTest(activeTest);
+  const tgEl = document.querySelector(`.tg[data-flag="${key}"]`);
+  if (tgEl) {
+    tgEl.classList.toggle('on', newVal);
+    const lbl = tgEl.nextElementSibling;
+    if (lbl) lbl.textContent = newVal ? onLbl : offLbl;
+  }
+}
+
+function goNewTest() { location.href = 'sim-settings.html'; }
+
+// ── Utilities ─────────────────────────────────────────────────
+function g(id){return document.getElementById(id)}
+function setS(id,html){const e=g(id);if(e)e.innerHTML=html}
+function setStatus(state,txt){g('sDot').className='dot dot-'+(state||'idle');g('sTxt').textContent=txt}
+function updateRing(pct){const c=289;g('ringArc').style.strokeDashoffset=c*(1-pct/100);g('ringPct').textContent=Math.round(pct)+'%'}
+function setRingPhase(txt){const el=g('ringPhase');el.className='ring-phase-badge'+(txt==='Done'?' done':txt==='Idle'?'':' run');el.innerHTML='<span class="ring-phase-dot"></span>'+txt}
+function rafLoop(){if(!running||!T0){rafId=null;return;}if(paused){rafId=null;return;}const e=Date.now()-T0;const pct=Math.min(100,e/34000*100);updateRing(pct);const sec=e/1000;const m=Math.floor(sec/60);const s=(sec%60).toFixed(1).padStart(4,'0');g('ringElapsed').textContent=(m>0?m+':'+s.padStart(4,'0'):s)+'s';g('elapsed').textContent='Elapsed: '+sec.toFixed(1)+'s';rafId=requestAnimationFrame(rafLoop)}
+function run(c,s){g(c).className='step run';const el=g(s);el.className='ss r';el.textContent='Running'}
+function done(c,s,p){g(c).className='step done';const el=g(s);el.className='ss d';el.textContent='Done';const pe=g(p);if(pe){pe.style.width='100%';pe.classList.add('done')}}
+function prog(pid,pct,_,iid,html){const p=g(pid);if(p)p.style.width=pct+'%';if(iid&&html)setS(iid,html)}
+function phBadge(id,txt,isRun,isOk){const b=g(id);if(isOk){b.style.background='rgba(52,211,153,.12)';b.style.color='var(--green)';}else if(isRun){b.style.background='rgba(167,139,250,.14)';b.style.color='var(--blue)';}else{b.style.background='var(--bg2)';b.style.color='var(--t2)';}b.textContent=txt}
+function rs(id,val,isOk){const e=g(id);if(!e)return;e.textContent=val;e.className='v '+(isOk?'ok':'hi')}
+function mc(valId,barId,disp,cur,max,rBarId,rLblId){setS(valId,disp);const pct=Math.round(cur/max*100);[barId,rBarId].forEach(id=>{const e=g(id);if(e)e.style.width=pct+'%'});const rl=g(rLblId);if(rl)rl.textContent=disp}
+function sA(cur,tot,n){g('pA').style.width=Math.round(cur/tot*100)+'%';setS('iA',`Batch <strong>${cur}</strong>/<strong>${tot}</strong>`);setS('dA',`Upload #${n} · encrypted`);g('stA').classList.add('on')}
+function sB(pub,tot){g('pB').style.width=Math.round(pub/tot*100)+'%';setS('iB',`Published: <strong>${pub}</strong>`);g('stB').classList.add('on')}
+function sC(rows,tot){g('pC').style.width=Math.round(rows/tot*100)+'%';setS('iC',`Rows: <strong>${rows}</strong>`);g('stC').classList.add('on')}
+function p2U(pct){g('pP2U').style.width=pct+'%';setS('iP2U',`live_obd_<strong>${(activeTest||{}).tgtImei||'—'}</strong>.db ✓`);g('p2Up').classList.add('on')}
+function p2S(cur,tot){g('pP2S').style.width=Math.round(cur/tot*100)+'%';setS('iP2S',`Published: <strong>${cur}</strong>/<strong>${tot}</strong>`);g('p2Str').classList.add('on')}
+
+// ── Log ───────────────────────────────────────────────────────
+function addLog(ts,tag,cls,msg,ty,rawData){const e={ts,tag,cls,msg,ty,rawData};logs.push(e);renderEntry(e)}
+function renderEntry(e){if(af!=='all'&&e.ty!==af)return;const d=document.createElement('div');d.className='le';d.dataset.ty=e.ty;const mc2=e.ty==='ok'?'ok':e.ty==='warn'?'warn':e.ty==='err'?'err':e.ty==='ph'?'ph':'';const hasP=e.rawData&&e.rawData.payload;d.innerHTML=`<span class="lts">${e.ts}</span><span class="ltg ${e.cls}">[${e.tag}]</span><span class="lm ${mc2}">${e.msg}</span>${hasP?'<span class="le-exp">{…}</span>':''}`;if(hasP){const pre=document.createElement('pre');pre.className='le-payload';pre.style.display='none';try{pre.textContent=JSON.stringify(JSON.parse(e.rawData.payload),null,2);}catch(_){pre.textContent=e.rawData.payload;}const btn=d.querySelector('.le-exp');btn.addEventListener('click',function(ev){ev.stopPropagation();const show=pre.style.display==='none';pre.style.display=show?'block':'none';this.textContent=show?'{✕}':'{…}';});d.appendChild(pre);}const b=g('logBody');b.appendChild(d);b.scrollTop=b.scrollHeight}
+function clearLog(){logs=[];g('logBody').innerHTML=''}
+function filt(type,el){af=type;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on','g','y','r'));el.classList.add('on');if(type==='warn')el.classList.add('y');if(type==='err')el.classList.add('r');g('logBody').innerHTML='';logs.forEach(e=>renderEntry(e))}
+function xport(fmt){let content,mime,ext;const now=new Date().toISOString().replace(/[:.]/g,'-');if(fmt==='txt'){content=logs.map(e=>`${e.ts.padEnd(8)}  [${e.tag.padEnd(12)}]  ${e.msg}`).join('\n');mime='text/plain';ext='txt';}else if(fmt==='json'){content=JSON.stringify(logs.map(e=>{const o={ts:e.ts,tag:e.tag,type:e.ty,msg:e.msg};if(e.rawData&&e.rawData.payload){try{o.payload=JSON.parse(e.rawData.payload);}catch(_){o.payload=e.rawData.payload;}}return o;}),null,2);mime='application/json';ext='json';}else{content='ts,tag,type,msg\n'+logs.map(e=>`"${e.ts}","${e.tag}","${e.ty}","${e.msg.replace(/"/g,'""')}"`).join('\n');mime='text/csv';ext='csv';}const blob=new Blob([content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`run-logs-${now}.${ext}`;a.click();URL.revokeObjectURL(a.href)}
+
+// ── Save run to history ────────────────────────────────────────
+function saveRunRecord(status) {
+  if (!activeTest || !_runId) return;
+  const completedAt = new Date().toISOString();
+  const durationSec = T0 ? (Date.now() - T0) / 1000 : 0;
+  SimState.updateRun(_runId, {
+    completedAt, status, durationSec: parseFloat(durationSec.toFixed(1)),
+    metrics: { ..._liveMetrics },
+    logSnapshot: logs.slice(-100).map(e => ({ ts:e.ts, tag:e.tag, cls:e.cls, ty:e.ty, msg:e.msg })),
+  });
+}
+
+// ── Wails-backed simulation ────────────────────────────────────────────────────
+let _evListenerOff = null; // cleanup handle
+let _simFinished = false;
+
+function waitForRuntime(timeoutMs) {
+  timeoutMs = timeoutMs || 5000;
+  if (window.runtime) return Promise.resolve();
+  return new Promise(function(resolve, reject) {
+    var deadline = Date.now() + timeoutMs;
+    var t = setInterval(function() {
+      if (window.runtime) { clearInterval(t); resolve(); }
+      else if (Date.now() >= deadline) { clearInterval(t); reject(new Error('Wails runtime unavailable after ' + timeoutMs + 'ms')); }
+    }, 50);
+  });
+}
+
+function buildSimConfig() {
+  const t = activeTest || {};
+  const r = activeRegion || {};
+  const g2 = SimState.getGlobal();
+  const toMs = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
+  const isMqttPub = (t.mode || 'simulate') === 'mqtt-pub';
+  // Per-test connection override: plain TCP vs secure TLS.
+  // Fall back to TLS automatically if plain is toggled on but no plain broker is configured.
+  const usePlain   = !!t.usePlainMqtt;
+  const effectivePlain = usePlain && !!r.mqttBrokerPlain;
+  const mqttProtocol = effectivePlain ? 'mqtt'                              : (r.mqttProtocol || 'mqtts');
+  const mqttBroker   = effectivePlain ? (r.mqttBrokerPlain)                 : (r.mqttBroker   || '');
+  const mqttPort     = effectivePlain ? (r.mqttPortPlain   || 1883)         : (r.mqttPort     || 8884);
+  const tlsCerts     = effectivePlain ? 'none'                              : (r.tlsCerts     || 'embedded');
+  // In MQTT Direct mode clamp GPS/OBD intervals to the slider range (1s–60s).
+  // Stored values from other modes (e.g. 120s OBD accum) would otherwise make each packet wait 2 min.
+  const clamp = (v, lo, hi, def) => { const n = v || def; return Math.min(Math.max(n, lo), hi); };
+  const gpsMs = isMqttPub ? clamp(g2.gpsL1IntervalMs,    1000, 60000, 10000) : (g2.gpsL1IntervalMs    || 10000);
+  const obdMs = isMqttPub ? clamp(g2.obdAccumIntervalMs, 1000, 60000,  5000) : (g2.obdAccumIntervalMs || 120000);
+  return {
+    srcImei: t.srcImei || '',
+    tgtImei: t.tgtImei || '',
+    fromMs:  toMs(t.from),
+    untilMs: toMs(t.until),
+    historyEndMs: toMs(t.histEnd),
+    apiBase:      r.apiBase || '',
+    apiToken:     r.apiToken || '',
+    userToken:    r.userToken || '',
+    sessionToken: r.sessionToken || '',
+    uploadUrl:    r.uploadUrl || '',
+    mqttProtocol,
+    mqttBroker,
+    mqttPort,
+    tlsCerts,
+    mqttUsername: r.mqttUsername || '',
+    // When plain is active, pass TLS settings as fallback so Go can retry automatically.
+    fallbackMqttProtocol: effectivePlain ? (r.mqttProtocol || 'mqtts') : '',
+    fallbackMqttBroker:   effectivePlain ? (r.mqttBroker   || '')       : '',
+    fallbackMqttPort:     effectivePlain ? (r.mqttPort     || 8884)     : 0,
+    fallbackTlsCerts:     effectivePlain ? (r.tlsCerts     || 'embedded'): '',
+    encryptEnabled: !!t.encrypt,
+    enrichL1:       !!t.enrichL1,
+    aesVersion:   parseInt(r.aesVersion||'2', 10),
+    rsaKey:       r.rsaKey || 'embedded',
+    batchSize:    g2.batchSize || 30,
+    batchUploadDelayMs: g2.batchUploadDelayMs || 120000,
+    gpsL1IntervalMs:    gpsMs,
+    obdAccumIntervalMs: obdMs,
+    normalModeIntervalMs: g2.normalModeIntervalMs || 60000,
+    apiPageSize:   g2.apiPageSize || 1000,
+    apiRequestDelay: g2.apiRequestDelay || 300,
+    outputDir:    g2.outputDir || '',
+    dryRun:       dry,
+    mode:         t.mode || 'simulate',
+  };
+}
+
+async function startSim() {
+  if (running || !activeTest) return;
+  _resetUI(); clearLog();
+  paused = false; pendingEvs = []; _simFinished = false;
+  running = true; T0 = Date.now();
+  _liveMetrics = { totalPackets:0, historicPackets:0, liveGps:0, liveObd:0, batchesUploaded:0, errors:0 };
+  _runId = SimState.newRunId();
+  SimState.addRun({ id:_runId, testId:activeTest.id, testName:activeTest.name, regionKey:SimState.getActiveRegionKey(), srcImei:activeTest.srcImei, tgtImei:activeTest.tgtImei, from:activeTest.from, until:activeTest.until, histEnd:activeTest.histEnd, mode:activeTest.mode, startedAt:new Date().toISOString(), completedAt:null, status:'running', durationSec:null, metrics:{}, logSnapshot:[] });
+  g('btnGo').disabled = true; g('btnStop').disabled = false; g('btnPause').disabled = false;
+  setStatus('run', 'Running');
+  setRingPhase('Starting');
+  rafId = requestAnimationFrame(rafLoop);
+
+  // Ensure Wails runtime bridge is ready before subscribing
+  try { await waitForRuntime(5000); } catch(e) {
+    addLog('+  0.0s', 'SYS', 'er', 'Wails bridge unavailable: ' + String(e), 'err');
+    stopSim(); return;
+  }
+
+  // Subscribe to events from Go
+  if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
+  try {
+    _evListenerOff = window.runtime.EventsOn('simulation:event', function(ev) {
+      const elapsed = ev.elapsed || 0;
+      const tsStr = '+' + (elapsed/1000).toFixed(1).padStart(5) + 's';
+      addLog(tsStr, ev.tag, ev.cls, ev.msg, ev.ty, ev.data || null);
+      handleSimStep(ev);
+    });
+  } catch(e) {
+    addLog('+  0.0s', 'SYS', 'er', 'EventsOn failed: ' + String(e), 'err');
+    stopSim(); return;
+  }
+
+  // Warn if plain TCP was toggled on but no plain broker is configured (will auto-use TLS)
+  if (!!(activeTest||{}).usePlainMqtt && !(activeRegion||{}).mqttBrokerPlain) {
+    addLog('+  0.0s', 'SYS', 'fe', '⚠ Plain TCP selected but no plain broker configured — using TLS fallback', 'warn');
+  }
+
+  try {
+    await window.go.main.App.StartSimulation(buildSimConfig());
+  } catch(e) {
+    addLog('+  0.0s', 'ERROR', 'er', String(e), 'err');
+    if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
+    stopSim();
+  }
+}
+
+function handleSimStep(ev) {
+  const step = ev.step;
+  const d = ev.data || {};
+  switch(step) {
+    case 'fetch:start':
+      run('cFetch','sFetch'); setS('stPkts','…'); setRingPhase('Fetching'); break;
+    case 'fetch:page':
+      prog('pFetch', Math.min(90, (d.page||1)*8));
+      setS('iFetch', 'Pages: <strong>' + (d.page||1) + '</strong>'); break;
+    case 'fetch:done':
+      done('cFetch','sFetch','pFetch');
+      mc('stPkts','mcPkts', Number(d.packets||0).toLocaleString(), d.packets||0, Math.max(1,d.packets||0), 'rmPkts','rmPktsLbl');
+      rs('rsFetch','true',true); rs('rsPkts', String(d.packets||0));
+      setS('iFetch','Pages: <strong>'+(d.pages||0)+'</strong> · '+(d.packets||0)+' pkts');
+      _liveMetrics.totalPackets = d.packets||0; break;
+    case 'split:done':
+      done('cSplit','sSplit','pSplit');
+      if ((activeTest||{}).mode === 'mqtt-pub') {
+        setS('iSplit','GPS: <strong>'+(d.liveGps||0)+'</strong> OBD: <strong>'+(d.liveObd||0)+'</strong>');
+      } else {
+        setS('iSplit',(d.historic||0)+' hist · '+(d.totalLive||0)+' live');
+      }
+      const maxPkts = Math.max(1, _liveMetrics.totalPackets||1);
+      mc('stHist','mcHist',String(d.historic||0),d.historic||0,maxPkts,'rmHist','rmHistLbl');
+      mc('stGps','mcGps',String(d.liveGps||0),d.liveGps||0,Math.max(1,d.totalLive||1),'rmGps','rmGpsLbl');
+      mc('stObd','mcObd',String(d.liveObd||0),d.liveObd||0,Math.max(1,d.totalLive||1),'rmObd','rmObdLbl');
+      _liveMetrics.historicPackets = d.historic||0; _liveMetrics.liveGps = d.liveGps||0; _liveMetrics.liveObd = d.liveObd||0;
+      if (d.batches) { g('totB').textContent=String(d.batches); g('p2Tot').textContent=String(d.totalLive||0); g('p2Imei').textContent=(activeTest||{}).tgtImei||'—'; }
+      break;
+    case 'batch:creating':
+      run('cBatch','sBatch'); setRingPhase('Batching'); break;
+    case 'batch:done':
+      done('cBatch','sBatch','pBatch'); setS('iBatch',(d.count||0)+' / '+(d.count||0)+' ✓'); break;
+    case 'mqtt:connect':
+      run('cMqtt','sMqtt'); setRingPhase('MQTT Connect'); break;
+    case 'mqtt:connected':
+      done('cMqtt','sMqtt','pMqtt'); setS('iMqtt','Connected ✓'); setStatus('live','Connected'); break;
+    case 'mqttpub:start': {
+      const gl = SimState.getGlobal();
+      const gps = clampInterval(gl.gpsL1IntervalMs || 10000);
+      const obd = clampInterval(gl.obdAccumIntervalMs || 5000);
+      const gi = g('mdGpsInterval'), oi = g('mdObdInterval');
+      if (gi) gi.textContent = 'interval: ' + fmtInterval(gps);
+      if (oi) oi.textContent = 'interval: ' + fmtInterval(obd);
+      const gt = g('mdGpsTotal'), ot = g('mdObdTotal');
+      if (gt) gt.textContent = String(d.gpsTotal || 0);
+      if (ot) ot.textContent = String(d.obdTotal || 0);
+      g('mqttDirectCard').classList.add('on');
+      phBadge('mqttDirectBadge','Running',true);
+      setRingPhase('Publishing');
+      break;
+    }
+    case 'mqttpub:packet': {
+      const cur = d.current || 0, tot = d.total || 1;
+      const gps = d.gps || 0, obd = d.obd || 0;
+      const gTot = d.gpsTotal || 1, oTot = d.obdTotal || 1;
+      g('mdGpsFill').style.width = Math.round(gps / gTot * 100) + '%';
+      g('mdObdFill').style.width = Math.round(obd / oTot * 100) + '%';
+      setS('mdGpsStat', `Published: <strong>${gps}</strong> / <strong>${d.gpsTotal||0}</strong>`);
+      setS('mdObdStat', `Published: <strong>${obd}</strong> / <strong>${d.obdTotal||0}</strong>`);
+      updateRing(Math.round(cur / tot * 100));
+      break;
+    }
+    case 'phase1:start':
+      g('ph1').classList.add('on'); phBadge('ph1Badge','Running',true); setRingPhase('Phase 1'); break;
+    case 'p1:upload':
+      sA(d.current||0, d.total||1, d.n||0); rs('rsBatches',String(d.current||0)); _liveMetrics.batchesUploaded = d.current||0; break;
+    case 'p1:gps':
+      sB(d.published||0, Math.max(1,d.total||1)); break;
+    case 'p1:obd':
+      sC(d.rows||0, Math.max(1,d.total||1)); rs('rsObd',String(d.rows||0)); break;
+    case 'phase1:done':
+      phBadge('ph1Badge','Done',false,true); rs('rsP1','true',true); break;
+    case 'phase2:start':
+      g('ph2').classList.add('on'); phBadge('ph2Badge','Running',true); setRingPhase('Phase 2'); break;
+    case 'p2:upload:done':
+      p2U(100); break;
+    case 'p2:stream':
+      p2S(d.current||0, Math.max(1,d.total||1)); break;
+    case 'phase2:done':
+      phBadge('ph2Badge','Done',false,true); rs('rsP2','true',true); setRingPhase('Done'); break;
+    case 'done':
+      setStatus('live','Complete');
+      if (d.metrics) Object.assign(_liveMetrics, d.metrics);
+      if ((activeTest||{}).mode === 'mqtt-pub') {
+        phBadge('mqttDirectBadge','Done',false,true);
+        const ef = g('mdErrFill'), es = g('mdErrStat');
+        const errs = (d.metrics||{}).errors || 0;
+        if (ef && d.metrics) ef.style.width = errs > 0 ? '100%' : '0';
+        if (es) setS('mdErrStat', 'Errors: <strong>' + errs + '</strong>');
+      }
+      saveRunRecord('done');
+      _simFinished = true;
+      if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
+      stopSim();
+      break;
+    case 'error':
+      _liveMetrics.errors = (_liveMetrics.errors||0)+1; break;
+  }
+}
+
+async function stopSim() {
+  if (!_simFinished && running && _runId) saveRunRecord('stopped');
+  if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
+  timers.forEach(clearTimeout); timers = []; running = false; paused = false; pendingEvs = [];
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  g('btnGo').disabled = false; g('btnStop').disabled = true;
+  const bp = g('btnPause'); bp.disabled = true;
+  bp.textContent = '⏸ PAUSE'; bp.onclick = pauseSim;
+  bp.style.background = ''; bp.style.color = '';
+  try { await window.go.main.App.StopSimulation(); } catch(e) {}
+}
+
+async function pauseSim() {
+  if (!running || paused) return;
+  paused = true; pausedAt = Date.now();
+  timers.forEach(clearTimeout); timers = [];
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  setRingPhase('Paused'); setStatus('pause','Paused');
+  const bp = g('btnPause');
+  bp.textContent = '⏵ RESUME'; bp.onclick = resumeSim;
+  bp.style.background = 'var(--green)'; bp.style.color = '#000';
+  try { await window.go.main.App.PauseSimulation(); } catch(e) {}
+}
+
+async function resumeSim() {
+  if (!running || !paused) return;
+  T0 += Date.now() - pausedAt; paused = false; pausedAt = null;
+  rafId = requestAnimationFrame(rafLoop);
+  const bp = g('btnPause');
+  bp.textContent = '⏸ PAUSE'; bp.onclick = pauseSim;
+  bp.style.background = 'var(--yellow)'; bp.style.color = '#000';
+  setStatus('run','Running');
+  try { await window.go.main.App.ResumeSimulation(); } catch(e) {}
+}
+
+function _resetUI() {
+  ['cFetch','cSplit','cBatch','cMqtt'].forEach(id=>g(id).className='step');
+  ['sFetch','sSplit','sBatch','sMqtt'].forEach(id=>{const e=g(id);e.className='ss p';e.textContent='Pending'});
+  ['pFetch','pSplit','pBatch','pMqtt','pA','pB','pC','pP2U','pP2S'].forEach(id=>{const e=g(id);if(e){e.style.width='0';e.classList.remove('done')}});
+  ['mcPkts','mcHist','mcGps','mcObd','rmPkts','rmHist','rmGps','rmObd'].forEach(id=>{const e=g(id);if(e)e.style.width='0'});
+  ['rmPktsLbl','rmHistLbl','rmGpsLbl','rmObdLbl'].forEach(id=>setS(id,'0'));
+  setS('iFetch','Pages: <strong>—</strong>');setS('iSplit','Hist/Live: <strong>—</strong>');setS('iBatch','Files: <strong>—</strong>');setS('iMqtt','Broker: <strong>—</strong>');
+  ['stPkts','stHist','stGps','stObd'].forEach(id=>setS(id,'0'));
+  setS('iA','Batch <strong>0</strong>/<strong>—</strong>');setS('iB','Published: <strong>0</strong>');setS('iC','Rows: <strong>0</strong>');setS('iP2U','live_obd_<strong>—</strong>.db');setS('iP2S','Published: <strong>0</strong>/<strong>—</strong>');
+  ['stA','stB','stC','p2Up','p2Str','ph1','ph2','mqttDirectCard'].forEach(id=>g(id).classList.remove('on'));
+  phBadge('ph1Badge','Pending');phBadge('ph2Badge','Pending');phBadge('mqttDirectBadge','Pending');
+  ['mdGpsFill','mdObdFill','mdErrFill'].forEach(id=>{const e=g(id);if(e)e.style.width='0'});
+  setS('mdGpsStat','Published: <strong>0</strong> / <strong id="mdGpsTotal">—</strong>');
+  setS('mdObdStat','Published: <strong>0</strong> / <strong id="mdObdTotal">—</strong>');
+  setS('mdErrStat','Errors: <strong>0</strong>');
+  ['rsFetch','rsP1','rsP2'].forEach(id=>{const e=g(id);if(e){e.textContent='false';e.className='v'}});
+  ['rsPkts','rsBatches','rsObd'].forEach(id=>{const e=g(id);if(e){e.textContent='0';e.className='v'}});
+  g('elapsed').textContent='';g('ringElapsed').textContent='00:00.0';
+  updateRing(0);setRingPhase('Idle');T0=null;_runId=null;setStatus('','Idle');
+  _liveMetrics={totalPackets:0,historicPackets:0,liveGps:0,liveObd:0,batchesUploaded:0,errors:0};
+  if (activeTest) adaptForMode(activeTest.mode||'simulate');
+}
+
+function resetSim() {
+  _simFinished = false;
+  stopSim(); clearLog();
+  _resetUI();
+}
+
+// ── Date pickers ─────────────────────────────────────────────
+let _fpInstances = [];
+function _fpPosition(self) {
+  var cal = self.calendarContainer;
+  var anchor = self.altInput || self.input;
+  var rect = anchor.getBoundingClientRect();
+  var calH = cal.offsetHeight || 305, calW = cal.offsetWidth || 310;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var sx = window.scrollX || 0, sy = window.scrollY || 0;
+  var spaceBelow = vh - rect.bottom - 6, spaceAbove = rect.top - 6;
+  var above = spaceAbove > spaceBelow && spaceBelow < calH;
+  var top = above ? rect.top + sy - calH - 4 : rect.bottom + sy + 4;
+  cal.classList.toggle('arrowTop', !above);
+  cal.classList.toggle('arrowBottom', above);
+  top = Math.max(sy + 4, Math.min(top, sy + vh - calH - 4));
+  var left = Math.max(4, Math.min(rect.left + sx, vw - calW - 4));
+  cal.style.top = top + 'px';
+  cal.style.left = left + 'px';
+}
+function initDatePickers() {
+  _fpInstances.forEach(function(fp){try{fp.destroy();}catch(e){}});
+  _fpInstances = [];
+  document.querySelectorAll('input[type="datetime-local"]').forEach(function(el) {
+    const origClass = el.className, origStyle = el.getAttribute('style')||'';
+    const savedOninput = el.oninput, savedOnchange = el.onchange;
+    const fp = flatpickr(el, {
+      enableTime: true, time_24hr: true,
+      dateFormat: 'Y-m-dTH:i', altInput: true, altFormat: 'd M Y  H:i',
+      allowInput: false, defaultDate: el.value || null,
+      position: _fpPosition,
+      onReady: function(_,__,inst) {
+        if (inst.altInput) {
+          inst.altInput.className = origClass + ' flatpickr-alt-input';
+          if (origStyle) inst.altInput.setAttribute('style', origStyle);
+          inst.altInput.placeholder = 'Pick a date…';
+        }
+      },
+      onChange: function() {
+        const h = savedOninput || savedOnchange;
+        if (h) h.call(el, {target:el});
+      }
+    });
+    _fpInstances.push(fp);
+  });
+}
+
+// ── Clear test state ──────────────────────────────────────────
+async function clearTestState() {
+  if (!activeTest) return;
+  const tgtImei = activeTest.tgtImei || '';
+  if (!tgtImei) { addLog('+  0.0s', 'SYS', 'er', 'No Target IMEI set', 'err'); return; }
+  const outDir = (SimState.getGlobal().outputDir) || '';
+  try {
+    await window.go.main.App.ClearTestState(outDir, tgtImei);
+    ['rsFetch','rsP1','rsP2'].forEach(id=>{const e=g(id);if(e){e.textContent='false';e.className='v'}});
+    ['rsPkts','rsBatches','rsObd'].forEach(id=>{const e=g(id);if(e){e.textContent='0';e.className='v'}});
+    addLog('+  0.0s', 'SYS', 'fe', 'Cleared batch & OBD state for ' + tgtImei, 'ok');
+  } catch(err) {
+    addLog('+  0.0s', 'SYS', 'er', 'Clear state failed: ' + String(err), 'err');
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  SimNav.inject('run');
+  loadFromState();
+  // Wails runtime is auto-injected — no extra setup needed
+});
+</script>
+</body>
+</html>

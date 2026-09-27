@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Device Simulator</title>
+<script src="sim-state.js"></script>
+<style>
+:root{--bg0:#09080e;--bg1:#100e1a;--bg2:#181526;--bg3:#221e33;--border:#2d2a40;--t0:#f0eaff;--t1:#b8acdc;--t2:#8878b8;--blue:#a78bfa;--green:#34d399;--yellow:#fbbf24;--red:#f87171}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg0);color:var(--t0);font-size:13px}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;zoom:1.25}
+
+.setup-wrap{width:460px;animation:fadeUp .35s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+.setup-logo{text-align:center;margin-bottom:28px}
+.logo-mark{font-size:42px;color:var(--blue);display:block;line-height:1;margin-bottom:10px;filter:drop-shadow(0 0 18px rgba(167,139,250,.5))}
+.logo-name{font-size:22px;font-weight:800;color:var(--t0);letter-spacing:-.02em}
+.logo-sub{font-size:12px;color:var(--t2);margin-top:4px}
+
+.setup-card{background:var(--bg1);border:1px solid var(--border);border-radius:14px;padding:28px 30px;box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 0 1px rgba(167,139,250,.06)}
+
+.step-num{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin-bottom:6px}
+.step-title{font-size:15px;font-weight:800;color:var(--t0);margin-bottom:4px}
+.step-desc{font-size:11px;color:var(--t1);line-height:1.6;margin-bottom:18px}
+
+.folder-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;transition:border-color .15s}
+.folder-box.chosen{border-color:rgba(167,139,250,.4)}
+.folder-icon{font-size:20px;flex-shrink:0;opacity:.8}
+.folder-path{flex:1;min-width:0}
+.folder-path-main{font-size:12px;font-weight:600;color:var(--t0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.folder-path-sub{font-size:10px;color:var(--t2);margin-top:2px}
+.folder-change{padding:5px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--t1);font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;outline:none;flex-shrink:0;transition:all .13s}
+.folder-change:hover{color:var(--t0);border-color:var(--t2)}
+
+.default-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:4px;font-size:9px;font-weight:700;color:var(--green);margin-bottom:16px}
+
+.divider{height:1px;background:var(--border);margin:22px 0}
+
+.note{display:flex;gap:10px;padding:11px 13px;background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.12);border-radius:7px;margin-bottom:22px}
+.note-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.note-text{font-size:10px;color:var(--t1);line-height:1.6}
+.note-text strong{color:var(--t0)}
+
+.cta-row{display:flex;align-items:center;gap:10px}
+.btn-start{flex:1;padding:11px 20px;background:var(--blue);border:none;border-radius:8px;color:#09080e;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s;outline:none}
+.btn-start:hover{filter:brightness(1.12);box-shadow:0 4px 20px rgba(167,139,250,.5)}
+.skip-link{font-size:10px;color:var(--t2);cursor:pointer;text-decoration:underline;white-space:nowrap;background:none;border:none;outline:none}
+.skip-link:hover{color:var(--t1)}
+
+.loading{text-align:center;padding:40px;color:var(--t2);font-size:12px}
+.loading-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--blue);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+</style>
+</head>
+<body>
+
+<div class="setup-wrap" id="setupWrap" style="display:none">
+  <div class="setup-logo">
+    <span class="logo-mark">◉</span>
+    <div class="logo-name">Device Simulator</div>
+    <div class="logo-sub">IoT Telemetry Simulation Tool</div>
+  </div>
+
+  <div class="setup-card">
+    <div class="step-num">First Launch Setup</div>
+    <div class="step-title">Where should the app store data?</div>
+    <div class="step-desc">
+      Batch files, telemetry output, and run data will be written here.
+      You can change this any time in Settings → Global Settings.
+    </div>
+
+    <div class="folder-box" id="folderBox">
+      <span class="folder-icon">📁</span>
+      <div class="folder-path">
+        <div class="folder-path-main" id="folderPathMain">Loading…</div>
+        <div class="folder-path-sub" id="folderPathSub">Default location</div>
+      </div>
+      <button class="folder-change" onclick="browseFolder()">Browse…</button>
+    </div>
+
+    <div id="defaultPill" class="default-pill">✓ Recommended default</div>
+
+    <div class="divider"></div>
+
+    <div class="note">
+      <span class="note-icon">🔒</span>
+      <div class="note-text">
+        <strong>macOS may ask for permission</strong> the first time files are written here.
+        Click <strong>Allow</strong> in that dialog to enable data output.
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <button class="btn-start" onclick="finishSetup()">Get Started →</button>
+      <button class="skip-link" onclick="skipSetup()">Skip for now</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading" id="loadingState"><span class="loading-dot"></span></div>
+
+<script>
+let chosenPath = '';
+let defaultPath = '';
+
+function waitForRuntime(ms) {
+  if (window.runtime && window.go) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + (ms || 6000);
+    const t = setInterval(() => {
+      if (window.runtime && window.go) { clearInterval(t); resolve(); }
+      else if (Date.now() >= deadline) { clearInterval(t); reject(new Error('timeout')); }
+    }, 40);
+  });
+}
+
+async function init() {
+  SimState.applyTheme();
+
+  if (SimState.isSetupDone()) {
+    location.replace('sim-run.html');
+    return;
+  }
+
+  try {
+    await waitForRuntime(6000);
+    defaultPath = await window.go.main.App.GetDefaultOutputDir();
+  } catch (_) {
+    defaultPath = '~/Documents/sim_output';
+  }
+
+  showSetup();
+}
+
+function showSetup() {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('setupWrap').style.display = '';
+  setPath('', true);
+}
+
+function setPath(p, isDefault) {
+  chosenPath = p;
+  const display = p || defaultPath;
+  const parts = display.split('/');
+  const name = parts[parts.length - 1] || display;
+  const parent = parts.slice(0, -1).join('/') || '';
+  document.getElementById('folderPathMain').textContent = name;
+  document.getElementById('folderPathSub').textContent = isDefault ? (parent + '  (default)') : parent;
+  document.getElementById('folderBox').classList.toggle('chosen', !isDefault);
+  document.getElementById('defaultPill').style.display = isDefault ? '' : 'none';
+}
+
+async function browseFolder() {
+  try {
+    const picked = await window.runtime.OpenDirectoryDialog({ Title: 'Choose Data Folder' });
+    if (picked) setPath(picked, false);
+  } catch (_) {}
+}
+
+function finishSetup() {
+  SimState.markSetupDone(chosenPath);
+  location.replace('sim-run.html');
+}
+
+function skipSetup() {
+  SimState.markSetupDone('');
+  location.replace('sim-run.html');
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

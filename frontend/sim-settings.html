@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>Settings — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<link rel="stylesheet" href="flatpickr-dark.css">
+<script src="flatpickr.min.js"></script>
+<style>
+.app-wrap{flex-direction:row!important}
+.cfg-sidebar{width:210px;min-width:210px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.cfg-sidebar::-webkit-scrollbar{width:3px}.cfg-sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.cfg-main{flex:1;overflow-y:auto;padding:20px 24px}
+.cfg-main::-webkit-scrollbar{width:4px}.cfg-main::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.cfgs-sec{border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:0}
+.cfgs-sec-hdr{padding:10px 12px 6px;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t1)}
+.cfgs-item{padding:7px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t1);border-left:3px solid transparent;transition:all .12s}
+.cfgs-item:hover{background:var(--bg2);color:var(--t0)}
+.cfgs-item.on{background:rgba(167,139,250,.07);color:var(--t0);border-left-color:var(--blue)}
+.cfgs-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cfgs-sub{font-size:9px;color:var(--t2);margin-left:auto}
+.page-hdr{display:flex;align-items:center;gap:12px;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.page-title{font-size:16px;font-weight:700;color:var(--t0)}
+.page-sub{font-size:11px;color:var(--t1)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.form-grid .fg{grid-column:span 1}
+.form-grid .fg.wide{grid-column:span 2}
+.section-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t1);margin:18px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.section-title:first-child{margin-top:0}
+.sl-row{display:flex;align-items:center;gap:8px}
+.sl{flex:1;accent-color:var(--blue)}
+.slv{font-size:10px;color:var(--blue);min-width:60px;text-align:right;font-family:monospace}
+.rg{display:flex;flex-direction:column;gap:5px}
+.ri{display:flex;align-items:center;gap:7px;font-size:11px;cursor:pointer;color:var(--t1)}.ri:hover{color:var(--t0)}.ri input{accent-color:var(--blue)}
+.test-actions{display:flex;gap:7px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.btn-danger{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.25)}.btn-danger:hover{background:rgba(248,113,113,.2)}
+.saved-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);border-radius:4px;color:var(--green);font-size:9px;font-weight:700;opacity:0;transition:opacity .3s}
+.saved-chip.show{opacity:1}
+.reset-bar{margin-top:30px;padding:14px;background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.15);border-radius:8px;display:flex;align-items:center;justify-content:space-between}
+.reset-lbl{font-size:11px;color:var(--t1)}.reset-lbl strong{color:var(--red)}
+/* Appearance quick-picker */
+.qtheme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;margin-top:6px}
+.qtheme-card{border:2px solid var(--border);border-radius:7px;padding:7px 8px;cursor:pointer;transition:all .14s}
+.qtheme-card:hover{border-color:var(--t2);background:var(--bg2)}
+.qtheme-card.on{border-color:var(--blue);background:rgba(167,139,250,.07)}
+.qtheme-card.on::after{content:'✓';float:right;font-size:9px;font-weight:700;color:var(--blue)}
+.qtheme-swatches{display:flex;gap:2px;margin-bottom:5px}
+.qtheme-swatches span{width:13px;height:13px;border-radius:2px;flex-shrink:0;display:inline-block}
+/* ── Flatpickr overrides ── */
+.flatpickr-calendar{background:var(--bg1)!important;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 1px var(--border)!important;border-radius:8px!important;font-family:var(--font-ui)!important}
+.flatpickr-calendar.arrowTop:before{border-bottom-color:var(--border)!important}.flatpickr-calendar.arrowTop:after{border-bottom-color:var(--bg2)!important}
+.flatpickr-calendar.arrowBottom:before{border-top-color:var(--border)!important}.flatpickr-calendar.arrowBottom:after{border-top-color:var(--bg1)!important}
+.flatpickr-months{background:var(--bg2)!important;border-radius:7px 7px 0 0}
+.flatpickr-months .flatpickr-month{background:transparent!important;color:var(--t0)!important;fill:var(--t0)!important}
+.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:var(--blue)!important}
+.flatpickr-current-month{color:var(--t0)!important}.flatpickr-current-month input.cur-year{color:var(--t0)!important}
+.flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--bg2)!important;color:var(--t0)!important}
+.flatpickr-weekdays{background:var(--bg1)!important}
+span.flatpickr-weekday{background:transparent!important;color:var(--t2)!important;font-size:9px!important;font-weight:700!important;letter-spacing:.05em!important}
+.flatpickr-days,.dayContainer{border:none!important}
+.flatpickr-day{color:var(--t1)!important;border:none!important;border-radius:5px!important;font-size:11px!important}
+.flatpickr-day:hover{background:var(--bg3)!important;color:var(--t0)!important}
+.flatpickr-day.today{border:1px solid var(--blue)!important;font-weight:700}
+.flatpickr-day.today:hover,.flatpickr-day.selected,.flatpickr-day.selected:hover{background:var(--blue)!important;border-color:var(--blue)!important;color:#09080e!important;font-weight:700!important}
+.flatpickr-day.disabled,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:var(--border)!important}
+.flatpickr-time{background:var(--bg2)!important;border-top:1px solid var(--border)!important;border-radius:0 0 7px 7px!important}
+.flatpickr-time input{background:var(--bg1)!important;color:var(--t0)!important;border-radius:4px!important;font-size:12px!important;font-family:var(--font-mono)!important}
+.flatpickr-time input:hover,.flatpickr-time input:focus{background:var(--bg3)!important}
+.flatpickr-time .flatpickr-time-separator{color:var(--t2)!important}
+.numInputWrapper span{border-color:var(--border)!important}.numInputWrapper span svg path{fill:var(--t2)!important}
+.numInputWrapper:hover{background:var(--bg3)!important}
+input.flatpickr-alt-input[readonly]{cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+  <!-- sidebar: section nav + tests -->
+  <div class="cfg-sidebar">
+    <div class="cfgs-sec">
+      <div class="cfgs-item on" id="nav-region" onclick="showPanel('region')">
+        <div class="cfgs-dot" id="navRegionDot"></div><span id="navRegionName">Region</span>
+      </div>
+      <div class="cfgs-item" id="nav-global" onclick="showPanel('global')">
+        <span>⚙</span><span>Global Settings</span>
+      </div>
+      <div class="cfgs-item" id="nav-appearance" onclick="showPanel('appearance')">
+        <span>◈</span><span>Appearance</span>
+      </div>
+    </div>
+    <div class="cfgs-sec">
+      <div class="cfgs-sec-hdr">Test Profiles</div>
+      <div id="testItems"></div>
+      <div style="padding:6px 12px 10px">
+        <button class="btn btn-ghost" style="width:100%;font-size:10px" onclick="newTest()">+ New Test Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- main form area -->
+  <div class="cfg-main" id="cfgMain"></div>
+</div>
+
+<script>
+let curPanel = 'region';
+
+function init() {
+  SimNav.inject('settings');
+  renderSidebarTests();
+  updateRegionLabel();
+  showPanel('region');
+}
+
+window.onRegionChange = function() {
+  updateRegionLabel();
+  if (curPanel === 'region') renderRegionForm(SimState.getActiveRegionKey());
+};
+
+function updateRegionLabel() {
+  const key = SimState.getActiveRegionKey();
+  const r = SimState.getRegion(key) || {};
+  const dot = document.getElementById('navRegionDot');
+  const name = document.getElementById('navRegionName');
+  if (dot) dot.style.background = r.color || 'var(--t2)';
+  if (name) name.textContent = r.label || key;
+}
+
+function renderSidebarTests() {
+  const tests = SimState.getTests();
+  document.getElementById('testItems').innerHTML = tests.map(t => {
+    const r = SimState.getRegion(t.regionKey) || {};
+    return `<div class="cfgs-item${curPanel==='test:'+t.id?' on':''}" id="nav-test-${t.id}" onclick="showPanel('test:${t.id}')">
+      <div class="cfgs-dot" style="background:${r.color||'var(--t2)'}"></div>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</span>
+      <span class="cfgs-sub">${SimNav.regionShort(t.regionKey)}</span>
+    </div>`;
+  }).join('');
+}
+
+function showPanel(key) {
+  curPanel = key;
+  renderSidebarTests();
+  document.querySelectorAll('.cfgs-item').forEach(el => el.classList.remove('on'));
+  const navEl = document.getElementById('nav-' + key.replace(':','-'));
+  if (navEl) navEl.classList.add('on');
+  if (key === 'region') { document.getElementById('nav-region').classList.add('on'); renderRegionForm(SimState.getActiveRegionKey()); }
+  else if (key === 'global') renderGlobalForm();
+  else if (key === 'appearance') renderAppearanceForm();
+  else if (key.startsWith('test:')) renderTestForm(parseInt(key.split(':')[1]));
+}
+
+// ── Region form ────────────────────────────────────────────────
+function renderRegionForm(regionKey) {
+  const r = SimState.getRegion(regionKey);
+  if (!r) return;
+  const main = document.getElementById('cfgMain');
+  main.innerHTML = `
+    <div class="page-hdr">
+      <div class="cfgs-dot" style="background:${r.color};width:10px;height:10px;border-radius:50%"></div>
+      <div>
+        <div class="page-title">${r.label}</div>
+        <div class="page-sub">${r.sub} — all credentials and endpoints for this region</div>
+      </div>
+      <span class="saved-chip" id="savedChip">✓ Saved</span>
+    </div>
+
+    <div class="section-title">Credentials</div>
+    <div class="form-grid">
+      <div class="fg wide"><label class="lbl">API Token</label><input class="inp" type="password" id="f-apiToken" value="${r.apiToken}" placeholder="Intangles API token" oninput="patchRegion('${regionKey}','apiToken',this.value)"></div>
+      <div class="fg"><label class="lbl">User Token</label><input class="inp" type="password" id="f-userToken" value="${r.userToken}" placeholder="User-level token" oninput="patchRegion('${regionKey}','userToken',this.value)"></div>
+      <div class="fg"><label class="lbl">Session Token</label>
+        <div class="inp-row">
+          <input class="inp" id="f-sessionToken" value="${r.sessionToken}" placeholder="Session token" oninput="patchRegion('${regionKey}','sessionToken',this.value)">
+          <button class="ibtn" onclick="regenSession('${regionKey}')">Regen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">MQTT — TLS (mqtts://)</div>
+    <div class="form-grid">
+      <div class="fg"><label class="lbl">Protocol</label>
+        <select class="inp" id="f-mqttProtocol" onchange="patchRegion('${regionKey}','mqttProtocol',this.value)">
+          <option value="mqtts"${(r.mqttProtocol||'mqtts')==='mqtts'?' selected':''}>mqtts:// (TLS, port 8884)</option>
+          <option value="mqtt"${r.mqttProtocol==='mqtt'?' selected':''}>mqtt:// (plain, port 1883)</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">Port</label><input class="inp" type="number" id="f-mqttPort" value="${r.mqttPort}" oninput="patchRegion('${regionKey}','mqttPort',+this.value)"></div>
+      <div class="fg wide"><label class="lbl">Broker Host (TLS)</label><input class="inp" id="f-mqttBroker" value="${r.mqttBroker||''}" oninput="patchRegion('${regionKey}','mqttBroker',this.value)"></div>
+      <div class="fg"><label class="lbl">TLS Certs</label>
+        <select class="inp" id="f-tlsCerts" onchange="patchRegion('${regionKey}','tlsCerts',this.value)">
+          <option value="embedded"${r.tlsCerts==='embedded'?' selected':''}>Embedded Certs</option>
+          <option value="directory"${r.tlsCerts==='directory'?' selected':''}>Load from Directory</option>
+        </select>
+      </div>
+      <div class="fg wide"><label class="lbl">MQTT Username <span style="color:var(--t2);font-size:8px">optional — leave blank if TLS cert auth is enough</span></label><input class="inp" id="f-mqttUsername" value="${r.mqttUsername||''}" placeholder="device IMEI or broker username" oninput="patchRegion('${regionKey}','mqttUsername',this.value)"></div>
+      <div class="fg wide" style="display:flex;align-items:flex-end;gap:8px">
+        <input class="inp" id="f-mqttTestImei" value="" placeholder="Device IMEI for test connection" style="flex:1">
+        <button class="ibtn" style="flex-shrink:0" onclick="testMqtt('${regionKey}')">⚡ Test TLS</button>
+      </div>
+      <div class="fg wide"><div id="mqttResult" style="font-size:10px;color:var(--t2)"></div></div>
+    </div>
+
+    <div class="section-title">MQTT — Plain TCP (mqtt://)</div>
+    <div class="form-grid">
+      <div class="fg wide"><label class="lbl">Broker Host (plain) <span style="color:var(--t2);font-size:8px">leave blank if not available</span></label><input class="inp" id="f-mqttBrokerPlain" value="${r.mqttBrokerPlain||''}" placeholder="mqtt.region.intangles.com (not mqttsecure)" oninput="patchRegion('${regionKey}','mqttBrokerPlain',this.value)"></div>
+      <div class="fg"><label class="lbl">Port <span style="color:var(--t2);font-size:8px">default 1883</span></label><input class="inp" type="number" id="f-mqttPortPlain" value="${r.mqttPortPlain||1883}" placeholder="1883" oninput="patchRegion('${regionKey}','mqttPortPlain',+this.value)"></div>
+    </div>
+
+    <div class="section-title">API &amp; HTTP Upload</div>
+    <div class="form-grid">
+      <div class="fg wide"><label class="lbl">API Base URL <span style="color:var(--t2);font-size:8px">used by Data Logs page</span></label><input class="inp" id="f-apiBase" value="${r.apiBase||''}" oninput="patchRegion('${regionKey}','apiBase',this.value)"></div>
+      <div class="fg wide"><label class="lbl">Upload URL</label><input class="inp" id="f-uploadUrl" value="${r.uploadUrl}" oninput="patchRegion('${regionKey}','uploadUrl',this.value)"></div>
+    </div>
+
+    <div class="section-title">RabbitMQ</div>
+    <div class="form-grid">
+      <div class="fg"><label class="lbl">Host</label><input class="inp" id="f-rmqHost" value="${r.rmqHost}" oninput="patchRegion('${regionKey}','rmqHost',this.value)"></div>
+      <div class="fg"><label class="lbl">Queue</label><input class="inp" id="f-rmqQueue" value="${r.rmqQueue}" oninput="patchRegion('${regionKey}','rmqQueue',this.value)"></div>
+      <div class="fg"><label class="lbl">Compression</label>
+        <select class="inp" id="f-rmqCompression" onchange="patchRegion('${regionKey}','rmqCompression',this.value)">
+          <option value="gzip"${r.rmqCompression==='gzip'?' selected':''}>gzip</option>
+          <option value="none"${r.rmqCompression==='none'?' selected':''}>none</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">Encryption</div>
+    <div class="form-grid">
+      <div class="fg">
+        <div class="tg-row"><span class="tg-lbl">Encrypt Payloads</span><div class="tg${r.encryptEnabled?' on':''}" id="f-encryptEnabled" onclick="toggleEncrypt('${regionKey}',this)"></div></div>
+      </div>
+      <div class="fg"><label class="lbl">AES Version</label>
+        <select class="inp" id="f-aesVersion" onchange="patchRegion('${regionKey}','aesVersion',this.value)">
+          <option value="2"${r.aesVersion==='2'?' selected':''}>v2 — AES-256-ECB</option>
+          <option value="1"${r.aesVersion==='1'?' selected':''}>v1 — AES-128-ECB</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">RSA Public Key</label>
+        <select class="inp" id="f-rsaKey" onchange="patchRegion('${regionKey}','rsaKey',this.value)">
+          <option value="embedded"${r.rsaKey==='embedded'?' selected':''}>Embedded (built-in)</option>
+          <option value="file"${r.rsaKey==='file'?' selected':''}>Load from File</option>
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+function patchRegion(key, field, val) {
+  SimState.setRegion(key, { [field]: val });
+  flashSaved();
+}
+
+function toggleEncrypt(key, el) {
+  el.classList.toggle('on');
+  SimState.setRegion(key, { encryptEnabled: el.classList.contains('on') });
+  flashSaved();
+}
+
+function regenSession(key) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const tok = Array.from({ length: 30 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  SimState.setRegion(key, { sessionToken: tok });
+  const el = document.getElementById('f-sessionToken');
+  if (el) el.value = tok;
+  flashSaved();
+}
+
+async function testMqtt(key) {
+  const el = document.getElementById('mqttResult');
+  if (!el) return;
+  const r = SimState.getRegion(key) || {};
+  // Use typed test IMEI, or fall back to first test with a tgtImei for this region
+  const imeiInput = document.getElementById('f-mqttTestImei');
+  let tgtImei = (imeiInput && imeiInput.value.trim()) || '';
+  if (!tgtImei) {
+    const t = (SimState.getTests() || []).find(t => t.regionKey === key && t.tgtImei);
+    tgtImei = (t && t.tgtImei) || '';
+  }
+  if (!tgtImei) {
+    el.style.color = 'var(--yellow)'; el.textContent = '⚠ Enter a Device IMEI in the test field above';
+    return;
+  }
+  el.style.color = 'var(--t2)'; el.textContent = 'Testing…';
+  try {
+    const result = await window.go.main.App.TestMQTT({
+      mqttProtocol: r.mqttProtocol || 'mqtts',
+      mqttBroker:   r.mqttBroker   || '',
+      mqttPort:     r.mqttPort     || 8884,
+      tlsCerts:     r.tlsCerts     || 'embedded',
+      tgtImei:      tgtImei,
+      mqttUsername: r.mqttUsername || '',
+    });
+    if (result && result.ok) {
+      el.style.color = 'var(--green)'; el.textContent = '✓ ' + (result.message || 'Connected');
+    } else {
+      el.style.color = 'var(--red)'; el.textContent = '✗ ' + (result && result.message || 'Failed');
+    }
+  } catch(err) {
+    el.style.color = 'var(--red)'; el.textContent = '✗ ' + String(err).replace(/^Error:\s*/i,'');
+  }
+}
+
+// ── Global form ────────────────────────────────────────────────
+function renderGlobalForm() {
+  const g = SimState.getGlobal();
+  document.getElementById('cfgMain').innerHTML = `
+    <div class="page-hdr">
+      <div><div class="page-title">Global Settings</div><div class="page-sub">Simulation timing, batching — apply to all regions</div></div>
+      <span class="saved-chip" id="savedChip">✓ Saved</span>
+    </div>
+
+    <div class="section-title">Batch &amp; API</div>
+    <div class="form-grid">
+      <div class="fg"><label class="lbl">Batch Size (records/file)</label><input class="inp" type="number" id="g-batchSize" value="${g.batchSize}" min="1" oninput="patchGlobal('batchSize',+this.value)"></div>
+      <div class="fg"><label class="lbl">API Page Size</label><input class="inp" type="number" id="g-apiPageSize" value="${g.apiPageSize}" min="1" oninput="patchGlobal('apiPageSize',+this.value)"></div>
+      <div class="fg"><label class="lbl">API Request Delay (ms)</label><input class="inp" type="number" id="g-apiRequestDelay" value="${g.apiRequestDelay}" min="0" oninput="patchGlobal('apiRequestDelay',+this.value)"></div>
+      <div class="fg"><label class="lbl">Output Directory</label><input class="inp" id="g-outputDir" value="${g.outputDir}" oninput="patchGlobal('outputDir',this.value)"></div>
+    </div>
+
+    <div class="section-title">Timing</div>
+    <div class="fg"><label class="lbl">Batch Upload Delay</label><div class="sl-row"><input type="range" class="sl" min="1000" max="300000" step="1000" value="${g.batchUploadDelayMs}" oninput="patchGlobal('batchUploadDelayMs',+this.value);this.nextElementSibling.textContent=fmtMs(+this.value)"><span class="slv">${fmtMs(g.batchUploadDelayMs)}</span></div></div>
+    <div class="fg"><label class="lbl">GPS L1 Interval (Phase 1)</label><div class="sl-row"><input type="range" class="sl" min="1000" max="60000" step="1000" value="${g.gpsL1IntervalMs}" oninput="patchGlobal('gpsL1IntervalMs',+this.value);this.nextElementSibling.textContent=fmtMs(+this.value)"><span class="slv">${fmtMs(g.gpsL1IntervalMs)}</span></div></div>
+    <div class="fg"><label class="lbl">OBD Accumulation Interval (Phase 1)</label><div class="sl-row"><input type="range" class="sl" min="5000" max="300000" step="5000" value="${g.obdAccumIntervalMs}" oninput="patchGlobal('obdAccumIntervalMs',+this.value);this.nextElementSibling.textContent=fmtMs(+this.value)"><span class="slv">${fmtMs(g.obdAccumIntervalMs)}</span></div></div>
+    <div class="fg"><label class="lbl">Normal Mode Interval (Phase 2)</label><div class="sl-row"><input type="range" class="sl" min="1000" max="120000" step="1000" value="${g.normalModeIntervalMs}" oninput="patchGlobal('normalModeIntervalMs',+this.value);this.nextElementSibling.textContent=fmtMs(+this.value)"><span class="slv">${fmtMs(g.normalModeIntervalMs)}</span></div></div>
+
+    <div class="reset-bar">
+      <div class="reset-lbl"><strong>Danger Zone</strong> — reset ALL state including credentials and run history</div>
+      <button class="btn btn-danger" onclick="hardReset()">Reset All State</button>
+    </div>
+  `;
+}
+
+function patchGlobal(field, val) {
+  SimState.setGlobal({ [field]: val });
+  flashSaved();
+}
+
+function hardReset() {
+  if (!confirm('This will wipe ALL saved state (regions, tests, history). Continue?')) return;
+  SimState.reset();
+  location.reload();
+}
+
+// ── Test profile form ──────────────────────────────────────────
+function renderTestForm(testId) {
+  const t = SimState.getTest(testId);
+  if (!t) return;
+  const regions = SimState.getRegions();
+  const regionOptions = Object.entries(regions).map(([k, r]) =>
+    `<option value="${k}"${t.regionKey===k?' selected':''}>${r.label}</option>`
+  ).join('');
+
+  document.getElementById('cfgMain').innerHTML = `
+    <div class="page-hdr">
+      <div><div class="page-title">Test Profile</div><div class="page-sub">Simulation parameters — credentials come from the selected region</div></div>
+      <span class="saved-chip" id="savedChip">✓ Saved</span>
+    </div>
+
+    <div class="form-grid">
+      <div class="fg"><label class="lbl">Test Name</label><input class="inp" id="t-name" value="${t.name}" oninput="patchTest(${testId},'name',this.value)"></div>
+      <div class="fg"><label class="lbl">Region</label><select class="inp" id="t-region" onchange="patchTest(${testId},'regionKey',this.value);renderSidebarTests()">${regionOptions}</select></div>
+      <div class="fg"><label class="lbl">Source IMEI <span class="badge badge-eu">data source</span></label><input class="inp" id="t-srcImei" value="${t.srcImei}" oninput="patchTest(${testId},'srcImei',this.value)"></div>
+      <div class="fg"><label class="lbl">Target IMEI <span class="badge badge-done">MQTT + upload</span></label><input class="inp" id="t-tgtImei" value="${t.tgtImei}" oninput="patchTest(${testId},'tgtImei',this.value)"></div>
+      <div class="fg"><label class="lbl">From</label><input class="inp" type="datetime-local" id="t-from" value="${t.from}" oninput="patchTest(${testId},'from',this.value)"></div>
+      <div class="fg"><label class="lbl">Until</label><input class="inp" type="datetime-local" id="t-until" value="${t.until}" oninput="patchTest(${testId},'until',this.value)"></div>
+      <div class="fg"><label class="lbl">History End</label>
+        <div class="inp-row">
+          <input class="inp" type="datetime-local" id="t-histEnd" value="${t.histEnd}" oninput="patchTest(${testId},'histEnd',this.value)">
+          <button class="ibtn" onclick="autoHistEnd(${testId})">Auto</button>
+        </div>
+      </div>
+      <div class="fg"><label class="lbl">Mode</label>
+        <div class="rg">
+          <label class="ri"><input type="radio" name="t-mode" value="simulate"${t.mode==='simulate'?' checked':''} onchange="patchTest(${testId},'mode','simulate')"> Full Simulate (MQTT + Upload)</label>
+          <label class="ri"><input type="radio" name="t-mode" value="pipeline"${t.mode==='pipeline'?' checked':''} onchange="patchTest(${testId},'mode','pipeline')"> Pipeline Only (RabbitMQ)</label>
+          <label class="ri"><input type="radio" name="t-mode" value="fetch"${t.mode==='fetch'?' checked':''} onchange="patchTest(${testId},'mode','fetch')"> Fetch &amp; Store Only</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-actions">
+      <button class="btn btn-go" onclick="runThisTest(${testId})">▶ Run This Test</button>
+      <button class="btn btn-ghost" onclick="dupTest(${testId})">⎘ Duplicate</button>
+      <button class="btn btn-danger" onclick="deleteTest(${testId})">Delete</button>
+    </div>
+  `;
+  initDatePickers();
+}
+
+function patchTest(id, field, val) {
+  SimState.saveTest({ id, [field]: val });
+  flashSaved();
+}
+
+function autoHistEnd(id) {
+  const t = SimState.getTest(id);
+  if (!t || !t.from) return;
+  const d = new Date(t.from);
+  d.setHours(d.getHours() + 12);
+  const v = d.toISOString().slice(0, 16);
+  SimState.saveTest({ id, histEnd: v });
+  const el = document.getElementById('t-histEnd');
+  if (el) el.value = v;
+  flashSaved();
+}
+
+function newTest() {
+  const rk = SimState.getActiveRegionKey();
+  const id = SimState.nextTestId();
+  SimState.saveTest({ id, name:'New Test', regionKey:rk, srcImei:'', tgtImei:'', from:'', until:'', histEnd:'', mode:'simulate', createdAt:new Date().toISOString() });
+  renderSidebarTests();
+  showPanel('test:' + id);
+}
+
+function dupTest(id) {
+  const t = SimState.getTest(id);
+  if (!t) return;
+  const newId = SimState.nextTestId();
+  SimState.saveTest({ ...t, id: newId, name: t.name + '-copy', createdAt: new Date().toISOString() });
+  renderSidebarTests();
+  showPanel('test:' + newId);
+}
+
+function deleteTest(id) {
+  if (!confirm('Delete this test profile?')) return;
+  SimState.deleteTest(id);
+  renderSidebarTests();
+  showPanel('region');
+}
+
+function runThisTest(id) {
+  SimState.setActiveTest(id);
+  location.href = 'sim-run.html';
+}
+
+// ── Appearance ─────────────────────────────────────────────────
+const QUICK_THEMES = [
+  { name:'Dark',         key:'dark',       g:'dark',    s:['#09080e','#100e1a','#a78bfa','#34d399'], vars:{} },
+  { name:'Midnight',     key:'midnight',   g:'dark',    s:['#000000','#0a0a0f','#c084fc','#4ade80'], vars:{'--bg0':'#000000','--bg1':'#0a0a0f','--bg2':'#111118','--bg3':'#18181f','--border':'#2a2030','--t0':'#f0eaff','--t1':'#8878b0','--t2':'#503c6a','--blue':'#c084fc','--green':'#4ade80','--yellow':'#facc15','--red':'#f87171','--purple':'#a855f7','--orange':'#fb923c'} },
+  { name:'Ocean',        key:'ocean',      g:'dark',    s:['#040d14','#081525','#38bdf8','#2dd4bf'], vars:{'--bg0':'#040d14','--bg1':'#081525','--bg2':'#0d1f35','--bg3':'#112944','--border':'#1a3a52','--t0':'#d4eeff','--t1':'#6ba5c8','--t2':'#3a6480','--blue':'#38bdf8','--green':'#2dd4bf','--yellow':'#fbbf24','--red':'#fb7185','--purple':'#818cf8','--orange':'#f97316'} },
+  { name:'Hacker',       key:'hacker',     g:'dark',    s:['#000000','#020a02','#00ff41','#39ff14'], vars:{'--bg0':'#000000','--bg1':'#020a02','--bg2':'#041404','--bg3':'#071e07','--border':'#0d320d','--t0':'#00ff41','--t1':'#00b82e','--t2':'#005914','--blue':'#00ff88','--green':'#39ff14','--yellow':'#ccff00','--red':'#ff3300','--purple':'#00ffcc','--orange':'#ffcc00'} },
+  { name:'Synthwave',    key:'synthwave',  g:'dark',    s:['#0d0010','#150020','#f472b6','#a78bfa'], vars:{'--bg0':'#0d0010','--bg1':'#150020','--bg2':'#1e0030','--bg3':'#270040','--border':'#3d0060','--t0':'#fff0ff','--t1':'#c060e0','--t2':'#703090','--blue':'#e040fb','--green':'#00e5ff','--yellow':'#ffea00','--red':'#ff1744','--purple':'#a78bfa','--orange':'#f472b6'} },
+  { name:'Dracula',      key:'dracula',    g:'dark',    s:['#282a36','#21222c','#bd93f9','#50fa7b'], vars:{'--bg0':'#282a36','--bg1':'#21222c','--bg2':'#343746','--bg3':'#414558','--border':'#525776','--t0':'#f8f8f2','--t1':'#b0b8d8','--t2':'#6272a4','--blue':'#bd93f9','--green':'#50fa7b','--yellow':'#f1fa8c','--red':'#ff5555','--purple':'#ff79c6','--orange':'#ffb86c'} },
+  { name:'Nord',         key:'nord',       g:'dark',    s:['#2e3440','#3b4252','#88c0d0','#a3be8c'], vars:{'--bg0':'#2e3440','--bg1':'#3b4252','--bg2':'#434c5e','--bg3':'#4c566a','--border':'#5a6680','--t0':'#eceff4','--t1':'#d8dee9','--t2':'#8c9bb0','--blue':'#88c0d0','--green':'#a3be8c','--yellow':'#ebcb8b','--red':'#bf616a','--purple':'#b48ead','--orange':'#d08770'} },
+  { name:'Tokyo Night',  key:'tokyonight', g:'dark',    s:['#1a1b2e','#16213e','#7aa2f7','#9ece6a'], vars:{'--bg0':'#1a1b2e','--bg1':'#16213e','--bg2':'#0f3460','--bg3':'#1a2a50','--border':'#2a3a5f','--t0':'#c0caf5','--t1':'#787c99','--t2':'#404560','--blue':'#7aa2f7','--green':'#9ece6a','--yellow':'#e0af68','--red':'#f7768e','--purple':'#bb9af7','--orange':'#ff9e64'} },
+  { name:'Gruvbox',      key:'gruvbox',    g:'dark',    s:['#282828','#3c3836','#fabd2f','#b8bb26'], vars:{'--bg0':'#282828','--bg1':'#3c3836','--bg2':'#504945','--bg3':'#665c54','--border':'#7c6f64','--t0':'#ebdbb2','--t1':'#bdae93','--t2':'#928374','--blue':'#83a598','--green':'#b8bb26','--yellow':'#fabd2f','--red':'#fb4934','--purple':'#d3869b','--orange':'#fe8019'} },
+  { name:'Catppuccin',   key:'catppuccin', g:'dark',    s:['#1e1e2e','#181825','#cba6f7','#a6e3a1'], vars:{'--bg0':'#1e1e2e','--bg1':'#181825','--bg2':'#313244','--bg3':'#45475a','--border':'#585b70','--t0':'#cdd6f4','--t1':'#bac2de','--t2':'#6c7086','--blue':'#cba6f7','--green':'#a6e3a1','--yellow':'#f9e2af','--red':'#f38ba8','--purple':'#b4befe','--orange':'#fab387'} },
+  { name:'One Dark',     key:'onedark',    g:'dark',    s:['#282c34','#21252b','#61afef','#98c379'], vars:{'--bg0':'#282c34','--bg1':'#21252b','--bg2':'#2c313a','--bg3':'#3e4451','--border':'#4a5163','--t0':'#abb2bf','--t1':'#848da1','--t2':'#5c6370','--blue':'#61afef','--green':'#98c379','--yellow':'#e5c07b','--red':'#e06c75','--purple':'#c678dd','--orange':'#d19a66'} },
+  { name:'Monokai',      key:'monokai',    g:'dark',    s:['#272822','#1e1f1c','#66d9e8','#a6e22e'], vars:{'--bg0':'#272822','--bg1':'#1e1f1c','--bg2':'#3e3d32','--bg3':'#49483e','--border':'#75715e','--t0':'#f8f8f2','--t1':'#cfcfc2','--t2':'#75715e','--blue':'#66d9e8','--green':'#a6e22e','--yellow':'#e6db74','--red':'#f92672','--purple':'#ae81ff','--orange':'#fd971f'} },
+  { name:'Kanagawa',     key:'kanagawa',   g:'dark',    s:['#1f1f28','#16161d','#7e9cd8','#98bb6c'], vars:{'--bg0':'#1f1f28','--bg1':'#16161d','--bg2':'#2a2a37','--bg3':'#363646','--border':'#54546d','--t0':'#dcd7ba','--t1':'#938aa9','--t2':'#54546d','--blue':'#7e9cd8','--green':'#98bb6c','--yellow':'#c0a36e','--red':'#c34043','--purple':'#957fb8','--orange':'#ffa066'} },
+  { name:'Cyberpunk',    key:'cyberpunk',  g:'dark',    s:['#000000','#0a0a0a','#fcee09','#00fff9'], vars:{'--bg0':'#000000','--bg1':'#0a0a0a','--bg2':'#111111','--bg3':'#1a1a1a','--border':'#2a2a10','--t0':'#eeff00','--t1':'#bbcc00','--t2':'#667700','--blue':'#00fff9','--green':'#39ff14','--yellow':'#fcee09','--red':'#ff0055','--purple':'#ff00ff','--orange':'#ff8800'} },
+  { name:'Light',        key:'light',      g:'light',   s:['#f8f7ff','#ffffff','#7c3aed','#059669'], vars:{'--bg0':'#f8f7ff','--bg1':'#ffffff','--bg2':'#f0eeff','--bg3':'#e6e3f5','--border':'#d0cceb','--t0':'#1a1633','--t1':'#4a4270','--t2':'#9990c0','--blue':'#7c3aed','--green':'#059669','--yellow':'#d97706','--red':'#dc2626','--purple':'#6366f1','--orange':'#ea580c'} },
+  { name:'GitHub',       key:'github',     g:'light',   s:['#ffffff','#f6f8fa','#0969da','#1a7f37'], vars:{'--bg0':'#ffffff','--bg1':'#f6f8fa','--bg2':'#eaeef2','--bg3':'#e2e8f0','--border':'#d0d7de','--t0':'#1f2328','--t1':'#57606a','--t2':'#8c959f','--blue':'#0969da','--green':'#1a7f37','--yellow':'#9a6700','--red':'#cf222e','--purple':'#8250df','--orange':'#bc4c00'} },
+  { name:'Paper',        key:'paper',      g:'light',   s:['#f5f0e8','#faf6ef','#4a6fa5','#3a7d44'], vars:{'--bg0':'#f5f0e8','--bg1':'#faf6ef','--bg2':'#ede8e0','--bg3':'#e0dbd0','--border':'#d0c8b8','--t0':'#2a2018','--t1':'#6a5a48','--t2':'#9a8878','--blue':'#4a6fa5','--green':'#3a7d44','--yellow':'#c07d00','--red':'#b83232','--purple':'#7b4fa5','--orange':'#c06030'} },
+  { name:'Rosé Pine',    key:'rosepine',   g:'special', s:['#191724','#1f1d2e','#c4a7e7','#9ccfd8'], vars:{'--bg0':'#191724','--bg1':'#1f1d2e','--bg2':'#26233a','--bg3':'#403d52','--border':'#524f67','--t0':'#e0def4','--t1':'#908caa','--t2':'#524f67','--blue':'#9ccfd8','--green':'#31748f','--yellow':'#f6c177','--red':'#eb6f92','--purple':'#c4a7e7','--orange':'#ea9a97'} },
+  { name:'Everforest',   key:'everforest', g:'special', s:['#272e33','#2e383c','#7fbbb3','#a7c080'], vars:{'--bg0':'#272e33','--bg1':'#2e383c','--bg2':'#374145','--bg3':'#414b50','--border':'#505a60','--t0':'#d3c6aa','--t1':'#9da9a0','--t2':'#5c6a72','--blue':'#7fbbb3','--green':'#a7c080','--yellow':'#dbbc7f','--red':'#e67e80','--purple':'#d699b6','--orange':'#e69875'} },
+  { name:'Night Owl',    key:'nightowl',   g:'special', s:['#011627','#01111d','#82aaff','#addb67'], vars:{'--bg0':'#011627','--bg1':'#01111d','--bg2':'#0e2233','--bg3':'#1d3749','--border':'#1e3a5f','--t0':'#d6deeb','--t1':'#637777','--t2':'#2d4a63','--blue':'#82aaff','--green':'#addb67','--yellow':'#ecc48d','--red':'#ff6363','--purple':'#c792ea','--orange':'#f78c6c'} },
+];
+
+const FONTS_UI = [
+  { label:'System UI',     value:'',                                  url:'' },
+  { label:'Inter',         value:"'Inter',sans-serif",               url:'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap' },
+  { label:'Space Grotesk', value:"'Space Grotesk',sans-serif",       url:'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap' },
+  { label:'IBM Plex Sans', value:"'IBM Plex Sans',sans-serif",       url:'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap' },
+  { label:'Rubik',         value:"'Rubik',sans-serif",               url:'https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&display=swap' },
+  { label:'DM Sans',       value:"'DM Sans',sans-serif",             url:'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap' },
+  { label:'Outfit',        value:"'Outfit',sans-serif",              url:'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap' },
+  { label:'Nunito',        value:"'Nunito',sans-serif",              url:'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap' },
+];
+
+const FONTS_MONO = [
+  { label:'System Mono',     value:'',                                     url:'' },
+  { label:'JetBrains Mono',  value:"'JetBrains Mono',monospace",           url:'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap' },
+  { label:'Fira Code',       value:"'Fira Code',monospace",                url:'https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap' },
+  { label:'Source Code Pro', value:"'Source Code Pro',monospace",          url:'https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap' },
+  { label:'IBM Plex Mono',   value:"'IBM Plex Mono',monospace",            url:'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap' },
+  { label:'Space Mono',      value:"'Space Mono',monospace",               url:'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap' },
+  { label:'Roboto Mono',     value:"'Roboto Mono',monospace",              url:'https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap' },
+];
+
+function renderAppearanceForm() {
+  const t = SimState.getTheme();
+  const curKey = t.name || 'dark';
+  const curFs = t.fontSize || 12;
+  const curFf = t.fontFamily || '';
+  const curMf = t.monoFamily || '';
+
+  const gLabel = { dark:'dark', light:'light', special:'special' };
+  const gColor = { dark:'#818cf8', light:'#34d399', special:'#fb923c' };
+  const gBg    = { dark:'rgba(129,140,248,.12)', light:'rgba(52,211,153,.12)', special:'rgba(251,146,60,.12)' };
+
+  const cards = QUICK_THEMES.map(th => `
+    <div class="qtheme-card${curKey===th.key?' on':''}" onclick="applyQuickTheme('${th.key}')">
+      <div class="qtheme-swatches">${th.s.map(c=>`<span style="background:${c}"></span>`).join('')}</div>
+      <div style="font-size:9px;font-weight:700;color:var(--t0)">${th.name}</div>
+      <div style="margin-top:3px"><span style="font-size:7px;font-weight:700;padding:1px 4px;border-radius:2px;background:${gBg[th.g]};color:${gColor[th.g]}">${th.g}</span></div>
+    </div>
+  `).join('');
+
+  const uiOpts = FONTS_UI.map(f=>`<option value="${f.value}"${f.value===curFf?' selected':''}>${f.label}</option>`).join('');
+  const monoOpts = FONTS_MONO.map(f=>`<option value="${f.value}"${f.value===curMf?' selected':''}>${f.label}</option>`).join('');
+
+  document.getElementById('cfgMain').innerHTML = `
+    <div class="page-hdr">
+      <div><div class="page-title">Appearance</div><div class="page-sub">Quick theme, fonts and size — full editor in <a href="sim-theme.html" style="color:var(--blue);text-decoration:none">Theme ◈</a></div></div>
+      <span class="saved-chip" id="savedChip">✓ Applied</span>
+    </div>
+
+    <div class="section-title" style="display:flex;align-items:center">
+      Quick Themes (20)
+      <a href="sim-theme.html" style="margin-left:auto;font-size:9px;color:var(--blue);text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0">All 44 themes + custom →</a>
+    </div>
+    <div class="qtheme-grid">${cards}</div>
+
+    <div class="section-title" style="margin-top:18px">Typography</div>
+    <div class="form-grid">
+      <div class="fg"><label class="lbl">UI Font</label>
+        <select class="inp" id="ap-ff" onchange="applyAppFont(this.value)">${uiOpts}</select>
+      </div>
+      <div class="fg"><label class="lbl">Mono Font</label>
+        <select class="inp" id="ap-mf" onchange="applyAppMono(this.value)">${monoOpts}</select>
+      </div>
+      <div class="fg wide"><label class="lbl">Font Size</label>
+        <div class="sl-row">
+          <input type="range" class="sl" min="10" max="16" step="1" value="${curFs}" oninput="applyAppFontSize(+this.value);this.nextElementSibling.textContent=this.value+'px'">
+          <span class="slv">${curFs}px</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function applyQuickTheme(key) {
+  const th = QUICK_THEMES.find(t => t.key === key);
+  if (!th) return;
+  const cur = SimState.getTheme();
+  SimState.setTheme({ name:key, vars:{ ...th.vars }, fontSize:cur.fontSize||12, fontFamily:cur.fontFamily||'', monoFamily:cur.monoFamily||'', fontUrl:cur.fontUrl||'' });
+  SimState.applyTheme();
+  renderAppearanceForm();
+  flashSaved();
+}
+
+function applyAppFont(val) {
+  const fd = FONTS_UI.find(f => f.value === val);
+  SimState.setTheme({ fontFamily:val, fontUrl:(fd&&fd.url)||'' });
+  SimState.applyTheme();
+  flashSaved();
+}
+
+function applyAppMono(val) {
+  const fd = FONTS_MONO.find(f => f.value === val);
+  SimState.setTheme({ monoFamily:val });
+  const url = fd && fd.url;
+  if (url) {
+    let el = document.querySelector('link[data-simmonofont]');
+    if (!el || el.getAttribute('href') !== url) {
+      if (el) el.remove();
+      el = document.createElement('link'); el.rel='stylesheet';
+      el.setAttribute('href', url); el.setAttribute('data-simmonofont','');
+      document.head.appendChild(el);
+    }
+  }
+  SimState.applyTheme();
+  flashSaved();
+}
+
+function applyAppFontSize(val) {
+  SimState.setTheme({ fontSize:val });
+  SimState.applyTheme();
+  flashSaved();
+}
+
+// ── Utils ──────────────────────────────────────────────────────
+function flashSaved() {
+  const el = document.getElementById('savedChip');
+  if (!el) return;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+function fmtMs(ms) {
+  if (ms >= 60000) { const m = Math.floor(ms / 60000), s = Math.round((ms % 60000) / 1000); return m + 'm ' + (s ? String(s).padStart(2,'0') + 's' : '00s'); }
+  return (ms / 1000) + 's';
+}
+
+window.addEventListener('DOMContentLoaded', init);
+
+let _fpInstances = [];
+function _fpPosition(self) {
+  var cal = self.calendarContainer;
+  var anchor = self.altInput || self.input;
+  var rect = anchor.getBoundingClientRect();
+  var calH = cal.offsetHeight || 305, calW = cal.offsetWidth || 310;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var sx = window.scrollX || 0, sy = window.scrollY || 0;
+  var spaceBelow = vh - rect.bottom - 6, spaceAbove = rect.top - 6;
+  var above = spaceAbove > spaceBelow && spaceBelow < calH;
+  var top = above ? rect.top + sy - calH - 4 : rect.bottom + sy + 4;
+  cal.classList.toggle('arrowTop', !above);
+  cal.classList.toggle('arrowBottom', above);
+  top = Math.max(sy + 4, Math.min(top, sy + vh - calH - 4));
+  var left = Math.max(4, Math.min(rect.left + sx, vw - calW - 4));
+  cal.style.top = top + 'px';
+  cal.style.left = left + 'px';
+}
+function initDatePickers() {
+  _fpInstances.forEach(function(fp){try{fp.destroy();}catch(e){}});
+  _fpInstances = [];
+  document.querySelectorAll('input[type="datetime-local"]').forEach(function(el) {
+    const origClass = el.className, origStyle = el.getAttribute('style')||'';
+    const savedOninput = el.oninput, savedOnchange = el.onchange;
+    const fp = flatpickr(el, {
+      enableTime: true, time_24hr: true,
+      dateFormat: 'Y-m-dTH:i', altInput: true, altFormat: 'd M Y  H:i',
+      allowInput: false, defaultDate: el.value || null,
+      position: _fpPosition,
+      onReady: function(_,__,inst) {
+        if (inst.altInput) {
+          inst.altInput.className = origClass + ' flatpickr-alt-input';
+          if (origStyle) inst.altInput.setAttribute('style', origStyle);
+          inst.altInput.placeholder = 'Pick a date…';
+        }
+      },
+      onChange: function() {
+        const h = savedOninput || savedOnchange;
+        if (h) h.call(el, {target:el});
+      }
+    });
+    _fpInstances.push(fp);
+  });
+}
+</script>
+</body>
+</html>

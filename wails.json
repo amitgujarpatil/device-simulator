@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "device-simulator",
+  "outputfilename": "device-simulator",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "info": {
+    "companyName": "Intangles",
+    "productName": "Device Simulator",
+    "productVersion": "1.0.0",
+    "copyright": "© 2026 Intangles",
+    "comments": "IoT Device Simulator"
+  },
+  "nsisType": "multiple",
+  "obfuscated": false,
+  "garbleArgs": "",
+  "devtools": true
+}

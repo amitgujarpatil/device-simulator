@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>Data Logs — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<link rel="stylesheet" href="flatpickr-dark.css">
+<script src="flatpickr.min.js"></script>
+<style>
+.app-wrap{flex-direction:column!important}
+
+/* ── Controls bar ── */
+.ctrl-bar{background:var(--bg1);border-bottom:1px solid var(--border);padding:6px 14px;display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap}
+.ctrl-group{display:flex;align-items:center;gap:5px}
+.ctrl-lbl{font-size:9px;color:var(--t1);font-weight:600;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase}
+.ctrl-inp{padding:5px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:11px;outline:none;height:30px}
+.ctrl-inp:focus{border-color:var(--blue)}
+.ctrl-sel{padding:5px 26px 5px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:11px;height:30px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238878b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;transition:border-color .15s,background-color .15s}
+.ctrl-sel:hover{border-color:var(--t2);background-color:var(--bg3)}
+.ctrl-sel:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,.15);background-color:var(--bg3)}
+.ctrl-sep{width:1px;height:18px;background:var(--border);flex-shrink:0}
+.sp{flex:1}
+
+/* ── View-mode toggle ── */
+.view-toggle{display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.vt-btn{padding:4px 10px;background:var(--bg2);border:none;color:var(--t1);font-size:10px;font-weight:700;cursor:pointer;outline:none;transition:all .12s}
+.vt-btn.on{background:rgba(167,139,250,.15);color:var(--blue)}
+.vt-btn:hover:not(.on){background:var(--bg3);color:var(--t0)}
+/* auto-scroll toggle in filter row */
+.ascroll-btn{padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:9px;font-weight:700;cursor:pointer;outline:none;white-space:nowrap;transition:all .12s}
+.ascroll-btn.on{background:rgba(52,211,153,.1);border-color:var(--green);color:var(--green)}
+.ascroll-btn:hover:not(.on){background:var(--bg3);color:var(--t0)}
+
+/* ── Status bar ── */
+.status-bar{padding:4px 14px;border-bottom:1px solid var(--border);font-size:10px;color:var(--t2);font-family:monospace;flex-shrink:0;min-height:24px;display:flex;align-items:center;gap:10px;background:var(--bg0)}
+.sb-pill{padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
+.sb-page{background:rgba(167,139,250,.12);color:var(--blue)}
+.sb-pkts{background:rgba(52,211,153,.12);color:var(--green)}
+.sb-errs{background:rgba(248,113,113,.12);color:var(--red)}
+.sb-lek{color:var(--t2)}
+
+/* ── Log area ── */
+.log-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* Filter row */
+.filter-row{padding:5px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0;background:var(--bg1)}
+.filter-row-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t1)}
+.pill{padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s}
+.pill.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.pill.gps.on{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
+.pill.obd.on{background:rgba(251,146,60,.12);border-color:var(--orange);color:var(--orange)}
+.pill.hs.on{background:rgba(129,140,248,.12);border-color:var(--purple);color:var(--purple)}
+.pill.set.on{background:rgba(251,191,36,.12);border-color:var(--yellow);color:var(--yellow)}
+.search-inp{margin-left:auto;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:10px;outline:none;width:160px}
+.search-inp:focus{border-color:var(--blue)}
+
+/* ── Stream: parsed view ── */
+.log-stream{flex:1;overflow-y:auto}
+.log-stream::-webkit-scrollbar{width:4px}.log-stream::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Parsed packet row */
+.pkt-row{display:flex;align-items:flex-start;gap:0;border-bottom:1px solid rgba(45,42,64,.4);font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:10.5px;cursor:pointer}
+.pkt-row:hover{background:var(--bg2)}
+.pkt-row.expanded{background:rgba(45,42,64,.4)}
+.pkt-gutter{width:42px;flex-shrink:0;padding:5px 0 5px 10px;color:var(--t2);font-size:9px;text-align:right;user-select:none}
+.pkt-ts{width:155px;flex-shrink:0;padding:5px 8px;color:var(--t2);font-size:9px}
+.pkt-type{width:88px;flex-shrink:0;padding:5px 0;font-size:9px;font-weight:700}
+.pkt-type.gps {color:var(--green)}.pkt-type.obd{color:var(--orange)}.pkt-type.hs{color:var(--purple)}.pkt-type.set{color:var(--yellow)}.pkt-type.unknown{color:var(--t2)}
+.pkt-fields{flex:1;padding:5px 10px 5px 0;color:var(--t1);font-size:9.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pkt-fields .fk{color:var(--blue)}.pkt-fields .fv{color:var(--t0)}
+.pkt-expand{width:18px;flex-shrink:0;padding:5px 6px 5px 0;color:var(--t2);font-size:9px;text-align:center}
+
+/* Expanded detail */
+.pkt-detail{background:var(--bg0);border-bottom:1px solid rgba(45,42,64,.5);display:none}
+.pkt-detail.open{display:block}
+.pkt-detail-inner{padding:8px 14px 10px 52px;display:flex;gap:16px;flex-wrap:wrap}
+.pkt-json-pre{flex:1;min-width:0;margin:0;font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:10px;color:var(--t0);white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.json-key{color:var(--blue)}.json-str{color:var(--green)}.json-num{color:var(--orange)}.json-bool{color:var(--purple)}.json-null{color:var(--t2)}
+.pkt-raw-box{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:7px 9px}
+.pkt-raw-lbl{font-size:8px;color:var(--t1);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;font-family:-apple-system,sans-serif}
+.pkt-raw-str{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:9.5px;color:var(--t1);white-space:pre-wrap;word-break:break-all;line-height:1.5}
+
+/* Raw mode: page-level view */
+.raw-page{border-bottom:1px solid var(--border);font-family:'SF Mono','Cascadia Code',Consolas,monospace}
+.raw-page-hdr{padding:6px 14px;display:flex;align-items:center;gap:8px;background:var(--bg1);cursor:pointer;font-size:10px;border-bottom:1px solid var(--border)}
+.raw-page-hdr:hover{background:var(--bg2)}
+.raw-page-lbl{font-size:9px;font-weight:700;color:var(--blue)}.raw-page-count{color:var(--t2);font-size:9px}
+.raw-page-ch{margin-left:auto;color:var(--t2);font-size:9px;transition:transform .2s}.raw-page.open .raw-page-ch{transform:rotate(90deg)}
+.raw-page-body{display:none;padding:0 14px 12px;max-height:600px;overflow-y:auto}
+.raw-page.open .raw-page-body{display:block}
+.raw-page-body::-webkit-scrollbar{width:3px}.raw-page-body::-webkit-scrollbar-thumb{background:var(--border)}
+.raw-entry{margin:8px 0;background:var(--bg2);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.raw-entry-hdr{padding:4px 9px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:var(--bg3);font-size:9px}
+.raw-entry-t{color:var(--t2);font-family:monospace}.raw-entry-ts{color:var(--blue)}
+.raw-entry-body{padding:7px 9px}
+.raw-pre{margin:0;font-size:9.5px;color:var(--t0);white-space:pre-wrap;word-break:break-all;line-height:1.55}
+
+/* Footer */
+.log-footer{padding:5px 14px;border-top:1px solid var(--border);display:flex;gap:5px;align-items:center;flex-shrink:0;background:var(--bg1)}
+.log-count{font-size:10px;color:var(--t1);flex:1}
+.xbtn{padding:4px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:9px;cursor:pointer;white-space:nowrap}
+.xbtn:hover{background:var(--bg3);color:var(--blue)}
+
+/* CORS error box */
+.cors-box{margin:16px;background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:14px 16px}
+.cors-title{color:var(--red);font-weight:700;font-size:12px;margin-bottom:8px}
+.cors-body{font-size:11px;color:var(--t1);line-height:1.6}
+.cors-cmd{background:var(--bg0);border:1px solid var(--border);border-radius:4px;padding:7px 10px;font-family:monospace;font-size:10px;color:var(--green);margin-top:8px;white-space:pre-wrap;word-break:break-all}
+.cors-copy{float:right;padding:2px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--t1);font-size:9px;cursor:pointer;margin-left:8px}
+.cors-copy:hover{color:var(--t0)}
+.empty-hint{padding:40px 20px;text-align:center;color:var(--t2);font-size:11px}
+/* ── Flatpickr overrides ── */
+.flatpickr-calendar{background:var(--bg1)!important;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 1px var(--border)!important;border-radius:8px!important;font-family:var(--font-ui)!important}
+.flatpickr-calendar.arrowTop:before{border-bottom-color:var(--border)!important}.flatpickr-calendar.arrowTop:after{border-bottom-color:var(--bg2)!important}
+.flatpickr-calendar.arrowBottom:before{border-top-color:var(--border)!important}.flatpickr-calendar.arrowBottom:after{border-top-color:var(--bg1)!important}
+.flatpickr-months{background:var(--bg2)!important;border-radius:7px 7px 0 0}
+.flatpickr-months .flatpickr-month{background:transparent!important;color:var(--t0)!important;fill:var(--t0)!important}
+.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:var(--blue)!important}
+.flatpickr-current-month{color:var(--t0)!important}.flatpickr-current-month input.cur-year{color:var(--t0)!important}
+.flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--bg2)!important;color:var(--t0)!important}
+.flatpickr-weekdays{background:var(--bg1)!important}
+span.flatpickr-weekday{background:transparent!important;color:var(--t2)!important;font-size:9px!important;font-weight:700!important;letter-spacing:.05em!important}
+.flatpickr-days,.dayContainer{border:none!important}
+.flatpickr-day{color:var(--t1)!important;border:none!important;border-radius:5px!important;font-size:11px!important}
+.flatpickr-day:hover{background:var(--bg3)!important;color:var(--t0)!important}
+.flatpickr-day.today{border:1px solid var(--blue)!important;font-weight:700}
+.flatpickr-day.today:hover,.flatpickr-day.selected,.flatpickr-day.selected:hover{background:var(--blue)!important;border-color:var(--blue)!important;color:#09080e!important;font-weight:700!important}
+.flatpickr-day.disabled,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:var(--border)!important}
+.flatpickr-time{background:var(--bg2)!important;border-top:1px solid var(--border)!important;border-radius:0 0 7px 7px!important}
+.flatpickr-time input{background:var(--bg1)!important;color:var(--t0)!important;border-radius:4px!important;font-size:12px!important;font-family:var(--font-mono)!important}
+.flatpickr-time input:hover,.flatpickr-time input:focus{background:var(--bg3)!important}
+.flatpickr-time .flatpickr-time-separator{color:var(--t2)!important}
+.numInputWrapper span{border-color:var(--border)!important}.numInputWrapper span svg path{fill:var(--t2)!important}
+.numInputWrapper:hover{background:var(--bg3)!important}
+input.flatpickr-alt-input[readonly]{cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+  <!-- Controls -->
+  <div class="ctrl-bar">
+    <div class="ctrl-group">
+      <span class="ctrl-lbl">REGION</span>
+      <select class="ctrl-sel" id="ctrlRegion" onchange="onRegionSelect(this.value)"></select>
+    </div>
+    <div class="ctrl-sep"></div>
+    <div class="ctrl-group">
+      <span class="ctrl-lbl">IMEI</span>
+      <input class="ctrl-inp" id="ctrlImei" style="width:148px" placeholder="Source IMEI">
+    </div>
+    <div class="ctrl-sep"></div>
+    <div class="ctrl-group">
+      <span class="ctrl-lbl">FROM</span>
+      <input class="ctrl-inp" id="ctrlFrom" type="datetime-local" style="width:162px">
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-lbl">UNTIL</span>
+      <input class="ctrl-inp" id="ctrlUntil" type="datetime-local" style="width:162px">
+    </div>
+    <div class="ctrl-sep"></div>
+    <div class="ctrl-group">
+      <span class="ctrl-lbl">PSIZE</span>
+      <input class="ctrl-inp" id="ctrlPsize" type="number" value="1000" min="1" max="1000" style="width:58px">
+    </div>
+    <div class="ctrl-sep"></div>
+    <div class="ctrl-group">
+      <span class="ctrl-lbl">LIMIT</span>
+      <input class="ctrl-inp" id="ctrlMaxRec" type="number" value="1000" min="0" style="width:72px" title="Max records to fetch (0 = unlimited)" onchange="setMaxRecords(+this.value||0)">
+    </div>
+    <div class="ctrl-sep"></div>
+    <div class="view-toggle">
+      <button class="vt-btn on" id="vParsed" onclick="setView('parsed')">Parsed</button>
+      <button class="vt-btn"    id="vRaw"    onclick="setView('raw')">Raw JSON</button>
+    </div>
+    <div class="sp"></div>
+    <button class="btn btn-go"   id="btnFetch" onclick="startFetch()">▶ Fetch</button>
+    <button class="btn btn-stop" id="btnStop"  onclick="stopFetch()" disabled>■ Stop</button>
+    <button class="btn btn-ghost"              onclick="clearAll()">↺ Clear</button>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="statusBar">
+    <span id="sbMsg">Ready — enter IMEI and time window, then click Fetch</span>
+  </div>
+
+  <!-- Filter row (parsed mode only) -->
+  <div class="filter-row" id="filterRow">
+    <span class="filter-row-lbl">Filter</span>
+    <span class="pill on"      id="pAll" onclick="setFilt('all',this)">ALL</span>
+    <span class="pill gps"     id="pGps" onclick="setFilt('gps',this)">GPS</span>
+    <span class="pill obd"     id="pObd" onclick="setFilt('obd',this)">OBD</span>
+    <span class="pill hs"      id="pHs"  onclick="setFilt('hs',this)">HANDSHAKE</span>
+    <span class="pill set"     id="pSet" onclick="setFilt('set',this)">SETTINGS</span>
+    <button class="ascroll-btn on" id="autoScrollBtn" onclick="toggleAutoScroll()" style="margin-left:auto">↓ Auto-scroll</button>
+    <input class="search-inp" id="searchInp" placeholder="Search fields…" oninput="onSearch()" style="margin-left:6px">
+  </div>
+
+  <!-- Log stream -->
+  <div class="log-area">
+    <div class="log-stream" id="logStream">
+      <div class="empty-hint">No data yet. Configure above and click Fetch.</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="log-footer">
+    <span class="log-count" id="logCount">0 entries · 0 packets</span>
+    <button class="xbtn" id="btnPrev" onclick="changePage(-1)" disabled>‹ Prev</button>
+    <span id="pageInfo" style="font-size:10px;color:var(--t1);padding:0 4px;white-space:nowrap">Page 1/1</span>
+    <button class="xbtn" id="btnNext" onclick="changePage(1)" disabled>Next ›</button>
+    <div style="flex:1"></div>
+    <button class="xbtn" onclick="xport('json')">↓ JSON</button>
+    <button class="xbtn" onclick="xport('raw')">↓ Raw</button>
+    <button class="xbtn" onclick="xport('ndjson')">↓ NDJSON</button>
+    <button class="xbtn" onclick="clearAll()">✕ Clear</button>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────
+let viewMode = 'parsed';   // 'parsed' | 'raw'
+let filtType = 'all';
+let searchQ  = '';
+let allEntries = [];        // raw API entries {t, m_raw, packets:[]}
+let allPackets = [];        // flat parsed packets {seq, entryIdx, ts, type, data}
+let fetchAbort = false;
+let fetching = false;
+let maxRecords = 1000;      // 0 = unlimited display
+let displayPage = 1;
+const PAGE_SIZE = 100;
+let autoScroll = true;
+
+// ── Date pickers ─────────────────────────────────────────────
+let _fpInstances = [], _fpMap = {};
+function _fpPosition(self) {
+  var cal = self.calendarContainer;
+  var anchor = self.altInput || self.input;
+  var rect = anchor.getBoundingClientRect();
+  var calH = cal.offsetHeight || 305, calW = cal.offsetWidth || 310;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var sx = window.scrollX || 0, sy = window.scrollY || 0;
+  var spaceBelow = vh - rect.bottom - 6, spaceAbove = rect.top - 6;
+  var above = spaceAbove > spaceBelow && spaceBelow < calH;
+  var top = above ? rect.top + sy - calH - 4 : rect.bottom + sy + 4;
+  cal.classList.toggle('arrowTop', !above);
+  cal.classList.toggle('arrowBottom', above);
+  top = Math.max(sy + 4, Math.min(top, sy + vh - calH - 4));
+  var left = Math.max(4, Math.min(rect.left + sx, vw - calW - 4));
+  cal.style.top = top + 'px';
+  cal.style.left = left + 'px';
+}
+function initDatePickers() {
+  _fpInstances.forEach(function(fp){try{fp.destroy();}catch(e){}});
+  _fpInstances = []; _fpMap = {};
+  document.querySelectorAll('input[type="datetime-local"]').forEach(function(el) {
+    const origClass = el.className, origStyle = el.getAttribute('style')||'';
+    const savedOninput = el.oninput, savedOnchange = el.onchange;
+    const fp = flatpickr(el, {
+      enableTime: true, time_24hr: true,
+      dateFormat: 'Y-m-dTH:i', altInput: true, altFormat: 'd M Y  H:i',
+      allowInput: false, defaultDate: el.value || null,
+      position: _fpPosition,
+      onReady: function(_,__,inst) {
+        if (inst.altInput) {
+          inst.altInput.className = origClass + ' flatpickr-alt-input';
+          if (origStyle) inst.altInput.setAttribute('style', origStyle);
+          inst.altInput.placeholder = 'Pick a date…';
+        }
+      },
+      onChange: function() {
+        const h = savedOninput || savedOnchange;
+        if (h) h.call(el, {target:el});
+      }
+    });
+    _fpInstances.push(fp);
+    if (el.id) _fpMap[el.id] = fp;
+  });
+}
+function setFPDate(id, value) {
+  const fp = _fpMap[id];
+  if (fp) fp.setDate(value || null, false);
+  else { const el = document.getElementById(id); if (el) el.value = value || ''; }
+}
+
+// ── Init ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  SimNav.inject('logs');
+  initDatePickers();
+  prefillFromState();
+});
+
+function populateRegionDropdown() {
+  const sel = document.getElementById('ctrlRegion');
+  const regions = SimState.getRegions();
+  sel.innerHTML = Object.entries(regions).map(([k, r]) =>
+    `<option value="${k}">${r.label} — ${r.sub}</option>`
+  ).join('');
+  sel.value = SimState.getActiveRegionKey();
+}
+
+function onRegionSelect(key) {
+  SimState.setActiveRegionKey(key);
+  SimNav._refreshRegion();
+  clearAll(true);
+  const r = SimState.getRegion(key) || {};
+  setStatus('Region: ' + (r.label || key) + ' — click Fetch to load', 'info');
+}
+
+window.onRegionChange = function(key) {
+  document.getElementById('ctrlRegion').value = key;
+  clearAll(true);
+  const r = SimState.getRegion(key) || {};
+  setStatus('Region switched to ' + (r.label || key) + ' — click Fetch to reload', 'info');
+};
+
+function prefillFromState() {
+  populateRegionDropdown();
+  const t = SimState.getActiveTest();
+  if (!t) return;
+  document.getElementById('ctrlImei').value = t.srcImei || '';
+  setFPDate('ctrlFrom', t.from || '');
+  setFPDate('ctrlUntil', t.until || '');
+}
+
+// ── Packet type detection (mirrors fetch-and-store.js) ───────
+function detectType(obj) {
+  if (!obj || typeof obj !== 'object') return 'unknown';
+  if ('cv' in obj || 'tv' in obj) return 'hs';
+  if ('GA' in obj || 'GD' in obj || 'GT' in obj) return 'gps';
+  if ('P'  in obj || 'DT_UDS3' in obj || 'DT_UDS' in obj) return 'obd';
+  if ('set' in obj) return 'set';
+  return 'unknown';
+}
+
+function typeLabel(t) {
+  return { gps:'GPS', obd:'OBD', hs:'HANDSHAKE', set:'SETTINGS', unknown:'UNKNOWN' }[t] || t.toUpperCase();
+}
+
+// ── API fetch helper — uses Go backend to bypass CORS ────────────
+// In the desktop app, window.go.main.App.FetchLogsPage routes the HTTP
+// request through Go's net/http (no CORS restrictions).
+async function apiFetch(apiBase, imei, token, fromMs, untilMs, psize, lastT) {
+  return window.go.main.App.FetchLogsPage(apiBase, imei, token, fromMs, untilMs, psize, lastT || 0);
+}
+
+// ── Fetch ─────────────────────────────────────────────────────
+async function startFetch() {
+  const imei  = document.getElementById('ctrlImei').value.trim();
+  const from  = document.getElementById('ctrlFrom').value;
+  const until = document.getElementById('ctrlUntil').value;
+  const psize = parseInt(document.getElementById('ctrlPsize').value) || 1000;
+  const regionKey = SimState.getActiveRegionKey();
+  const region = SimState.getRegion(regionKey);
+
+  if (!imei)  return setStatus('⚠ IMEI is required', 'warn');
+  if (!from)  return setStatus('⚠ From date is required', 'warn');
+  if (!until) return setStatus('⚠ Until date is required', 'warn');
+  if (!region) return setStatus('⚠ Invalid region', 'warn');
+  if (!region.apiToken) return setStatus('⚠ API token not set — configure it in Settings → ' + region.label, 'warn');
+
+  const fromMs  = new Date(from).getTime();
+  const untilMs = new Date(until).getTime();
+  if (isNaN(fromMs) || isNaN(untilMs)) return setStatus('⚠ Invalid date range', 'warn');
+
+  clearAll(true);
+  fetching = true; fetchAbort = false;
+  document.getElementById('btnFetch').disabled = true;
+  document.getElementById('btnStop').disabled = false;
+
+  const apiBase = region.apiBase || '';
+  let page = 0, lekT = null, totalEntries = 0, totalPackets = 0, totalErrors = 0;
+
+  while (!fetchAbort) {
+    page++;
+    setStatus(`Page ${page} — fetching…`, 'info', page, totalPackets, totalErrors);
+
+    let json;
+    try {
+      json = await apiFetch(apiBase, imei, region.apiToken, fromMs, untilMs, psize, lekT || 0);
+    } catch (err) {
+      if (fetchAbort) break;
+      setStatus(`✕ Fetch error on page ${page}: ${err.message || String(err)}`, 'err');
+      break;
+    }
+
+    const rawLogs = Array.isArray(json.logs) ? json.logs : [];
+    if (rawLogs.length === 0) { setStatus(`✓ Done — no more entries (page ${page})`, 'ok', page, totalPackets, totalErrors); break; }
+    if (rawLogs.length === 1 && !json.last_evaluated_key) { setStatus(`✓ Done — last entry (page ${page})`, 'ok', page, totalPackets, totalErrors); break; }
+
+    // Parse each entry
+    let hitLimit = false;
+    for (const entry of rawLogs) {
+      if (fetchAbort) break;
+      const mRaw = typeof entry.m === 'string' ? entry.m : JSON.stringify(entry.m || '');
+      let packets = [];
+      try {
+        const parsed = JSON.parse(mRaw);
+        const arr = Array.isArray(parsed) ? parsed : [parsed];
+        packets = arr.map(obj => ({ type: detectType(obj), data: obj }));
+      } catch (e) {
+        totalErrors++;
+      }
+      const entryObj = { t: entry.t, m_raw: mRaw, packets };
+      allEntries.push(entryObj);
+      totalEntries++;
+      for (const p of packets) {
+        if (maxRecords > 0 && allPackets.length >= maxRecords) { hitLimit = true; break; }
+        allPackets.push({ seq: allPackets.length + 1, entryIdx: allEntries.length - 1, ts: entry.t, type: p.type, data: p.data });
+        totalPackets++;
+      }
+      renderNewEntry(entryObj, allEntries.length - 1);
+      if (hitLimit) break;
+    }
+
+    updateFooter();
+
+    if (hitLimit) {
+      setStatus(`✓ Record limit reached — ${totalPackets} packets across ${page} page(s). Increase Max Rec to fetch more.`, 'ok', page, totalPackets, totalErrors);
+      break;
+    }
+
+    setStatus(`Page ${page} — ${rawLogs.length} entries`, 'info', page, totalPackets, totalErrors);
+
+    const lek = json.last_evaluated_key;
+    if (!lek) { setStatus(`✓ Complete — ${page} pages, ${totalPackets} packets, ${totalErrors} errors`, 'ok', page, totalPackets, totalErrors); break; }
+    lekT = lek.t || null;
+
+    await sleep(100);
+  }
+
+  fetching = false;
+  document.getElementById('btnFetch').disabled = false;
+  document.getElementById('btnStop').disabled = true;
+}
+
+function stopFetch() {
+  fetchAbort = true;
+  document.getElementById('btnStop').disabled = true;
+  setStatus('Stopped by user', 'warn');
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderNewEntry(entry, entryIdx) {
+  const stream = document.getElementById('logStream');
+  const hint = stream.querySelector('.empty-hint');
+  if (hint) hint.remove();
+
+  if (viewMode === 'raw') {
+    stream.appendChild(buildRawPage(entry, entryIdx));
+  } else {
+    for (let i = 0; i < entry.packets.length; i++) {
+      const p = allPackets.find(x => x.entryIdx === entryIdx && x.data === entry.packets[i].data);
+      if (p && matchesFilt(p)) {
+        // trim oldest DOM rows when over display limit
+        if (maxRecords > 0) {
+          const rows = stream.querySelectorAll('.pkt-row');
+          while (rows.length > 0 && rows.length >= maxRecords) {
+            const oldest = stream.querySelector('.pkt-row');
+            if (!oldest) break;
+            const detail = oldest.nextElementSibling;
+            if (detail && detail.classList.contains('pkt-detail')) detail.remove();
+            oldest.remove();
+          }
+        }
+        stream.appendChild(buildPktRow(p));
+      }
+    }
+  }
+  if (autoScroll) stream.scrollTop = stream.scrollHeight;
+  updatePagination();
+}
+
+function getDisplayPackets() {
+  const filtered = allPackets.filter(p => matchesFilt(p));
+  return maxRecords > 0 ? filtered.slice(-maxRecords) : filtered;
+}
+
+function rerenderAll() {
+  const stream = document.getElementById('logStream');
+  stream.innerHTML = '';
+  if (!allEntries.length) {
+    stream.innerHTML = '<div class="empty-hint">No data yet.</div>';
+    updatePagination(); return;
+  }
+  if (viewMode === 'raw') {
+    const entries = maxRecords > 0 ? allEntries.slice(-maxRecords) : allEntries;
+    entries.forEach((e, i) => stream.appendChild(buildRawPage(e, i)));
+  } else {
+    const filtered = getDisplayPackets();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    displayPage = Math.min(displayPage, totalPages);
+    const start = (displayPage - 1) * PAGE_SIZE;
+    filtered.slice(start, start + PAGE_SIZE).forEach(p => stream.appendChild(buildPktRow(p)));
+  }
+  updatePagination();
+}
+
+function updatePagination() {
+  const filtered = getDisplayPackets();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pi = document.getElementById('pageInfo');
+  const prev = document.getElementById('btnPrev');
+  const next = document.getElementById('btnNext');
+  if (pi) pi.textContent = `Page ${displayPage}/${totalPages}`;
+  if (prev) prev.disabled = displayPage <= 1;
+  if (next) next.disabled = displayPage >= totalPages;
+}
+
+function changePage(delta) {
+  const filtered = getDisplayPackets();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  displayPage = Math.max(1, Math.min(totalPages, displayPage + delta));
+  rerenderAll();
+}
+
+function setMaxRecords(n) {
+  maxRecords = n;
+  displayPage = 1;
+  rerenderAll();
+  updateFooter();
+}
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  const btn = document.getElementById('autoScrollBtn');
+  if (btn) btn.classList.toggle('on', autoScroll);
+}
+
+function matchesFilt(p) {
+  if (filtType !== 'all' && p.type !== filtType) return false;
+  if (searchQ) {
+    const hay = JSON.stringify(p.data).toLowerCase();
+    if (!hay.includes(searchQ.toLowerCase())) return false;
+  }
+  return true;
+}
+
+// ── Parsed packet row ─────────────────────────────────────────
+function buildPktRow(p) {
+  const frag = document.createDocumentFragment();
+  const row = document.createElement('div');
+  row.className = 'pkt-row';
+  row.dataset.seq = p.seq;
+
+  const ts = p.ts ? new Date(p.ts).toISOString().replace('T',' ').slice(0,23)+'Z' : '—';
+  const fields = Object.entries(p.data).slice(0, 6)
+    .map(([k,v]) => `<span class="fk">${k}</span>=<span class="fv">${String(v).slice(0,30)}</span>`)
+    .join('  ');
+
+  row.innerHTML = `
+    <span class="pkt-gutter">${p.seq}</span>
+    <span class="pkt-ts">${ts}</span>
+    <span class="pkt-type ${p.type}">${typeLabel(p.type)}</span>
+    <span class="pkt-fields">${fields}</span>
+    <span class="pkt-expand">›</span>
+  `;
+
+  const detail = document.createElement('div');
+  detail.className = 'pkt-detail';
+  detail.innerHTML = `<div class="pkt-detail-inner">
+    <div>
+      <div class="pkt-raw-lbl">Parsed Object</div>
+      <pre class="pkt-json-pre">${colorJson(p.data)}</pre>
+    </div>
+    <div class="pkt-raw-box">
+      <div class="pkt-raw-lbl">Raw entry.m string (as received from API)</div>
+      <div class="pkt-raw-str">${escHtml(allEntries[p.entryIdx]?.m_raw || '')}</div>
+    </div>
+  </div>`;
+
+  row.addEventListener('click', () => {
+    const open = detail.classList.toggle('open');
+    row.classList.toggle('expanded', open);
+    row.querySelector('.pkt-expand').textContent = open ? '∨' : '›';
+  });
+
+  frag.appendChild(row);
+  frag.appendChild(detail);
+  return frag;
+}
+
+// ── Raw page block ────────────────────────────────────────────
+function buildRawPage(entry, entryIdx) {
+  const ts = entry.t ? new Date(entry.t).toISOString().replace('T',' ').slice(0,23)+'Z' : '—';
+  const div = document.createElement('div');
+  div.className = 'raw-page';
+
+  let parsedArr = [];
+  try { const p = JSON.parse(entry.m_raw); parsedArr = Array.isArray(p) ? p : [p]; } catch(e) {}
+
+  div.innerHTML = `
+    <div class="raw-page-hdr" onclick="this.parentElement.classList.toggle('open')">
+      <span class="raw-page-lbl">entry #${entryIdx+1}</span>
+      <span style="color:var(--t2);font-size:9px">t=${entry.t}</span>
+      <span class="raw-page-count">${ts} · ${parsedArr.length} packet${parsedArr.length!==1?'s':''}</span>
+      <span class="raw-page-ch">›</span>
+    </div>
+    <div class="raw-page-body">
+      <div class="raw-entry">
+        <div class="raw-entry-hdr">
+          <span class="raw-entry-t">t: ${entry.t}</span>
+          <span class="raw-entry-ts">${ts}</span>
+        </div>
+        <div class="raw-entry-body">
+          <div class="pkt-raw-lbl" style="margin-bottom:5px">entry.m — raw string from API</div>
+          <pre class="raw-pre">${escHtml(entry.m_raw)}</pre>
+          <div class="pkt-raw-lbl" style="margin:10px 0 5px">entry.m — parsed (JSON.parse)</div>
+          <pre class="raw-pre">${colorJson(parsedArr)}</pre>
+        </div>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+// ── CORS error ────────────────────────────────────────────────
+function showProxyError() {
+  const stream = document.getElementById('logStream');
+  stream.innerHTML = `
+    <div class="cors-box">
+      <div class="cors-title">⚠ dev-proxy.py is not running</div>
+      <div class="cors-body">
+        You're on <code>localhost</code> but the proxy server isn't running — the browser can't call the
+        Intangles API directly due to CORS, so requests must go through <code>dev-proxy.py</code>.<br><br>
+        <strong>Open a terminal in this folder and run:</strong>
+        <button class="cors-copy" id="proxyCopyBtn" onclick="copyProxyCmd()">Copy</button>
+        <span class="cors-cmd" id="proxyCmdEl">python3 dev-proxy.py 3000</span>
+        Then keep it running and click <strong>Fetch</strong> again.<br><br>
+        <strong>Or paste API response JSON directly:</strong>
+      </div>
+      <div style="margin-top:8px">
+        <textarea id="pasteArea" style="width:100%;height:110px;background:var(--bg2);border:none;border-radius:4px;color:var(--t0);font-family:monospace;font-size:10px;padding:7px 9px;outline:none;resize:vertical;box-shadow:0 2px 10px rgba(0,0,0,.2)" placeholder='Paste {"logs":[...]} here'></textarea>
+        <button class="btn btn-go" style="margin-top:6px;font-size:10px" onclick="loadPasted()">Load Pasted JSON</button>
+      </div>
+    </div>`;
+  setStatus('⚠ Proxy not running — start dev-proxy.py then Fetch again', 'err');
+  window._proxyCmd = 'python3 dev-proxy.py 3000';
+}
+
+function copyProxyCmd() {
+  if (window._proxyCmd) navigator.clipboard.writeText(window._proxyCmd).catch(()=>{});
+  const b = document.getElementById('proxyCopyBtn');
+  if (b) { b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy', 1500); }
+}
+
+function showCorsError(url, imei, token, fromMs, untilMs, psize) {
+  const curlCmd = `curl -s "${url}" | python3 -m json.tool`;
+  const stream = document.getElementById('logStream');
+  stream.innerHTML = `
+    <div class="cors-box">
+      <div class="cors-title">⚠ CORS / Network Error</div>
+      <div class="cors-body">
+        The browser blocked the request to the Intangles API (CORS restriction when opening from <code>file://</code>).<br><br>
+        <strong>Solutions:</strong><br>
+        1. Serve this file via a local HTTP server:<br>
+        <span class="cors-cmd">npx serve . -p 3000   # or: python3 -m http.server 3000</span><br>
+        2. Or fetch the data via curl and paste it below:<br>
+        <button class="cors-copy" onclick="copyCmd()">Copy</button>
+        <span class="cors-cmd" id="curlCmd">${escHtml(curlCmd)}</span>
+      </div>
+      <div style="margin-top:12px">
+        <div class="pkt-raw-lbl" style="margin-bottom:5px">Paste API response JSON here</div>
+        <textarea id="pasteArea" style="width:100%;height:110px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-family:monospace;font-size:10px;padding:7px 9px;outline:none;resize:vertical" placeholder='Paste {"logs":[...]} here'></textarea>
+        <button class="btn btn-go" style="margin-top:6px;font-size:10px" onclick="loadPasted()">Load Pasted JSON</button>
+      </div>
+    </div>`;
+  setStatus('⚠ CORS error — see instructions in the panel below', 'err');
+  window._curlCmd = curlCmd;
+}
+
+function copyCmd() {
+  if (window._curlCmd) navigator.clipboard.writeText(window._curlCmd).catch(()=>{});
+  const b = document.querySelector('.cors-copy'); if (b) { b.textContent = 'Copied!'; setTimeout(()=>b.textContent='Copy', 1500); }
+}
+
+function loadPasted() {
+  const ta = document.getElementById('pasteArea');
+  if (!ta) return;
+  let json;
+  try { json = JSON.parse(ta.value.trim()); } catch(e) { alert('Invalid JSON: ' + e.message); return; }
+  const rawLogs = Array.isArray(json.logs) ? json.logs : Array.isArray(json) ? json : [];
+  if (!rawLogs.length) { alert('No logs[] array found in pasted JSON.'); return; }
+  clearAll(true);
+  for (const entry of rawLogs) {
+    const mRaw = typeof entry.m === 'string' ? entry.m : JSON.stringify(entry.m || '');
+    let packets = [];
+    try { const parsed = JSON.parse(mRaw); const arr = Array.isArray(parsed)?parsed:[parsed]; packets = arr.map(obj=>({type:detectType(obj),data:obj})); } catch(e){}
+    const entryObj = { t: entry.t, m_raw: mRaw, packets };
+    allEntries.push(entryObj);
+    for (const p of packets) allPackets.push({ seq: allPackets.length+1, entryIdx: allEntries.length-1, ts: entry.t, type: p.type, data: p.data });
+    renderNewEntry(entryObj, allEntries.length - 1);
+  }
+  updateFooter();
+  setStatus(`✓ Loaded ${rawLogs.length} entries from pasted JSON`, 'ok');
+}
+
+// ── View / filter / search ────────────────────────────────────
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('vParsed').classList.toggle('on', mode==='parsed');
+  document.getElementById('vRaw').classList.toggle('on', mode==='raw');
+  document.getElementById('filterRow').style.display = mode==='raw' ? 'none' : '';
+  rerenderAll();
+}
+
+function setFilt(f, el) {
+  filtType = f; displayPage = 1;
+  document.querySelectorAll('.filter-row .pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  rerenderAll();
+}
+
+function onSearch() {
+  searchQ = document.getElementById('searchInp').value;
+  displayPage = 1;
+  rerenderAll();
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function setStatus(msg, level, page, pkts, errs) {
+  const el = document.getElementById('sbMsg');
+  const colors = { ok:'var(--green)', warn:'var(--yellow)', err:'var(--red)', info:'var(--t2)' };
+  el.style.color = colors[level] || 'var(--t2)';
+  el.textContent = msg;
+  const bar = document.getElementById('statusBar');
+  const extra = [];
+  if (page !== undefined) extra.push(`<span class="sb-pill sb-page">page ${page}</span>`);
+  if (pkts !== undefined) extra.push(`<span class="sb-pill sb-pkts">${pkts} pkts</span>`);
+  if (errs)               extra.push(`<span class="sb-pill sb-errs">${errs} err</span>`);
+  if (extra.length) el.insertAdjacentHTML('afterend', extra.join(''));
+  // Clean up old pills
+  bar.querySelectorAll('.sb-pill').forEach(e=>e.remove());
+  if (extra.length) { el.insertAdjacentHTML('afterend', extra.join('')); }
+}
+
+function updateFooter() {
+  const byType = {};
+  allPackets.forEach(p => byType[p.type] = (byType[p.type]||0)+1);
+  const breakdown = Object.entries(byType).map(([k,v])=>`${typeLabel(k)}: ${v}`).join(' · ');
+  document.getElementById('logCount').textContent =
+    `${allEntries.length} entries · ${allPackets.length} packets` + (breakdown ? `  (${breakdown})` : '');
+}
+
+function clearAll(keepControls) {
+  allEntries = []; allPackets = [];
+  document.getElementById('logStream').innerHTML = '<div class="empty-hint">No data yet. Configure above and click Fetch.</div>';
+  document.getElementById('logCount').textContent = '0 entries · 0 packets';
+  if (!keepControls) setStatus('Ready — enter IMEI and time window, then click Fetch');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function colorJson(obj) {
+  const str = JSON.stringify(obj, null, 2);
+  return str.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+    if (/^"/.test(match)) {
+      if (/:$/.test(match)) return `<span class="json-key">${escHtml(match)}</span>`;
+      return `<span class="json-str">${escHtml(match)}</span>`;
+    }
+    if (/true|false/.test(match)) return `<span class="json-bool">${match}</span>`;
+    if (/null/.test(match))       return `<span class="json-null">${match}</span>`;
+    return `<span class="json-num">${match}</span>`;
+  });
+}
+
+// ── Export ────────────────────────────────────────────────────
+async function xport(fmt) {
+  const now = new Date().toISOString().replace(/[:.]/g,'-');
+  let content, ext;
+  if (fmt === 'json') {
+    content = JSON.stringify(allPackets.map(p=>({seq:p.seq, t:p.ts, ts:new Date(p.ts).toISOString(), type:p.type, ...p.data})), null, 2);
+    ext = 'json';
+  } else if (fmt === 'raw') {
+    content = JSON.stringify({ entries: allEntries.map(e=>({t:e.t, m:e.m_raw})) }, null, 2);
+    ext = 'json';
+  } else {
+    content = allPackets.map(p => JSON.stringify({seq:p.seq,t:p.ts,ts:new Date(p.ts).toISOString(),type:p.type,...p.data})).join('\n');
+    ext = 'ndjson';
+  }
+  try {
+    await window.go.main.App.SaveFile(content, `api-logs-${now}.${ext}`);
+  } catch (e) { console.error('Save failed:', e); }
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+</script>
+</body>
+</html>

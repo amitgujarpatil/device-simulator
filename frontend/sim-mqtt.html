@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>MQTT Client — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+.app-wrap{flex-direction:row!important}
+
+/* ── LEFT PANEL (300px) ─────────────────────────────── */
+.mqtt-left{width:300px;min-width:300px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.mqtt-left-scroll{flex:1;overflow-y:auto}
+.mqtt-left-scroll::-webkit-scrollbar{width:3px}.mqtt-left-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.panel-sec{padding:8px 14px 5px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.panel-sec-extra{margin-left:auto;font-size:9px;font-weight:400;color:var(--t2);letter-spacing:0;text-transform:none}
+
+/* status strip */
+.conn-status{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:var(--bg0)}
+.cs-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--t2)}
+.cs-dot.on{background:var(--green);box-shadow:0 0 6px rgba(52,211,153,.5)}
+.cs-dot.reconnecting{background:var(--yellow);animation:cs-pulse 1s infinite}
+@keyframes cs-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.cs-label{font-size:11px;font-weight:700;color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-label.on{color:var(--green)}
+.cs-err{font-size:9px;color:var(--red);margin-top:2px;word-break:break-all;line-height:1.4}
+
+/* ── left panel tabs ─────────────────────────────────── */
+.left-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg0);flex-shrink:0}
+.lt-btn{flex:1;padding:9px 0;font-size:10px;font-weight:700;color:var(--t2);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;outline:none;transition:all .13s;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:5px}
+.lt-btn:hover{color:var(--t1);background:rgba(255,255,255,.025)}
+.lt-btn.on{color:var(--blue);border-bottom-color:var(--blue)}
+.lt-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--bg3);color:var(--t2);line-height:1.4;transition:all .13s}
+.lt-btn.on .lt-badge{background:rgba(167,139,250,.18);color:var(--blue)}
+.lt-view{display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0}
+.lt-view.on{display:flex}
+
+/* ── save bar (inline name + save button) ─────────────── */
+.save-bar{padding:8px 12px;display:flex;gap:6px;align-items:center;border-top:1px solid var(--border);background:var(--bg0);flex-shrink:0}
+.save-name-inp{flex:1;padding:6px 9px;background:var(--bg2);border:1px solid transparent;border-radius:5px;color:var(--t0);font-size:11px;outline:none;min-width:0;transition:border-color .15s}
+.save-name-inp:focus{border-color:var(--blue)}
+.save-name-inp::placeholder{color:var(--t2)}
+.save-btn{padding:6px 13px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);border-radius:5px;color:var(--blue);font-size:10px;font-weight:700;cursor:pointer;outline:none;white-space:nowrap;transition:all .13s;flex-shrink:0}
+.save-btn:hover{background:rgba(167,139,250,.22);box-shadow:0 1px 8px rgba(167,139,250,.2)}
+
+/* ── connect footer ──────────────────────────────────── */
+.conn-foot{padding:8px 12px;flex-shrink:0;background:var(--bg1);border-top:1px solid var(--border)}
+
+/* ── profiles tab ────────────────────────────────────── */
+.prof-tab-hdr{padding:7px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg0)}
+.prof-tab-count{font-size:10px;color:var(--t2);flex:1}
+.prof-tab-btn{padding:4px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--t2);font-size:9px;font-weight:700;cursor:pointer;outline:none;white-space:nowrap;transition:all .13s}
+.prof-tab-btn:hover{color:var(--t0);border-color:var(--t2)}
+.prof-tab-btn.imp{border-color:rgba(52,211,153,.25);color:var(--green)}.prof-tab-btn.imp:hover{background:rgba(52,211,153,.08)}
+.prof-search{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.prof-search-inp{width:100%;padding:6px 9px;background:var(--bg2);border:1px solid transparent;border-radius:5px;color:var(--t0);font-size:11px;outline:none;box-sizing:border-box;transition:border-color .15s}
+.prof-search-inp:focus{border-color:var(--blue)}
+.prof-search-inp::placeholder{color:var(--t2)}
+.prof-list{flex:1;overflow-y:auto}
+.prof-list::-webkit-scrollbar{width:3px}.prof-list::-webkit-scrollbar-thumb{background:var(--border)}
+.prof-empty-msg{padding:40px 16px;text-align:center;color:var(--t2);font-size:11px;line-height:1.9}
+
+/* ── profile card ────────────────────────────────────── */
+.prof-card{padding:11px 12px;border-bottom:1px solid rgba(45,42,64,.5);cursor:pointer;transition:background .12s;user-select:none;border-left:2px solid transparent}
+.prof-card:hover{background:var(--bg2)}
+.prof-card.selected{background:rgba(167,139,250,.05);border-left-color:var(--blue)}
+.prof-card-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.proto-badge{font-size:8px;font-weight:800;padding:2px 6px;border-radius:3px;flex-shrink:0;letter-spacing:.05em;text-transform:uppercase}
+.proto-mqtt{background:rgba(52,211,153,.12);color:var(--green)}
+.proto-mqtts{background:rgba(167,139,250,.12);color:var(--blue)}
+.proto-ws{background:rgba(251,146,60,.12);color:var(--orange)}
+.proto-wss{background:rgba(129,140,248,.12);color:var(--purple)}
+.prof-card-name{flex:1;font-size:12px;font-weight:700;color:var(--t0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.prof-card-host{font-size:9.5px;color:var(--t2);font-family:monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prof-card-actions{display:flex;gap:5px}
+.prof-card-load{flex:1;padding:5px 8px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.28);border-radius:4px;color:var(--blue);font-size:10px;font-weight:700;cursor:pointer;outline:none;transition:all .12s;text-align:center}
+.prof-card-load:hover{background:rgba(167,139,250,.22)}
+.prof-card-dl{padding:5px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:10px;cursor:pointer;outline:none;transition:all .12s;white-space:nowrap}
+.prof-card-dl:hover{color:var(--t0);border-color:var(--t2)}
+.prof-card-del{padding:5px 8px;background:none;border:1px solid rgba(248,113,113,.22);border-radius:4px;color:var(--red);font-size:10px;cursor:pointer;outline:none;transition:all .12s}
+.prof-card-del:hover{background:rgba(248,113,113,.1)}
+
+/* conn form */
+.conn-form{padding:10px 14px}
+.cf-row{display:flex;gap:6px}.cf-row .fg{flex:1}.cf-row .fg.sm{flex:0 0 84px}.cf-row .fg.xs{flex:0 0 68px}
+.inp-group{display:flex;gap:0;align-items:stretch}
+.inp-group .inp{flex:1;width:auto;border-radius:5px 0 0 5px}
+.inp-group-btn{flex-shrink:0;padding:0 11px;background:var(--bg3);border:none;border-left:1px solid var(--border);border-radius:0 5px 5px 0;color:var(--t1);font-size:10px;font-weight:700;cursor:pointer;outline:none;white-space:nowrap;transition:all .13s}
+.inp-group-btn:hover{color:var(--t0);background:var(--bg2)}
+.cf-toggle-row{display:flex;align-items:center;gap:8px;padding:4px 0;min-height:30px}
+.cf-toggle-lbl{font-size:10px;color:var(--t1);cursor:pointer;user-select:none}
+.conn-btn{width:100%;margin-top:6px;padding:8px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700;outline:none;transition:all .15s}
+.conn-btn.connect{background:var(--blue);color:#09080e}.conn-btn.connect:hover{filter:brightness(1.12)}
+.conn-btn.disconnect{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25)}.conn-btn.disconnect:hover{background:rgba(248,113,113,.2)}
+.conn-btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+
+/* TLS */
+.tls-sec{padding:0 14px 8px}
+.tls-divider{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);padding:6px 0 4px;border-top:1px solid var(--border);margin-top:2px}
+.cert-path-row{display:flex;gap:5px;align-items:center}
+.cert-path-row .inp{flex:1;font-size:10px;font-family:monospace}
+.cert-browse{padding:4px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:10px;cursor:pointer;white-space:nowrap;font-weight:600;outline:none;transition:all .14s;flex-shrink:0}
+.cert-browse:hover{color:var(--t0);border-color:var(--t2)}
+
+/* conn log */
+.conn-log{border-top:1px solid var(--border);flex-shrink:0;max-height:130px;overflow-y:auto;background:var(--bg0)}
+.conn-log::-webkit-scrollbar{width:3px}.conn-log::-webkit-scrollbar-thumb{background:var(--border)}
+.conn-log-hdr{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);padding:5px 14px 3px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg0)}
+.conn-log-clear{cursor:pointer;font-size:8px;color:var(--t2);background:none;border:none;padding:0;outline:none}
+.conn-log-clear:hover{color:var(--t1)}
+.log-line{padding:1px 14px;font-size:9px;font-family:monospace;line-height:1.6;word-break:break-all}
+.log-line.info{color:var(--t2)}.log-line.ok{color:var(--green)}.log-line.err{color:var(--red)}.log-line.warn{color:var(--yellow)}
+
+/* ── RIGHT PANEL (flex 1, flex row) ─────────────────── */
+.mqtt-right{flex:1;display:flex;flex-direction:row;overflow:hidden;min-width:0}
+
+/* subscriptions sidebar — INSIDE the right panel */
+.mqtt-subs{width:220px;min-width:200px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sub-add{padding:8px 10px;display:flex;flex-direction:column;gap:5px;border-bottom:1px solid var(--border)}
+.sub-add .inp{font-family:var(--font-mono);font-size:11px}
+.sub-add-actions{display:flex;align-items:center;gap:5px}
+.sub-qos-lbl{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;flex-shrink:0}
+.sub-qos-sel{height:26px;flex:0 0 38px;padding:0 3px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--t0);font-size:11px;font-weight:700;outline:none;cursor:pointer;-webkit-appearance:none;text-align:center;text-align-last:center}
+.sub-add-btn{flex:1;height:26px;padding:0 6px;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.25);border-radius:5px;color:var(--blue);font-size:10px;font-weight:700;cursor:pointer;outline:none;transition:all .12s;white-space:nowrap}
+.sub-add-btn:hover{background:rgba(167,139,250,.2);border-color:var(--blue)}
+.sub-list{flex:1;overflow-y:auto;min-height:60px}
+.sub-list::-webkit-scrollbar{width:3px}.sub-list::-webkit-scrollbar-thumb{background:var(--border)}
+.sub-item{padding:6px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(45,42,64,.4);transition:background .12s;cursor:pointer}
+.sub-item:hover{background:var(--bg2)}
+.sub-item.active{background:rgba(167,139,250,.07)}
+.sub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sub-topic{flex:1;font-size:11px;color:var(--t0);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sub-item.active .sub-topic{color:var(--blue)}
+.sub-qbadge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--t1);flex-shrink:0}
+.sub-msg-count{font-size:8px;color:var(--t2);flex-shrink:0;min-width:18px;text-align:right}
+.sub-del{font-size:13px;color:var(--t2);cursor:pointer;background:none;border:none;padding:0;outline:none;flex-shrink:0;opacity:0;line-height:1;transition:opacity .12s}
+.sub-item:hover .sub-del{opacity:.5}
+.sub-del:hover{color:var(--red);opacity:1!important}
+.sub-empty{padding:16px 12px;font-size:10px;color:var(--t2);text-align:center}
+
+/* main area */
+.mqtt-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* 3-tab bar */
+.tab-bar{display:flex;align-items:stretch;background:var(--bg1);border-bottom:2px solid var(--border);overflow-x:auto;flex-shrink:0}
+.tab-bar::-webkit-scrollbar{height:2px}.tab-bar::-webkit-scrollbar-thumb{background:var(--border);border-radius:1px}
+.tab-item{display:flex;align-items:center;gap:5px;padding:8px 16px;font-size:10px;font-weight:700;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .14s,background .14s;user-select:none;flex-shrink:0}
+.tab-item:hover{color:var(--t1);background:rgba(255,255,255,.03)}
+.tab-item.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--bg3);color:var(--t2);min-width:16px;text-align:center;flex-shrink:0}
+.tab-item.active .tab-badge{background:rgba(167,139,250,.18);color:var(--blue)}
+.sub-filter-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);border-radius:10px;font-size:9px;font-weight:700;color:var(--blue);font-family:monospace;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;flex-shrink:0}
+.sub-filter-chip:hover{background:rgba(167,139,250,.2)}
+
+/* toolbar + log */
+.msg-toolbar{padding:5px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;flex-shrink:0;background:var(--bg0)}
+.msg-filter-inp{padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:10px;outline:none;width:140px}
+.msg-filter-inp:focus{border-color:var(--blue)}
+.msg-count{font-size:10px;color:var(--t2);flex:1}
+.tbar-btn{padding:3px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:9px;font-weight:700;cursor:pointer;outline:none;transition:all .12s;white-space:nowrap}
+.tbar-btn:hover{background:var(--bg3);color:var(--t0)}
+.tbar-btn.on{background:rgba(167,139,250,.12);border-color:var(--blue);color:var(--blue)}
+.tbar-sep{width:1px;height:16px;background:var(--border)}
+.msg-log{flex:1;overflow-y:auto;padding:8px 0}
+.msg-log::-webkit-scrollbar{width:4px}.msg-log::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.msg-empty{padding:60px 20px;text-align:center;color:var(--t2);font-size:11px;line-height:1.8}
+.msg-empty span{display:block;font-size:18px;margin-bottom:6px;opacity:.3}
+.msg-card{margin:0 12px 6px;border-radius:6px;border:1px solid var(--border);overflow:hidden;transition:border-color .12s}
+.msg-card:hover{border-color:var(--t2)}
+.msg-card.in{border-left:3px solid var(--green)}
+.msg-card.out{border-left:3px solid var(--blue)}
+.msg-card-hdr{padding:5px 10px;display:flex;align-items:center;gap:7px;background:var(--bg2);cursor:pointer;font-size:9px}
+.msg-dir{font-weight:800;letter-spacing:.04em}
+.msg-dir.in{color:var(--green)}.msg-dir.out{color:var(--blue)}
+.msg-ts{color:var(--t2);font-family:monospace}
+.msg-topic{font-family:monospace;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-qbadge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--t1)}
+.msg-ret{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(251,191,36,.1);color:var(--yellow)}
+.msg-copy{margin-left:auto;color:var(--t2);cursor:pointer;background:none;border:none;font-size:11px;padding:0;outline:none;opacity:.6}
+.msg-copy:hover{color:var(--t0);opacity:1}
+.msg-body{padding:8px 10px;background:var(--bg1);display:none}
+.msg-body.open{display:block}
+.msg-pre{margin:0;font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:10px;color:var(--t0);white-space:pre-wrap;word-break:break-all;line-height:1.6;max-height:240px;overflow-y:auto}
+.msg-pre::-webkit-scrollbar{width:3px}.msg-pre::-webkit-scrollbar-thumb{background:var(--border)}
+.json-key{color:var(--blue)}.json-str{color:var(--green)}.json-num{color:var(--orange)}.json-bool{color:var(--purple)}.json-null{color:var(--t2)}
+
+/* publish panel */
+.pub-panel{border-top:1px solid var(--border);background:var(--bg1);flex-shrink:0;padding:10px 14px 12px}
+.pub-row1{display:flex;gap:6px;align-items:center;margin-bottom:7px;flex-wrap:wrap}
+.pub-topic{flex:1;min-width:120px;padding:6px 9px;background:var(--bg2);border:none;border-radius:5px;color:var(--t0);font-size:12px;font-family:monospace;outline:none}
+.pub-topic:focus{background:var(--bg3)}
+.pub-sel{padding:6px 26px 6px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--t0);font-size:11px;outline:none;cursor:pointer;min-height:30px;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238878b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;transition:border-color .15s,background-color .15s}
+.pub-sel:hover{border-color:var(--t2);background-color:var(--bg3)}
+.pub-sel:focus{border-color:var(--blue);background-color:var(--bg3)}
+.pub-retain{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t1);white-space:nowrap;cursor:pointer}
+.pub-retain input{accent-color:var(--blue)}
+.pub-row2{display:flex;gap:6px;align-items:flex-start;margin-bottom:7px}
+.pub-payload{flex:1;padding:7px 9px;background:var(--bg2);border:none;border-radius:5px;color:var(--t0);font-size:11px;font-family:monospace;resize:vertical;min-height:72px;max-height:200px;outline:none;line-height:1.5}
+.pub-payload:focus{background:var(--bg3)}
+.pub-row3{display:flex;align-items:center;gap:7px}
+.pub-byte-count{font-size:9px;color:var(--t2);flex:1}
+.pub-err{font-size:9px;color:var(--red)}
+.btn-pub{padding:7px 18px;background:var(--blue);border:none;border-radius:5px;color:#09080e;font-size:12px;font-weight:800;cursor:pointer;outline:none;transition:all .15s}
+.btn-pub:hover{filter:brightness(1.12);box-shadow:0 2px 14px rgba(167,139,250,.4)}
+.btn-pub:disabled{background:var(--t2);color:var(--bg2);cursor:not-allowed;filter:none;box-shadow:none}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+<!-- ── LEFT PANEL (300px) ─────────────────────────────── -->
+<div class="mqtt-left">
+  <div class="conn-status">
+    <div class="cs-dot" id="csDot"></div>
+    <div style="flex:1;min-width:0">
+      <div class="cs-label" id="csLabel">Disconnected</div>
+      <div class="cs-err" id="csErr" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Left panel tabs -->
+  <div class="left-tabs">
+    <button class="lt-btn on" id="ltConnect" onclick="setLeftTab('connect')">Connect</button>
+    <button class="lt-btn" id="ltProfiles" onclick="setLeftTab('profiles')">Profiles <span class="lt-badge" id="profTabBadge">0</span></button>
+  </div>
+
+  <!-- Connect tab -->
+  <div class="lt-view on" id="lvConnect">
+    <div class="mqtt-left-scroll">
+      <div class="panel-sec">Connection</div>
+      <div class="conn-form">
+        <button class="ibtn" onclick="prefillFromRegion()" style="width:100%;margin-bottom:8px;font-size:10px;padding:5px 8px">↓ Fill from active region</button>
+        <div class="cf-row">
+          <div class="fg sm">
+            <label class="lbl">Protocol</label>
+            <select class="inp" id="fProto" onchange="onProtoChange()">
+              <option value="mqtt">mqtt://</option>
+              <option value="mqtts">mqtts://</option>
+              <option value="ws">ws://</option>
+              <option value="wss">wss://</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="lbl">Host</label>
+            <input class="inp" id="fHost" placeholder="broker.example.com" spellcheck="false" oninput="checkBrokerWarn()">
+          </div>
+          <div class="fg xs">
+            <label class="lbl">Port</label>
+            <input class="inp" type="number" id="fPort" value="1883" min="1" max="65535" oninput="checkBrokerWarn()">
+          </div>
+        </div>
+        <div id="brokerWarn" style="display:none;font-size:9px;color:#f59e0b;margin:-2px 0 6px;padding:4px 8px;background:rgba(245,158,11,.08);border-radius:4px;border:1px solid rgba(245,158,11,.2)"></div>
+        <div class="cf-row">
+          <div class="fg">
+            <label class="lbl">Client ID</label>
+            <div class="inp-group">
+              <input class="inp" id="fClientId" placeholder="auto-generated" spellcheck="false">
+              <button class="inp-group-btn" onclick="genClientId()">Gen</button>
+            </div>
+          </div>
+        </div>
+        <div class="cf-row">
+          <div class="fg">
+            <label class="lbl">Username</label>
+            <input class="inp" id="fUser" placeholder="optional">
+          </div>
+          <div class="fg">
+            <label class="lbl">Password</label>
+            <input class="inp" type="password" id="fPass" placeholder="optional">
+          </div>
+        </div>
+        <div class="cf-row">
+          <div class="fg xs">
+            <label class="lbl">Keep Alive (s)</label>
+            <input class="inp" type="number" id="fKeepAlive" value="60" min="0">
+          </div>
+          <div class="fg">
+            <label class="lbl">Clean Session</label>
+            <div class="cf-toggle-row">
+              <div class="tg on" id="fCleanSession" onclick="this.classList.toggle('on')"></div>
+              <span class="cf-toggle-lbl" onclick="document.getElementById('fCleanSession').classList.toggle('on')">Enabled</span>
+            </div>
+          </div>
+        </div>
+        <div class="cf-row">
+          <div class="fg">
+            <label class="lbl">Auto Reconnect</label>
+            <div class="cf-toggle-row">
+              <div class="tg" id="fAutoReconnect" onclick="onAutoReconToggle(this)"></div>
+              <span class="cf-toggle-lbl" id="fAutoReconLbl">Off</span>
+            </div>
+          </div>
+          <div class="fg">
+            <label class="lbl">MQTT Version</label>
+            <select class="inp" id="fProtoVer">
+              <option value="4">3.1.1 (default)</option>
+              <option value="3">3.1 (legacy)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- TLS section — shown only for mqtts:// and wss:// -->
+      <div id="tlsSection" style="display:none">
+        <div class="tls-sec">
+          <div class="tls-divider">TLS / Security</div>
+          <div class="fg">
+            <label class="lbl">TLS Mode</label>
+            <select class="inp" id="fTLS" onchange="onTLSModeChange()">
+              <option value="none">System Trust (default)</option>
+              <option value="embedded">Embedded Certs (Intangles)</option>
+              <option value="custom">Custom Certificates</option>
+              <option value="skip">Skip Verify (insecure)</option>
+            </select>
+          </div>
+          <div id="certSection" style="display:none">
+            <div class="fg" style="margin-top:7px">
+              <label class="lbl">CA Certificate</label>
+              <div class="cert-path-row">
+                <input class="inp" id="fCAFile" placeholder="path/to/ca.pem" spellcheck="false">
+                <button class="cert-browse" onclick="pickCertFile('fCAFile','Select CA Certificate')">Browse</button>
+              </div>
+            </div>
+            <div class="fg" style="margin-top:5px">
+              <label class="lbl">Client Certificate</label>
+              <div class="cert-path-row">
+                <input class="inp" id="fCertFile" placeholder="path/to/client.crt" spellcheck="false">
+                <button class="cert-browse" onclick="pickCertFile('fCertFile','Select Client Certificate')">Browse</button>
+              </div>
+            </div>
+            <div class="fg" style="margin-top:5px">
+              <label class="lbl">Client Key</label>
+              <div class="cert-path-row">
+                <input class="inp" id="fKeyFile" placeholder="path/to/client.key" spellcheck="false">
+                <button class="cert-browse" onclick="pickCertFile('fKeyFile','Select Client Key')">Browse</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Inline save bar -->
+    <div class="save-bar">
+      <input class="save-name-inp" id="saveNameInp" placeholder="Name this connection…" onkeydown="if(event.key==='Enter')saveProfile()">
+      <button class="save-btn" onclick="saveProfile()">Save</button>
+    </div>
+    <!-- Connect button always visible -->
+    <div class="conn-foot">
+      <button class="conn-btn connect" id="connBtn" onclick="toggleConnect()">Connect</button>
+    </div>
+    <!-- Connection log -->
+    <div class="conn-log" id="connLog">
+      <div class="conn-log-hdr">
+        Log
+        <button class="conn-log-clear" onclick="clearConnLog()">clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profiles tab -->
+  <div class="lt-view" id="lvProfiles">
+    <div class="prof-tab-hdr">
+      <span class="prof-tab-count" id="profTabCount">0 saved</span>
+      <button class="prof-tab-btn imp" onclick="triggerImport()">↑ Import JSON</button>
+    </div>
+    <div class="prof-search">
+      <input class="prof-search-inp" id="profSearchInp" placeholder="Search connections…" oninput="renderProfileCards()">
+    </div>
+    <div class="prof-list" id="profList">
+      <div class="prof-empty-msg">No saved connections yet.<br>Fill the form and click Save.</div>
+    </div>
+    <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="onImportFile(this)">
+  </div>
+</div>
+
+<!-- ── RIGHT PANEL (subs sidebar + messages) ─────────── -->
+<div class="mqtt-right">
+
+  <!-- Subscriptions sidebar — inside the right panel -->
+  <div class="mqtt-subs">
+    <div class="panel-sec">
+      Subscriptions
+      <span class="panel-sec-extra" id="subCount">0 active</span>
+    </div>
+    <div class="sub-add">
+      <input class="inp" id="subTopicInp" placeholder="topic/#" onkeydown="if(event.key==='Enter')addSub()">
+      <div class="sub-add-actions">
+        <span class="sub-qos-lbl">QoS</span>
+        <select class="sub-qos-sel" id="subQos">
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+        </select>
+        <button class="sub-add-btn" onclick="addSub()">+ Subscribe</button>
+      </div>
+    </div>
+    <div class="sub-list" id="subList">
+      <div class="sub-empty">No subscriptions yet</div>
+    </div>
+  </div>
+
+  <!-- Messages main area -->
+  <div class="mqtt-main">
+    <!-- 3-tab bar: All / Published / Subscribed -->
+    <div class="tab-bar" id="tabBar"></div>
+
+    <!-- Per-tab toolbar -->
+    <div class="msg-toolbar">
+      <input class="msg-filter-inp" id="msgFilter" placeholder="Search in tab…" oninput="renderMessages()">
+      <div class="tbar-sep"></div>
+      <span class="msg-count" id="msgCount">0 messages</span>
+      <button class="tbar-btn on" id="autoScrollBtn" onclick="toggleAutoScroll()">Auto-scroll</button>
+      <button class="tbar-btn" onclick="clearTabMessages()">Clear tab</button>
+      <button class="tbar-btn" onclick="exportMessages()">↓ Export</button>
+    </div>
+
+    <div class="msg-log" id="msgLog">
+      <div class="msg-empty" id="msgEmpty"><span>⇄</span>Connect to a broker and subscribe to topics.</div>
+    </div>
+
+    <div class="pub-panel">
+      <div class="pub-row1">
+        <input class="pub-topic" id="pubTopic" placeholder="publish/topic" spellcheck="false">
+        <select class="pub-sel" id="pubQos">
+          <option value="0">QoS 0</option>
+          <option value="1">QoS 1</option>
+          <option value="2">QoS 2</option>
+        </select>
+        <label class="pub-retain"><input type="checkbox" id="pubRetain"> Retain</label>
+        <select class="pub-sel" id="pubFormat" onchange="onFormatChange()">
+          <option value="plain">Plain Text</option>
+          <option value="json">JSON</option>
+          <option value="hex">Hex</option>
+          <option value="base64">Base64</option>
+        </select>
+        <button class="tbar-btn" id="fmtBtn" onclick="formatJson()" style="display:none">Format JSON</button>
+      </div>
+      <div class="pub-row2">
+        <textarea class="pub-payload" id="pubPayload" placeholder="Message payload…" oninput="updateByteCount()"></textarea>
+      </div>
+      <div class="pub-row3">
+        <span class="pub-byte-count" id="byteCount">0 bytes</span>
+        <span class="pub-err" id="pubErr" style="display:none"></span>
+        <button class="btn-pub" id="btnPublish" onclick="publish()" disabled>▲ Publish</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .mqtt-right -->
+</div><!-- end .app-wrap -->
+
+<script>
+// ── state ──────────────────────────────────────────────
+let connected  = false;
+let connecting = false;
+let messages   = [];
+let subs       = {};          // filter → qos
+let autoScroll = true;
+let activeTab  = 'all';       // 'all' | 'out' | 'in'
+let selectedSub = null;       // topic filter string, active within 'in' tab
+let topicColorMap = {};
+let topicColorIdx = 0;
+const TOPIC_COLORS = ['#a78bfa','#34d399','#fb923c','#f87171','#fbbf24','#38bdf8','#c084fc','#4ade80','#f472b6','#e879f9'];
+
+function topicColor(t) {
+  if (!topicColorMap[t]) topicColorMap[t] = TOPIC_COLORS[topicColorIdx++ % TOPIC_COLORS.length];
+  return topicColorMap[t];
+}
+
+// ── MQTT wildcard matching ──────────────────────────────
+function topicMatchesFilter(topic, filter) {
+  if (filter === '#') return true;
+  const fp = filter.split('/');
+  const tp = topic.split('/');
+  for (let i = 0; i < fp.length; i++) {
+    if (fp[i] === '#') return true;
+    if (i >= tp.length) return false;
+    if (fp[i] !== '+' && fp[i] !== tp[i]) return false;
+  }
+  return fp.length === tp.length;
+}
+
+// ── tab helpers ─────────────────────────────────────────
+function msgMatchesTab(m, tab) {
+  if (tab === 'all') return true;
+  if (tab === 'out') return m.dir === 'out';
+  if (tab === 'in') {
+    if (m.dir !== 'in') return false;
+    if (selectedSub) return topicMatchesFilter(m.topic, selectedSub);
+    return true;
+  }
+  return false;
+}
+
+function getFilteredMessages(tab) {
+  return messages.filter(m => msgMatchesTab(m, tab ?? activeTab));
+}
+
+function countForTab(tab) { return getFilteredMessages(tab).length; }
+
+function countInboundForSub(filter) {
+  return messages.filter(m => m.dir === 'in' && topicMatchesFilter(m.topic, filter)).length;
+}
+
+// ── tab rendering ───────────────────────────────────────
+function renderTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+
+  const TABS = [
+    { key: 'all', label: 'All Messages' },
+    { key: 'out', label: '↑ Published'  },
+    { key: 'in',  label: '↓ Subscribed' },
+  ];
+
+  TABS.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'tab-item' + (activeTab === t.key ? ' active' : '');
+    div.addEventListener('click', () => setActiveTab(t.key));
+
+    const span = document.createElement('span');
+    span.textContent = t.label;
+    div.appendChild(span);
+
+    const badge = document.createElement('span');
+    badge.className = 'tab-badge';
+    badge.textContent = countForTab(t.key);
+    div.appendChild(badge);
+
+    // when on 'in' tab with a selected sub, show filter chip next to badge
+    if (t.key === 'in' && activeTab === 'in' && selectedSub) {
+      const chip = document.createElement('span');
+      chip.className = 'sub-filter-chip';
+      chip.title = 'Click to clear sub filter';
+      chip.textContent = selectedSub.length > 20 ? selectedSub.slice(0, 18) + '…' : selectedSub;
+      chip.addEventListener('click', e => { e.stopPropagation(); selectedSub = null; renderTabs(); renderSubs(); renderMessages(); });
+      div.appendChild(chip);
+    }
+
+    bar.appendChild(div);
+  });
+
+  // sync sidebar highlight
+  document.querySelectorAll('.sub-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.topic === selectedSub && activeTab === 'in');
+  });
+}
+
+function setActiveTab(key) {
+  activeTab = key;
+  if (key !== 'in') selectedSub = null;
+  renderTabs();
+  renderSubs();
+  renderMessages();
+}
+
+function setSelectedSub(topic) {
+  activeTab = 'in';
+  selectedSub = topic;
+  renderTabs();
+  renderSubs();
+  renderMessages();
+}
+
+// ── init ────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  SimNav.inject('mqtt');
+  renderTabs();
+  renderProfileCards();
+  prefillFromRegion();
+  try {
+    await waitForRuntime(6000);
+    const state = await window.go.main.App.MQTTClientGetState();
+    if (state.connected) {
+      connected = true; subs = state.subs || {};
+      updateConnUI(true, state.broker); renderSubs(); renderTabs();
+    }
+    window.runtime.EventsOn('mqttclient:status',  onStatus);
+    window.runtime.EventsOn('mqttclient:message', onMessage);
+  } catch (e) { console.warn('runtime:', e); }
+});
+
+function waitForRuntime(ms) {
+  if (window.runtime && window.go) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      if (window.runtime && window.go) { clearInterval(iv); resolve(); }
+      else if (Date.now()-t0 > ms) { clearInterval(iv); reject(new Error('timeout')); }
+    }, 40);
+  });
+}
+
+function prefillFromRegion() {
+  const r = SimState.getRegion(SimState.getActiveRegionKey()) || {};
+  if (r.mqttBroker) {
+    document.getElementById('fHost').value = r.mqttBroker;
+    const proto = r.mqttProtocol || 'mqtts';
+    document.getElementById('fProto').value = proto;
+    document.getElementById('fPort').value = r.mqttPort || (proto === 'mqtts' ? 8884 : 1883);
+    if (proto === 'mqtts') document.getElementById('fTLS').value = 'embedded';
+  }
+  if (r.mqttUsername) document.getElementById('fUser').value = r.mqttUsername;
+  onProtoChange();
+}
+
+window.onRegionChange = function() { /* connection persists through region changes; use "Fill from region" button */ };
+
+// ── MQTT events ─────────────────────────────────────────
+function onStatus(s) {
+  if (s.connected) {
+    connected = true; connecting = false; updateConnUI(true, s.broker);
+    connLog('ok', 'Status: connected to ' + (s.broker || 'broker'));
+  } else if (s.reconnecting) {
+    document.getElementById('csDot').className = 'cs-dot reconnecting';
+    document.getElementById('csLabel').textContent = 'Reconnecting…';
+    document.getElementById('csLabel').className = 'cs-label';
+    connLog('warn', 'Status: reconnecting…');
+  } else {
+    connected = false; connecting = false; updateConnUI(false);
+    const errMsg = s.error || 'connection lost';
+    showErr(errMsg);
+    connLog('err', 'Status: ' + errMsg);
+  }
+}
+
+function onMessage(m) {
+  messages.push(m);
+  renderTabs();
+  if (msgMatchesTab(m, activeTab)) {
+    const filt = document.getElementById('msgFilter').value.trim().toLowerCase();
+    if (!filt || m.topic.toLowerCase().includes(filt) || m.payload.toLowerCase().includes(filt)) {
+      const empty = document.getElementById('msgEmpty');
+      if (empty) empty.remove();
+      const log = document.getElementById('msgLog');
+      log.appendChild(buildCard(m));
+      if (autoScroll) log.scrollTop = log.scrollHeight;
+    }
+  }
+  updateMsgCount();
+  renderSubs();
+}
+
+// ── connection log ──────────────────────────────────────
+function connLog(type, msg) {
+  const box = document.getElementById('connLog');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  const ts = new Date().toLocaleTimeString('en-GB', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  line.textContent = `[${ts}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  console[type === 'err' ? 'error' : 'log']('[MQTT]', msg);
+}
+function clearConnLog() {
+  const box = document.getElementById('connLog');
+  while (box.children.length > 1) box.removeChild(box.lastChild);
+}
+
+// ── connect / disconnect ────────────────────────────────
+async function toggleConnect() {
+  if (connected) {
+    await window.go.main.App.MQTTClientDisconnect();
+    connected = false; subs = {};
+    renderSubs(); renderTabs(); updateConnUI(false);
+    connLog('info', 'Disconnected by user');
+    return;
+  }
+  if (connecting) return;
+  const host = document.getElementById('fHost').value.trim();
+  if (!host) { showErr('Host is required'); return; }
+  connecting = true;
+  const btn = document.getElementById('connBtn');
+  btn.disabled = true; btn.textContent = 'Connecting…'; hideErr();
+
+  const proto    = document.getElementById('fProto').value;
+  const port     = parseInt(document.getElementById('fPort').value) || 1883;
+  const clientId = document.getElementById('fClientId').value.trim();
+  const username = document.getElementById('fUser').value.trim();
+  const tlsMode  = (proto === 'mqtts' || proto === 'wss') ? document.getElementById('fTLS').value : 'none';
+
+  connLog('info', `Connecting → ${proto}://${host}:${port}  clientId="${clientId || '(auto)'}"  tls=${tlsMode}  user="${username || '(none)'}"`);
+
+  try {
+    await window.go.main.App.MQTTClientConnect({
+      protocol:        proto,
+      host,
+      port,
+      clientId,
+      username,
+      password:        document.getElementById('fPass').value,
+      keepAlive:       parseInt(document.getElementById('fKeepAlive').value) || 60,
+      cleanSession:    document.getElementById('fCleanSession').classList.contains('on'),
+      autoReconnect:   document.getElementById('fAutoReconnect')?.classList.contains('on') || false,
+      protocolVersion: parseInt(document.getElementById('fProtoVer')?.value) || 4,
+      tlsMode,
+      caFile:          document.getElementById('fCAFile')?.value.trim()   || '',
+      certFile:        document.getElementById('fCertFile')?.value.trim() || '',
+      keyFile:         document.getElementById('fKeyFile')?.value.trim()  || '',
+    });
+    connLog('ok', `Connected to ${proto}://${host}:${port}`);
+    updateConnUI(true, `${proto}://${host}:${port}`);
+  } catch (err) {
+    const msg = String(err).replace(/^Error:\s*/i, '');
+    connecting = false; btn.disabled = false; updateConnUI(false);
+    showErr(msg);
+    connLog('err', `Failed: ${msg}`);
+  }
+}
+
+function updateConnUI(conn, broker) {
+  connected = conn; connecting = false;
+  const dot = document.getElementById('csDot');
+  const lbl = document.getElementById('csLabel');
+  const btn = document.getElementById('connBtn');
+  const pub = document.getElementById('btnPublish');
+  if (conn) {
+    dot.className = 'cs-dot on';
+    lbl.textContent = broker ? broker.replace(/^mqtts?:\/\/|^wss?:\/\//, '') : 'Connected';
+    lbl.className = 'cs-label on';
+    btn.textContent = 'Disconnect'; btn.className = 'conn-btn disconnect'; btn.disabled = false;
+    pub.disabled = false;
+  } else {
+    dot.className = 'cs-dot';
+    lbl.textContent = 'Disconnected'; lbl.className = 'cs-label';
+    btn.textContent = 'Connect'; btn.className = 'conn-btn connect'; btn.disabled = false;
+    pub.disabled = true;
+  }
+}
+
+function showErr(msg) { const e = document.getElementById('csErr'); e.textContent = msg; e.style.display = ''; }
+function hideErr()    { document.getElementById('csErr').style.display = 'none'; }
+
+// ── subscribe / unsubscribe ─────────────────────────────
+async function addSub() {
+  if (!connected) { showErr('Connect first'); return; }
+  const topic = document.getElementById('subTopicInp').value.trim();
+  if (!topic) return;
+  const qos = parseInt(document.getElementById('subQos').value);
+  try {
+    await window.go.main.App.MQTTClientSubscribe(topic, qos);
+    subs[topic] = qos;
+    document.getElementById('subTopicInp').value = '';
+    renderSubs(); renderTabs(); hideErr();
+  } catch (err) { showErr(String(err)); }
+}
+
+async function removeSub(topic) {
+  try { await window.go.main.App.MQTTClientUnsubscribe(topic); } catch (_) {}
+  delete subs[topic];
+  if (selectedSub === topic) selectedSub = null;
+  if (activeTab === 'in' && !Object.keys(subs).length) activeTab = 'all';
+  renderSubs(); renderTabs(); renderMessages();
+}
+
+function renderSubs() {
+  const list = document.getElementById('subList');
+  const keys = Object.keys(subs);
+  document.getElementById('subCount').textContent = keys.length + ' active';
+  if (!keys.length) {
+    list.innerHTML = '<div class="sub-empty">No subscriptions yet</div>';
+    return;
+  }
+  list.innerHTML = '';
+  keys.forEach(t => {
+    const count = countInboundForSub(t);
+    const isActive = activeTab === 'in' && selectedSub === t;
+    const item = document.createElement('div');
+    item.className = 'sub-item' + (isActive ? ' active' : '');
+    item.dataset.topic = t;
+    item.innerHTML =
+      `<div class="sub-dot" style="background:${topicColor(t)}"></div>` +
+      `<div class="sub-topic" title="${escHtml(t)}">${escHtml(t)}</div>` +
+      `<span class="sub-qbadge">QoS ${subs[t]}</span>` +
+      `<span class="sub-msg-count">${count}</span>` +
+      `<button class="sub-del" title="Unsubscribe">×</button>`;
+    item.addEventListener('click', () => setSelectedSub(t));
+    item.querySelector('.sub-del').addEventListener('click', e => { e.stopPropagation(); removeSub(t); });
+    list.appendChild(item);
+  });
+}
+
+// ── message log ─────────────────────────────────────────
+function buildCard(m) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-card ' + m.dir;
+  const color    = topicColor(m.topic);
+  const retTag   = m.retained ? '<span class="msg-ret">RETAINED</span>' : '';
+  const dirLabel = m.dir === 'in' ? '▼ IN' : '▲ OUT';
+  wrap.innerHTML = `
+    <div class="msg-card-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+      <span class="msg-dir ${m.dir}">${dirLabel}</span>
+      <span class="msg-ts">${m.ts}</span>
+      <span class="msg-topic" style="background:${hexAlpha(color,.14)};color:${color}">${escHtml(m.topic)}</span>
+      <span class="msg-qbadge">QoS ${m.qos}</span>
+      ${retTag}
+      <button class="msg-copy" title="Copy payload">⎘</button>
+    </div>
+    <div class="msg-body open">
+      <pre class="msg-pre">${formatPayload(m.payload)}</pre>
+    </div>`;
+  wrap.querySelector('.msg-copy').addEventListener('click', e => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(m.payload).catch(() => {});
+  });
+  return wrap;
+}
+
+function formatPayload(raw) {
+  try { return colorJson(JSON.parse(raw)); } catch (_) { return escHtml(raw); }
+}
+
+function renderMessages() {
+  const log  = document.getElementById('msgLog');
+  const filt = document.getElementById('msgFilter').value.trim().toLowerCase();
+  const base = getFilteredMessages();
+  const show = filt ? base.filter(m => m.topic.toLowerCase().includes(filt) || m.payload.toLowerCase().includes(filt)) : base;
+
+  log.innerHTML = '';
+  if (!show.length) {
+    const empty = document.createElement('div');
+    empty.className = 'msg-empty'; empty.id = 'msgEmpty';
+    const tabLabel = activeTab === 'all' ? 'any topic' :
+                     activeTab === 'out' ? 'published' :
+                     selectedSub ? escHtml(selectedSub) : 'subscribed topics';
+    empty.innerHTML = `<span>⇄</span>No messages for <code>${tabLabel}</code> yet.`;
+    log.appendChild(empty);
+    updateMsgCount(); return;
+  }
+
+  const frag = document.createDocumentFragment();
+  show.forEach(m => frag.appendChild(buildCard(m)));
+  log.appendChild(frag);
+  if (autoScroll) log.scrollTop = log.scrollHeight;
+  updateMsgCount();
+}
+
+function updateMsgCount() {
+  const n = getFilteredMessages().length;
+  document.getElementById('msgCount').textContent = n + ' message' + (n !== 1 ? 's' : '');
+}
+
+function clearTabMessages() {
+  if (activeTab === 'all') {
+    messages = [];
+  } else if (activeTab === 'out') {
+    messages = messages.filter(m => m.dir !== 'out');
+  } else {
+    if (selectedSub) {
+      messages = messages.filter(m => !(m.dir === 'in' && topicMatchesFilter(m.topic, selectedSub)));
+    } else {
+      messages = messages.filter(m => m.dir !== 'in');
+    }
+  }
+  renderTabs(); renderSubs(); renderMessages();
+}
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  document.getElementById('autoScrollBtn').classList.toggle('on', autoScroll);
+}
+
+async function exportMessages() {
+  const data = getFilteredMessages();
+  const label = activeTab === 'in' && selectedSub ? selectedSub.replace(/[^a-z0-9]/gi, '-') : activeTab;
+  try {
+    await window.go.main.App.SaveFile(JSON.stringify(data, null, 2), `mqtt-${label}-${Date.now()}.json`);
+  } catch (e) { console.error('export:', e); }
+}
+
+// ── publish ─────────────────────────────────────────────
+async function publish() {
+  const topic   = document.getElementById('pubTopic').value.trim();
+  const payload = document.getElementById('pubPayload').value;
+  const qos     = parseInt(document.getElementById('pubQos').value);
+  const retain  = document.getElementById('pubRetain').checked;
+  const fmt     = document.getElementById('pubFormat').value;
+  const errEl   = document.getElementById('pubErr');
+  errEl.style.display = 'none';
+  if (!topic) { errEl.textContent = 'Topic required'; errEl.style.display = ''; return; }
+  if (fmt === 'json') {
+    try { JSON.parse(payload); } catch (e) { errEl.textContent = 'Invalid JSON: ' + e.message; errEl.style.display = ''; return; }
+  }
+  try {
+    await window.go.main.App.MQTTClientPublish(topic, payload, qos, retain);
+  } catch (err) { errEl.textContent = String(err).replace('Error: ', ''); errEl.style.display = ''; }
+}
+
+// ── connection form helpers ─────────────────────────────
+function onProtoChange() {
+  const p = document.getElementById('fProto').value;
+  document.getElementById('fPort').value = {mqtt: 1883, mqtts: 8884, ws: 80, wss: 443}[p] || 1883;
+  const useTLS = p === 'mqtts' || p === 'wss';
+  document.getElementById('tlsSection').style.display = useTLS ? '' : 'none';
+  if (!useTLS) {
+    document.getElementById('fTLS').value = 'none';
+    document.getElementById('certSection').style.display = 'none';
+  }
+  checkBrokerWarn();
+}
+
+function checkBrokerWarn() {
+  const p   = document.getElementById('fProto').value;
+  const host = document.getElementById('fHost').value.trim().toLowerCase();
+  const port = parseInt(document.getElementById('fPort').value) || 0;
+  const warn = document.getElementById('brokerWarn');
+  if (!warn) return;
+  const plainProto = p === 'mqtt' || p === 'ws';
+  if (plainProto && (host.includes('secure') || port === 8884 || port === 8883)) {
+    warn.textContent = '⚠ Host/port looks like a TLS endpoint — switch to mqtts:// or use "↓ Fill from active region"';
+    warn.style.display = '';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+function onTLSModeChange() {
+  document.getElementById('certSection').style.display =
+    document.getElementById('fTLS').value === 'custom' ? '' : 'none';
+}
+
+async function pickCertFile(inputId, title) {
+  try {
+    const path = await window.go.main.App.MQTTPickFile(title);
+    if (path) document.getElementById(inputId).value = path;
+  } catch (e) { console.warn('pickCertFile:', e); }
+}
+
+function genClientId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  document.getElementById('fClientId').value =
+    'devSim-' + Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function onFormatChange() {
+  const fmt = document.getElementById('pubFormat').value;
+  document.getElementById('fmtBtn').style.display = fmt === 'json' ? '' : 'none';
+  document.getElementById('pubPayload').placeholder =
+    fmt === 'json'   ? '{\n  "key": "value"\n}' :
+    fmt === 'hex'    ? '48 65 6c 6c 6f' :
+    fmt === 'base64' ? 'base64 encoded string' : 'Message payload…';
+}
+
+function formatJson() {
+  const ta = document.getElementById('pubPayload');
+  try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); updateByteCount(); }
+  catch (e) {
+    const el = document.getElementById('pubErr');
+    el.textContent = 'Invalid JSON'; el.style.display = '';
+  }
+}
+
+function updateByteCount() {
+  const b = new TextEncoder().encode(document.getElementById('pubPayload').value).length;
+  document.getElementById('byteCount').textContent = b + ' byte' + (b !== 1 ? 's' : '');
+}
+
+// ── saved connection profiles ───────────────────────────
+let selectedProfileId = null;
+
+function setLeftTab(tab) {
+  document.getElementById('lvConnect').classList.toggle('on', tab === 'connect');
+  document.getElementById('lvProfiles').classList.toggle('on', tab === 'profiles');
+  document.getElementById('ltConnect').classList.toggle('on', tab === 'connect');
+  document.getElementById('ltProfiles').classList.toggle('on', tab === 'profiles');
+}
+
+function renderProfileCards() {
+  const q = (document.getElementById('profSearchInp')?.value || '').toLowerCase();
+  const all = SimState.getMqttProfiles();
+  const profiles = all.filter(p => !q || p.name.toLowerCase().includes(q) || (p.host||'').toLowerCase().includes(q));
+  const badge = document.getElementById('profTabBadge');
+  if (badge) badge.textContent = all.length;
+  const countEl = document.getElementById('profTabCount');
+  if (countEl) countEl.textContent = all.length + ' saved';
+  const list = document.getElementById('profList');
+  list.innerHTML = '';
+  if (!profiles.length) {
+    list.innerHTML = '<div class="prof-empty-msg">' + (q ? 'No matches.' : 'No saved connections yet.<br>Fill the form and click Save.') + '</div>';
+    return;
+  }
+  profiles.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'prof-card' + (p.id === selectedProfileId ? ' selected' : '');
+    const proto = p.protocol || 'mqtt';
+    card.innerHTML = `
+      <div class="prof-card-top">
+        <span class="proto-badge proto-${proto}">${proto}</span>
+        <span class="prof-card-name" title="${escHtml(p.name)}">${escHtml(p.name)}</span>
+      </div>
+      <div class="prof-card-host">${escHtml(p.host||'')}:${p.port||1883}</div>
+      <div class="prof-card-actions">
+        <button class="prof-card-load">↓ Load</button>
+        <button class="prof-card-dl">↓ JSON</button>
+        <button class="prof-card-del">✕</button>
+      </div>`;
+    card.querySelector('.prof-card-load').addEventListener('click', e => { e.stopPropagation(); doLoadProfile(p); });
+    card.querySelector('.prof-card-dl').addEventListener('click', e => { e.stopPropagation(); exportProfile(p); });
+    card.querySelector('.prof-card-del').addEventListener('click', e => { e.stopPropagation(); deleteProfile(p.id); });
+    card.addEventListener('click', () => doLoadProfile(p));
+    list.appendChild(card);
+  });
+}
+
+function doLoadProfile(p) {
+  selectedProfileId = p.id;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+  set('fProto',    p.protocol  || 'mqtt');
+  set('fHost',     p.host      || '');
+  set('fPort',     p.port      || 1883);
+  set('fClientId', p.clientId  || '');
+  set('fUser',     p.username  || '');
+  set('fPass',     p.password  || '');
+  set('fKeepAlive',p.keepAlive || 60);
+  set('fProtoVer', p.protocolVersion || 4);
+  const cs = document.getElementById('fCleanSession');
+  if (cs) cs.classList.toggle('on', p.cleanSession !== false);
+  const ar = document.getElementById('fAutoReconnect');
+  if (ar) {
+    ar.classList.toggle('on', !!p.autoReconnect);
+    const lbl = document.getElementById('fAutoReconLbl');
+    if (lbl) lbl.textContent = p.autoReconnect ? 'On' : 'Off';
+  }
+  set('fTLS',     p.tlsMode  || 'none');
+  set('fCAFile',  p.caFile   || '');
+  set('fCertFile',p.certFile || '');
+  set('fKeyFile', p.keyFile  || '');
+  const nameInp = document.getElementById('saveNameInp');
+  if (nameInp) nameInp.value = p.name;
+  onProtoChange(); onTLSModeChange();
+  setLeftTab('connect');
+  renderProfileCards();
+  connLog('info', `Loaded profile: ${p.name}`);
+}
+
+function saveProfile() {
+  const nameInp = document.getElementById('saveNameInp');
+  const name = nameInp ? nameInp.value.trim() : '';
+  if (!name) { if (nameInp) nameInp.focus(); return; }
+  const proto = document.getElementById('fProto').value;
+  const profile = {
+    id:              selectedProfileId || ('prof-' + Date.now()),
+    name,
+    protocol:        proto,
+    host:            document.getElementById('fHost').value.trim(),
+    port:            parseInt(document.getElementById('fPort').value) || 1883,
+    clientId:        document.getElementById('fClientId').value.trim(),
+    username:        document.getElementById('fUser').value.trim(),
+    password:        document.getElementById('fPass').value,
+    keepAlive:       parseInt(document.getElementById('fKeepAlive').value) || 60,
+    cleanSession:    document.getElementById('fCleanSession').classList.contains('on'),
+    autoReconnect:   document.getElementById('fAutoReconnect')?.classList.contains('on') || false,
+    protocolVersion: parseInt(document.getElementById('fProtoVer')?.value) || 4,
+    tlsMode:         (proto === 'mqtts' || proto === 'wss') ? document.getElementById('fTLS').value : 'none',
+    caFile:          document.getElementById('fCAFile')?.value.trim()   || '',
+    certFile:        document.getElementById('fCertFile')?.value.trim() || '',
+    keyFile:         document.getElementById('fKeyFile')?.value.trim()  || '',
+  };
+  selectedProfileId = profile.id;
+  SimState.saveMqttProfile(profile);
+  renderProfileCards();
+  connLog('ok', `Saved profile: ${name}`);
+}
+
+function deleteProfile(id) {
+  SimState.deleteMqttProfile(id);
+  if (selectedProfileId === id) selectedProfileId = null;
+  renderProfileCards();
+}
+
+async function exportProfile(p) {
+  try {
+    await window.go.main.App.SaveFile(JSON.stringify(p, null, 2), (p.name||'connection').replace(/[^a-z0-9]/gi,'-')+'.json');
+  } catch (e) { console.warn('export:', e); }
+}
+
+function triggerImport() {
+  document.getElementById('importFileInput').value = '';
+  document.getElementById('importFileInput').click();
+}
+
+function onImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const arr = Array.isArray(data) ? data : [data];
+      arr.forEach(p => {
+        if (p && (p.host || p.protocol)) {
+          if (!p.id) p.id = 'prof-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+          if (!p.name) p.name = (p.host || 'imported') + ':' + (p.port || 1883);
+          SimState.saveMqttProfile(p);
+        }
+      });
+      renderProfileCards();
+      setLeftTab('profiles');
+    } catch (err) { alert('Import failed: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+function onAutoReconToggle(tg) {
+  tg.classList.toggle('on');
+  const lbl = document.getElementById('fAutoReconLbl');
+  if (lbl) lbl.textContent = tg.classList.contains('on') ? 'On' : 'Off';
+}
+
+// ── utilities ───────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function hexAlpha(hex, a) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function colorJson(obj) {
+  return JSON.stringify(obj, null, 2).replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    m => {
+      if (/^"/.test(m)) return /:$/.test(m)
+        ? `<span class="json-key">${escHtml(m)}</span>`
+        : `<span class="json-str">${escHtml(m)}</span>`;
+      if (/true|false/.test(m)) return `<span class="json-bool">${m}</span>`;
+      if (/null/.test(m))       return `<span class="json-null">${m}</span>`;
+      return `<span class="json-num">${m}</span>`;
+    }
+  );
+}
+</script>
+</body>
+</html>

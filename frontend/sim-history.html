@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>History — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+.app-wrap{flex-direction:column!important}
+.hist-header{background:var(--bg1);border-bottom:1px solid var(--border);padding:10px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hist-title{font-size:13px;font-weight:700;color:var(--t0)}
+.filter-pills{display:flex;gap:4px}
+.fpill{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s}
+.fpill.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.fpill.on.g{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
+.fpill.on.y{background:rgba(251,191,36,.12);border-color:var(--yellow);color:var(--yellow)}
+.fpill.on.r{background:rgba(248,113,113,.12);border-color:var(--red);color:var(--red)}
+.hist-stats{display:flex;gap:12px;margin-left:auto}
+.stat-chip{font-size:10px;color:var(--t1)}.stat-chip strong{color:var(--t0);font-weight:800}
+.hist-body{flex:1;overflow-y:auto;padding:14px 18px}
+.hist-body::-webkit-scrollbar{width:4px}.hist-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.run-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+.run-card:hover{border-color:var(--t2)}
+.run-card.expanded{border-color:rgba(167,139,250,.3)}
+.run-row{padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.run-accent{width:3px;height:36px;border-radius:2px;flex-shrink:0}
+.run-main{flex:1;min-width:0}
+.run-name{font-size:12px;font-weight:600;color:var(--t0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.run-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
+.run-time{font-size:9px;color:var(--t2);font-family:monospace}
+.run-metrics{display:flex;gap:12px;flex-shrink:0}
+.rm-item{text-align:right}
+.rm-val{font-size:13px;font-weight:700;font-family:monospace;color:var(--t0)}
+.rm-lbl{font-size:8px;color:var(--t1);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.run-actions{display:flex;gap:5px;flex-shrink:0}
+.run-detail{border-top:1px solid var(--border);padding:12px 14px;background:var(--bg2);display:none}
+.run-detail.open{display:block}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.dg-item{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:8px 10px}
+.dg-val{font-size:18px;font-weight:800;font-family:monospace;color:var(--t0);line-height:1.2}
+.dg-lbl{font-size:9px;color:var(--t1);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;font-weight:700}
+.mini-log{font-family:monospace;font-size:9px;line-height:1.6;color:var(--t1);max-height:160px;overflow-y:auto;background:var(--bg0);border-radius:4px;padding:7px 10px;border:1px solid var(--border)}
+.mini-log::-webkit-scrollbar{width:3px}.mini-log::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.mle{display:flex;gap:6px}
+.ml-ts{color:var(--t2);min-width:52px}.ml-tag{font-weight:700;min-width:70px}
+.ml-tag.fe{color:var(--blue)}.ml-tag.sp{color:var(--purple)}.ml-tag.bt{color:var(--orange)}.ml-tag.up{color:var(--green)}.ml-tag.mq{color:var(--yellow)}.ml-tag.ph{color:var(--t0)}.ml-tag.er{color:var(--red)}
+.ml-msg.ok{color:var(--green)}.ml-msg.ph{color:var(--t0);font-weight:600}.ml-msg{color:var(--t1)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--t2)}
+.empty-state .es-icon{font-size:32px;margin-bottom:12px;opacity:.4}
+.empty-state p{font-size:12px}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+  <!-- Header bar -->
+  <div class="hist-header">
+    <span class="hist-title">Run History</span>
+    <div class="filter-pills">
+      <span class="fpill on" id="fp-all"   onclick="setFilter('all',this)">ALL</span>
+      <span class="fpill"    id="fp-done"  onclick="setFilter('done',this)">DONE</span>
+      <span class="fpill"    id="fp-stopped" onclick="setFilter('stopped',this)">STOPPED</span>
+      <span class="fpill"    id="fp-error" onclick="setFilter('error',this)">ERROR</span>
+    </div>
+    <div class="filter-pills" id="regionFilters"></div>
+    <div class="hist-stats" id="histStats"></div>
+    <button class="btn btn-ghost" style="font-size:10px" onclick="clearAll()">Clear All</button>
+  </div>
+
+  <!-- Runs list -->
+  <div class="hist-body" id="histBody"></div>
+</div>
+
+<script>
+let statusFilter = 'all';
+let regionFilter = null;
+
+function init() {
+  SimNav.inject('history');
+  renderRegionFilters();
+  renderRuns();
+}
+
+function renderRegionFilters() {
+  const runs = SimState.getRuns();
+  const keys = [...new Set(runs.map(r => r.regionKey))];
+  document.getElementById('regionFilters').innerHTML = keys.map(k => {
+    const r = SimState.getRegion(k) || {};
+    return `<span class="fpill${regionFilter===k?' on':''}" onclick="toggleRegionFilter('${k}',this)"
+      style="${regionFilter===k?'background:'+hexToRgba(r.color,.13)+';border-color:'+r.color+';color:'+r.color:''}">
+      ${SimNav.regionShort(k)}</span>`;
+  }).join('');
+}
+
+function toggleRegionFilter(key, el) {
+  regionFilter = regionFilter === key ? null : key;
+  renderRegionFilters();
+  renderRuns();
+}
+
+function setFilter(f, el) {
+  statusFilter = f;
+  document.querySelectorAll('.fpill').forEach(p => { if (['fp-all','fp-done','fp-stopped','fp-error'].includes(p.id)) { p.classList.remove('on','g','y','r'); } });
+  el.classList.add('on');
+  if (f === 'done')    el.classList.add('g');
+  if (f === 'stopped') el.classList.add('y');
+  if (f === 'error')   el.classList.add('r');
+  renderRuns();
+}
+
+function renderRuns() {
+  let runs = SimState.getRuns();
+  if (statusFilter !== 'all') runs = runs.filter(r => r.status === statusFilter);
+  if (regionFilter) runs = runs.filter(r => r.regionKey === regionFilter);
+
+  const total = SimState.getRuns().length;
+  const done = SimState.getRuns().filter(r => r.status === 'done').length;
+  document.getElementById('histStats').innerHTML =
+    `<span class="stat-chip"><strong>${total}</strong> total</span>` +
+    `<span class="stat-chip"><strong style="color:var(--green)">${done}</strong> done</span>` +
+    `<span class="stat-chip"><strong style="color:var(--yellow)">${SimState.getRuns().filter(r=>r.status==='stopped').length}</strong> stopped</span>`;
+
+  const body = document.getElementById('histBody');
+  if (!runs.length) {
+    body.innerHTML = `<div class="empty-state"><div class="es-icon">⧖</div><p>No runs yet${statusFilter!=='all'?' with this filter':''}. Start a simulation from the Run page.</p></div>`;
+    return;
+  }
+
+  body.innerHTML = runs.map(r => {
+    const region = SimState.getRegion(r.regionKey) || {};
+    const startFmt = r.startedAt ? new Date(r.startedAt).toLocaleString() : '—';
+    const dur = r.durationSec ? r.durationSec.toFixed(1) + 's' : '—';
+    const m = r.metrics || {};
+    return `
+    <div class="run-card" id="rc-${r.id}">
+      <div class="run-row" onclick="toggleDetail('${r.id}')">
+        <div class="run-accent" style="background:${region.color||'var(--t2)'}"></div>
+        <div class="run-main">
+          <div class="run-name">${r.testName || 'Unknown test'}</div>
+          <div class="run-meta">
+            <span class="${SimNav.regionBadgeClass(r.regionKey)}">${SimNav.regionShort(r.regionKey)}</span>
+            <span class="badge badge-${r.mode||'simulate'}">${r.mode||'simulate'}</span>
+            <span class="badge badge-${r.status}">${r.status}</span>
+            <span class="run-time">${startFmt} · ${dur}</span>
+          </div>
+        </div>
+        <div class="run-metrics">
+          <div class="rm-item"><div class="rm-val">${(m.totalPackets||0).toLocaleString()}</div><div class="rm-lbl">Packets</div></div>
+          <div class="rm-item"><div class="rm-val">${(m.batchesUploaded||0)}</div><div class="rm-lbl">Batches</div></div>
+          <div class="rm-item"><div class="rm-val" style="color:${(m.errors||0)>0?'var(--red)':'var(--green)'}">${m.errors||0}</div><div class="rm-lbl">Errors</div></div>
+        </div>
+        <div class="run-actions" onclick="event.stopPropagation()">
+          ${r.status==='stopped'?`<button class="ibtn" style="color:var(--green)" onclick="resumeRun('${r.id}')">↺ Resume</button>`:''}
+          <button class="ibtn" onclick="rerun('${r.id}')">▶ Re-run</button>
+          ${(r.logSnapshot&&r.logSnapshot.length)?`<button class="ibtn" onclick="downloadLogs('${r.id}')">↓ Logs</button>`:''}
+          <button class="ibtn" style="color:var(--red)" onclick="deleteRun('${r.id}')">✕</button>
+        </div>
+      </div>
+      <div class="run-detail" id="rd-${r.id}">
+        <div class="detail-grid">
+          <div class="dg-item"><div class="dg-val" style="color:var(--blue)">${(m.totalPackets||0).toLocaleString()}</div><div class="dg-lbl">TOTAL PACKETS</div></div>
+          <div class="dg-item"><div class="dg-val" style="color:var(--purple)">${(m.historicPackets||0).toLocaleString()}</div><div class="dg-lbl">HISTORIC PACKETS</div></div>
+          <div class="dg-item"><div class="dg-val" style="color:var(--green)">${(m.liveGps||0).toLocaleString()}</div><div class="dg-lbl">LIVE GPS</div></div>
+          <div class="dg-item"><div class="dg-val" style="color:var(--orange)">${(m.liveObd||0).toLocaleString()}</div><div class="dg-lbl">LIVE OBD</div></div>
+          <div class="dg-item"><div class="dg-val">${m.batchesUploaded||0}</div><div class="dg-lbl">Batches Uploaded</div></div>
+          <div class="dg-item"><div class="dg-val" style="color:${r.durationSec?'var(--t0)':'var(--t2)'}">${r.durationSec?r.durationSec.toFixed(1)+'s':'—'}</div><div class="dg-lbl">Duration</div></div>
+        </div>
+        <div class="kv" style="margin-bottom:4px">
+          <span class="k">Source IMEI</span><span class="v">${r.srcImei||'—'}</span>
+        </div>
+        <div class="kv" style="margin-bottom:4px">
+          <span class="k">Target IMEI</span><span class="v">${r.tgtImei||'—'}</span>
+        </div>
+        <div class="kv" style="margin-bottom:8px">
+          <span class="k">Window</span><span class="v">${(r.from||'').replace('T',' ')} → ${(r.until||'').replace('T',' ')}</span>
+        </div>
+        ${(r.logSnapshot && r.logSnapshot.length) ? `
+        <div style="font-size:9px;color:var(--t2);margin-bottom:4px">Log snapshot (last ${r.logSnapshot.length} entries)</div>
+        <div class="mini-log">${r.logSnapshot.map(e =>
+          `<div class="mle"><span class="ml-ts">${e.ts}</span><span class="ml-tag ${e.cls}">[${e.tag}]</span><span class="ml-msg ${e.ty==='ok'?'ok':e.ty==='ph'?'ph':''}">${e.msg}</span></div>`
+        ).join('')}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDetail(id) {
+  const el = document.getElementById('rd-' + id);
+  const card = document.getElementById('rc-' + id);
+  if (!el) return;
+  const open = el.classList.toggle('open');
+  card.classList.toggle('expanded', open);
+}
+
+function rerun(runId) {
+  const r = SimState.getRuns().find(x => x.id === runId);
+  if (!r) return;
+  const test = SimState.getTest(r.testId);
+  if (test) {
+    SimState.setActiveTest(test.id);
+    SimState.setActiveRegionKey(r.regionKey);
+    location.href = 'sim-run.html';
+    return;
+  }
+  // Test was deleted — recreate it from run record
+  const newId = SimState.nextTestId();
+  SimState.saveTest({ id:newId, name:r.testName+' (re-run)', regionKey:r.regionKey, srcImei:r.srcImei, tgtImei:r.tgtImei, from:r.from, until:r.until, histEnd:r.histEnd, mode:r.mode, createdAt:new Date().toISOString() });
+  SimState.setActiveTest(newId);
+  SimState.setActiveRegionKey(r.regionKey);
+  location.href = 'sim-run.html';
+}
+
+function resumeRun(runId) {
+  // Navigate to run page — Go will reuse existing batch files, resuming naturally
+  rerun(runId);
+}
+
+function downloadLogs(runId) {
+  const r = SimState.getRuns().find(x => x.id === runId);
+  if (!r || !r.logSnapshot || !r.logSnapshot.length) return;
+  const content = r.logSnapshot.map(e =>
+    `${(e.ts||'').padEnd(10)}  [${(e.tag||'').padEnd(12)}]  ${e.msg||''}`
+  ).join('\n');
+  const safeName = (r.testName||'run').replace(/[^a-z0-9]/gi,'-');
+  const date = (r.startedAt||'').slice(0,10) || 'unknown';
+  const blob = new Blob([content], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `run-${safeName}-${date}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function deleteRun(id) {
+  SimState.deleteRun(id);
+  renderRegionFilters();
+  renderRuns();
+}
+
+function clearAll() {
+  const runs = SimState.getRuns();
+  if (!runs.length) return;
+  SimState.clearRuns();
+  renderRegionFilters();
+  renderRuns();
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

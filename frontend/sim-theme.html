@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>Theme — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+.app-wrap{flex-direction:column!important}
+.th-wrap{flex:1;overflow-y:auto;padding:20px 24px 56px;display:flex;flex-direction:column;gap:20px}
+.th-wrap::-webkit-scrollbar{width:4px}.th-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.th-section{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.th-sec-title{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+/* Group filter tabs */
+.group-tabs{display:flex;gap:4px;margin-bottom:14px}
+.gtab{padding:4px 12px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s}
+.gtab:hover{color:var(--t0);border-color:var(--t2)}
+.gtab.on{background:rgba(167,139,250,.15);color:var(--blue);border-color:var(--blue)}
+/* Theme gallery */
+.theme-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.theme-card{border:2px solid var(--border);border-radius:8px;padding:9px 10px;cursor:pointer;transition:all .15s;position:relative}
+.theme-card:hover{border-color:var(--t2);background:var(--bg2)}
+.theme-card.on{border-color:var(--blue);background:rgba(167,139,250,.06)}
+.theme-card.on::after{content:'✓';position:absolute;top:5px;right:7px;font-size:10px;font-weight:700;color:var(--blue)}
+.tc-swatches{display:flex;gap:2px;margin-bottom:6px}
+.tc-swatch{width:16px;height:16px;border-radius:3px;flex-shrink:0}
+.tc-name{font-size:10px;font-weight:700;color:var(--t0)}
+.tc-sub{font-size:8px;color:var(--t2);margin-top:1px}
+.tc-group-tag{display:inline-block;font-size:7px;font-weight:700;letter-spacing:.04em;padding:1px 4px;border-radius:2px;margin-top:3px}
+/* Typography */
+.ty-rows{display:flex;flex-direction:column;gap:10px}
+.ty-row{display:flex;align-items:center;gap:12px}
+.ty-lbl{font-size:11px;color:var(--t1);min-width:110px}
+.ty-sl{flex:1;accent-color:var(--blue)}
+.ty-val{font-size:11px;font-family:monospace;color:var(--blue);min-width:36px;text-align:right}
+.font-sel{flex:1;padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--t0);font-size:11px;outline:none;cursor:pointer}
+.font-sel:focus{border-color:var(--blue)}
+/* Color editor */
+.editor-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.editor-toggle .th-sec-title{margin-bottom:0}
+.editor-body{margin-top:12px}
+.color-groups{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+@media(max-width:700px){.color-groups{grid-template-columns:1fr}}
+.cg-title{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:8px}
+.color-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(45,42,64,.4)}
+.color-row:last-child{border-bottom:none}
+.cr-lbl{font-size:10px;color:var(--t1);flex:1}
+.cr-swatch{width:22px;height:22px;border-radius:4px;border:1px solid var(--border);cursor:pointer;overflow:hidden;padding:0;flex-shrink:0}
+.cr-hex{font-size:9px;font-family:monospace;color:var(--t2);min-width:58px;text-align:right}
+/* Save custom */
+.save-custom-row{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+/* Custom themes gallery */
+.custom-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px}
+.custom-card{border:2px solid var(--border);border-radius:8px;padding:9px 10px;position:relative}
+.custom-card.on{border-color:var(--blue);background:rgba(167,139,250,.06)}
+.custom-card.on::after{content:'✓';position:absolute;top:5px;right:7px;font-size:10px;font-weight:700;color:var(--blue)}
+.cc-del{position:absolute;top:4px;right:4px;width:16px;height:16px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);color:var(--t2);font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.cc-del:hover{background:var(--red);color:#fff;border-color:var(--red)}
+/* Preview */
+.prev-wrap{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.prev-group{display:flex;flex-direction:column;gap:6px}
+.prev-title{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:2px}
+/* Reset bar */
+.reset-bar{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.reset-lbl{font-size:11px;color:var(--t1)}
+.chev{font-size:9px;color:var(--t2);transition:transform .2s}
+.chev.open{transform:rotate(180deg)}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+<div class="th-wrap">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+    <div style="font-size:16px;font-weight:700;color:var(--t0)">◈ Theme</div>
+    <div style="font-size:11px;color:var(--t1)">Customize fonts, colors and appearance</div>
+    <div style="flex:1"></div>
+    <span id="savedChip" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);border-radius:4px;color:var(--green);font-size:9px;font-weight:700;opacity:0;transition:opacity .3s">✓ Applied</span>
+  </div>
+
+  <!-- Prebuilt Themes -->
+  <div class="th-section">
+    <div class="th-sec-title">Prebuilt Themes</div>
+    <div class="group-tabs">
+      <div class="gtab on" data-group="all" onclick="setGroup('all')">All (49)</div>
+      <div class="gtab" data-group="dark" onclick="setGroup('dark')">Dark</div>
+      <div class="gtab" data-group="light" onclick="setGroup('light')">Light</div>
+      <div class="gtab" data-group="special" onclick="setGroup('special')">Special</div>
+    </div>
+    <div class="theme-grid" id="themeGrid"></div>
+  </div>
+
+  <!-- Typography -->
+  <div class="th-section">
+    <div class="th-sec-title">Typography</div>
+    <div class="ty-rows">
+      <div class="ty-row">
+        <span class="ty-lbl">UI Font</span>
+        <select class="font-sel" id="fontFamilySel" onchange="onFontFamily(this.value)"></select>
+      </div>
+      <div class="ty-row">
+        <span class="ty-lbl">Mono Font</span>
+        <select class="font-sel" id="monoFamilySel" onchange="onMonoFamily(this.value)"></select>
+      </div>
+      <div class="ty-row">
+        <span class="ty-lbl">Base font size</span>
+        <input type="range" class="ty-sl" min="10" max="16" step="1" id="fontSizeSlider" oninput="onFontSize(this.value)">
+        <span class="ty-val" id="fontSizeVal">12px</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Colors (collapsible) -->
+  <div class="th-section" id="editorSection">
+    <div class="editor-toggle" onclick="toggleEditor()">
+      <div class="th-sec-title">Custom Colors <span style="font-size:9px;color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0">(overrides prebuilt theme)</span></div>
+      <span class="chev" id="editorChev">▼</span>
+    </div>
+    <div class="editor-body" id="editorBody" style="display:none">
+      <div class="color-groups">
+        <div>
+          <div class="cg-title">Backgrounds</div>
+          <div id="cgBg"></div>
+        </div>
+        <div>
+          <div class="cg-title">Text</div>
+          <div id="cgText"></div>
+        </div>
+        <div>
+          <div class="cg-title">Accents</div>
+          <div id="cgAccent"></div>
+        </div>
+      </div>
+      <div class="save-custom-row">
+        <span style="font-size:10px;color:var(--t1)">Save current colors as a custom theme:</span>
+        <input type="text" class="inp" id="customThemeName" placeholder="Theme name…" style="max-width:180px">
+        <button class="btn btn-ghost" onclick="saveAsCustom()">Save Custom Theme</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Themes -->
+  <div class="th-section" id="customSection">
+    <div class="th-sec-title">My Custom Themes <span id="customCount" style="font-size:9px;color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0"></span></div>
+    <div id="customGrid"></div>
+  </div>
+
+  <!-- Preview -->
+  <div class="th-section">
+    <div class="th-sec-title">Preview</div>
+    <div class="prev-wrap">
+      <div class="prev-group">
+        <div class="prev-title">Buttons</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-go" style="pointer-events:none">▶ START</button>
+          <button class="btn btn-stop" style="pointer-events:none">■ STOP</button>
+          <button class="btn btn-ghost" style="pointer-events:none">↺ RESET</button>
+          <button class="btn" style="background:var(--yellow);color:#000;pointer-events:none">⏸ PAUSE</button>
+        </div>
+      </div>
+      <div class="prev-group">
+        <div class="prev-title">Badges</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <span class="badge badge-simulate">simulate</span>
+          <span class="badge badge-pipeline">pipeline</span>
+          <span class="badge badge-done">done</span>
+          <span class="badge badge-running">running</span>
+          <span class="badge badge-stopped">stopped</span>
+          <span class="badge badge-error">error</span>
+        </div>
+      </div>
+      <div class="prev-group">
+        <div class="prev-title">Status dots</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="dot dot-done"></span>
+          <span class="dot dot-running"></span>
+          <span class="dot dot-stopped"></span>
+          <span class="dot dot-error"></span>
+          <span class="dot dot-idle"></span>
+        </div>
+      </div>
+      <div class="prev-group">
+        <div class="prev-title">Sample cards</div>
+        <div style="display:flex;gap:6px">
+          <div style="background:var(--bg1);border:1px solid var(--border);border-radius:7px;padding:10px 14px;min-width:90px">
+            <div style="font-size:20px;font-weight:800;color:var(--blue);font-family:var(--font-mono)">1,243</div>
+            <div style="font-size:9px;color:var(--t1);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Packets</div>
+          </div>
+          <div style="background:var(--bg1);border:1px solid var(--border);border-radius:7px;padding:10px 14px;min-width:90px">
+            <div style="font-size:20px;font-weight:800;color:var(--green);font-family:var(--font-mono)">34.4s</div>
+            <div style="font-size:9px;color:var(--t1);text-transform:uppercase;letter-spacing:.05em;margin-top:2px">Duration</div>
+          </div>
+        </div>
+      </div>
+      <div class="prev-group" style="flex:1 0 100%">
+        <div class="prev-title">Font sample</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:11px;color:var(--t0);line-height:1.8;white-space:nowrap;overflow:hidden">
+          UI: The quick brown fox jumps over the lazy dog — 1234567890
+          <br>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--blue)">Mono: 0x1A2B3C4D  IMEI: 869305073861125  lat: 53.3498  lon: -6.2603</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset -->
+  <div class="th-section">
+    <div class="reset-bar">
+      <div class="reset-lbl">Reset to default dark theme</div>
+      <button class="btn btn-ghost" onclick="resetAll()">Reset to Default</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const THEMES = [
+  // ── Dark ──────────────────────────────────────────────────────────────────
+  { name:'Dark',           key:'dark',         group:'dark',    sub:'Default dark purple',
+    swatches:['#09080e','#100e1a','#181526','#a78bfa','#34d399'],
+    vars:{'--bg0':'#09080e','--bg1':'#100e1a','--bg2':'#181526','--bg3':'#221e33','--border':'#2d2a40','--t0':'#f0eaff','--t1':'#b8acdc','--t2':'#8878b8','--blue':'#a78bfa','--green':'#34d399','--yellow':'#fbbf24','--red':'#f87171','--purple':'#818cf8','--orange':'#fb923c'} },
+  { name:'Midnight',       key:'midnight',     group:'dark',    sub:'Deep black + violet',
+    swatches:['#000000','#0a0a0f','#111118','#c084fc','#4ade80'],
+    vars:{'--bg0':'#000000','--bg1':'#0a0a0f','--bg2':'#111118','--bg3':'#18181f','--border':'#2a2030','--t0':'#f0eaff','--t1':'#8878b0','--t2':'#503c6a','--blue':'#c084fc','--green':'#4ade80','--yellow':'#facc15','--red':'#f87171','--purple':'#a855f7','--orange':'#fb923c'} },
+  { name:'Ocean',          key:'ocean',        group:'dark',    sub:'Blue/teal depths',
+    swatches:['#040d14','#081525','#0d1f35','#38bdf8','#2dd4bf'],
+    vars:{'--bg0':'#040d14','--bg1':'#081525','--bg2':'#0d1f35','--bg3':'#112944','--border':'#1a3a52','--t0':'#d4eeff','--t1':'#6ba5c8','--t2':'#3a6480','--blue':'#38bdf8','--green':'#2dd4bf','--yellow':'#fbbf24','--red':'#fb7185','--purple':'#818cf8','--orange':'#f97316'} },
+  { name:'Hacker',         key:'hacker',       group:'dark',    sub:'Green phosphor terminal',
+    swatches:['#000000','#020a02','#041404','#00ff41','#39ff14'],
+    vars:{'--bg0':'#000000','--bg1':'#020a02','--bg2':'#041404','--bg3':'#071e07','--border':'#0d320d','--t0':'#00ff41','--t1':'#00b82e','--t2':'#005914','--blue':'#00ff88','--green':'#39ff14','--yellow':'#ccff00','--red':'#ff3300','--purple':'#00ffcc','--orange':'#ffcc00'} },
+  { name:'Warm Ash',       key:'warm',         group:'dark',    sub:'Amber & rust tones',
+    swatches:['#100804','#1a1008','#24180c','#f97316','#84cc16'],
+    vars:{'--bg0':'#100804','--bg1':'#1a1008','--bg2':'#24180c','--bg3':'#2e2010','--border':'#3d2a18','--t0':'#ffe8cc','--t1':'#c49070','--t2':'#7a5540','--blue':'#f97316','--green':'#84cc16','--yellow':'#fbbf24','--red':'#ef4444','--purple':'#e879f9','--orange':'#f59e0b'} },
+  { name:'Synthwave',      key:'synthwave',    group:'dark',    sub:'Retro neon 80s',
+    swatches:['#0d0010','#150020','#1e0030','#f472b6','#a78bfa'],
+    vars:{'--bg0':'#0d0010','--bg1':'#150020','--bg2':'#1e0030','--bg3':'#270040','--border':'#3d0060','--t0':'#fff0ff','--t1':'#c060e0','--t2':'#703090','--blue':'#e040fb','--green':'#00e5ff','--yellow':'#ffea00','--red':'#ff1744','--purple':'#a78bfa','--orange':'#f472b6'} },
+  { name:'Dracula',        key:'dracula',      group:'dark',    sub:'Classic Dracula',
+    swatches:['#282a36','#21222c','#343746','#bd93f9','#50fa7b'],
+    vars:{'--bg0':'#282a36','--bg1':'#21222c','--bg2':'#343746','--bg3':'#414558','--border':'#525776','--t0':'#f8f8f2','--t1':'#b0b8d8','--t2':'#6272a4','--blue':'#bd93f9','--green':'#50fa7b','--yellow':'#f1fa8c','--red':'#ff5555','--purple':'#ff79c6','--orange':'#ffb86c'} },
+  { name:'Nord',           key:'nord',         group:'dark',    sub:'Arctic color palette',
+    swatches:['#2e3440','#3b4252','#434c5e','#88c0d0','#a3be8c'],
+    vars:{'--bg0':'#2e3440','--bg1':'#3b4252','--bg2':'#434c5e','--bg3':'#4c566a','--border':'#5a6680','--t0':'#eceff4','--t1':'#d8dee9','--t2':'#8c9bb0','--blue':'#88c0d0','--green':'#a3be8c','--yellow':'#ebcb8b','--red':'#bf616a','--purple':'#b48ead','--orange':'#d08770'} },
+  { name:'Tokyo Night',    key:'tokyonight',   group:'dark',    sub:'Tokyo city lights',
+    swatches:['#1a1b2e','#16213e','#0f3460','#7aa2f7','#9ece6a'],
+    vars:{'--bg0':'#1a1b2e','--bg1':'#16213e','--bg2':'#0f3460','--bg3':'#1a2a50','--border':'#2a3a5f','--t0':'#c0caf5','--t1':'#787c99','--t2':'#404560','--blue':'#7aa2f7','--green':'#9ece6a','--yellow':'#e0af68','--red':'#f7768e','--purple':'#bb9af7','--orange':'#ff9e64'} },
+  { name:'Gruvbox',        key:'gruvbox',      group:'dark',    sub:'Retro groove palette',
+    swatches:['#282828','#3c3836','#504945','#fabd2f','#b8bb26'],
+    vars:{'--bg0':'#282828','--bg1':'#3c3836','--bg2':'#504945','--bg3':'#665c54','--border':'#7c6f64','--t0':'#ebdbb2','--t1':'#bdae93','--t2':'#928374','--blue':'#83a598','--green':'#b8bb26','--yellow':'#fabd2f','--red':'#fb4934','--purple':'#d3869b','--orange':'#fe8019'} },
+  { name:'Solarized',      key:'solarized',    group:'dark',    sub:'Solarized Dark',
+    swatches:['#002b36','#073642','#002b36','#268bd2','#859900'],
+    vars:{'--bg0':'#002b36','--bg1':'#073642','--bg2':'#003847','--bg3':'#004052','--border':'#0a4555','--t0':'#eee8d5','--t1':'#93a1a1','--t2':'#586e75','--blue':'#268bd2','--green':'#859900','--yellow':'#b58900','--red':'#dc322f','--purple':'#6c71c4','--orange':'#cb4b16'} },
+  { name:'Catppuccin',     key:'catppuccin',   group:'dark',    sub:'Mocha variant',
+    swatches:['#1e1e2e','#181825','#313244','#cba6f7','#a6e3a1'],
+    vars:{'--bg0':'#1e1e2e','--bg1':'#181825','--bg2':'#313244','--bg3':'#45475a','--border':'#585b70','--t0':'#cdd6f4','--t1':'#bac2de','--t2':'#6c7086','--blue':'#cba6f7','--green':'#a6e3a1','--yellow':'#f9e2af','--red':'#f38ba8','--purple':'#b4befe','--orange':'#fab387'} },
+  { name:'One Dark',       key:'onedark',      group:'dark',    sub:'Atom One Dark',
+    swatches:['#282c34','#21252b','#2c313a','#61afef','#98c379'],
+    vars:{'--bg0':'#282c34','--bg1':'#21252b','--bg2':'#2c313a','--bg3':'#3e4451','--border':'#4a5163','--t0':'#abb2bf','--t1':'#848da1','--t2':'#5c6370','--blue':'#61afef','--green':'#98c379','--yellow':'#e5c07b','--red':'#e06c75','--purple':'#c678dd','--orange':'#d19a66'} },
+  { name:'Monokai',        key:'monokai',      group:'dark',    sub:'Sublime Monokai',
+    swatches:['#272822','#1e1f1c','#3e3d32','#66d9e8','#a6e22e'],
+    vars:{'--bg0':'#272822','--bg1':'#1e1f1c','--bg2':'#3e3d32','--bg3':'#49483e','--border':'#75715e','--t0':'#f8f8f2','--t1':'#cfcfc2','--t2':'#75715e','--blue':'#66d9e8','--green':'#a6e22e','--yellow':'#e6db74','--red':'#f92672','--purple':'#ae81ff','--orange':'#fd971f'} },
+  { name:'Ayu Dark',       key:'ayudark',      group:'dark',    sub:'Ayu dark variant',
+    swatches:['#0a0e14','#0d1017','#151b26','#39bae6','#7fd962'],
+    vars:{'--bg0':'#0a0e14','--bg1':'#0d1017','--bg2':'#151b26','--bg3':'#1c2333','--border':'#283347','--t0':'#bfbdb6','--t1':'#738394','--t2':'#3d5060','--blue':'#39bae6','--green':'#7fd962','--yellow':'#ffb454','--red':'#f07178','--purple':'#d2a6ff','--orange':'#e6b450'} },
+  { name:'Cyberpunk',      key:'cyberpunk',    group:'dark',    sub:'Neon yellow on black',
+    swatches:['#000000','#0a0a0a','#111111','#fcee09','#00fff9'],
+    vars:{'--bg0':'#000000','--bg1':'#0a0a0a','--bg2':'#111111','--bg3':'#1a1a1a','--border':'#2a2a10','--t0':'#eeff00','--t1':'#bbcc00','--t2':'#667700','--blue':'#00fff9','--green':'#39ff14','--yellow':'#fcee09','--red':'#ff0055','--purple':'#ff00ff','--orange':'#ff8800'} },
+  { name:'Kanagawa',       key:'kanagawa',     group:'dark',    sub:'Japanese ink wave',
+    swatches:['#1f1f28','#16161d','#2a2a37','#7e9cd8','#98bb6c'],
+    vars:{'--bg0':'#1f1f28','--bg1':'#16161d','--bg2':'#2a2a37','--bg3':'#363646','--border':'#54546d','--t0':'#dcd7ba','--t1':'#938aa9','--t2':'#54546d','--blue':'#7e9cd8','--green':'#98bb6c','--yellow':'#c0a36e','--red':'#c34043','--purple':'#957fb8','--orange':'#ffa066'} },
+  { name:'Palenight',      key:'palenight',    group:'dark',    sub:'Material Palenight',
+    swatches:['#292d3e','#1e2030','#444267','#82aaff','#c3e88d'],
+    vars:{'--bg0':'#292d3e','--bg1':'#1e2030','--bg2':'#444267','--bg3':'#4e5278','--border':'#585c7c','--t0':'#d0d0e0','--t1':'#8796b0','--t2':'#4e5278','--blue':'#82aaff','--green':'#c3e88d','--yellow':'#ffcb6b','--red':'#f07178','--purple':'#c792ea','--orange':'#f78c6c'} },
+  { name:'Blood Moon',     key:'bloodmoon',    group:'dark',    sub:'Deep crimson night',
+    swatches:['#10020a','#1a0510','#280a18','#ff5577','#ff9955'],
+    vars:{'--bg0':'#10020a','--bg1':'#1a0510','--bg2':'#280a18','--bg3':'#350e22','--border':'#4a1830','--t0':'#ffd0d8','--t1':'#c07080','--t2':'#703040','--blue':'#ff5577','--green':'#80ff99','--yellow':'#ffcc66','--red':'#ff2244','--purple':'#cc55ff','--orange':'#ff9955'} },
+  { name:'Moonlight',      key:'moonlight',    group:'dark',    sub:'Soft dark blue grey',
+    swatches:['#1e2030','#212337','#2f3354','#82aaff','#c3e88d'],
+    vars:{'--bg0':'#1e2030','--bg1':'#212337','--bg2':'#2f3354','--bg3':'#3a3f66','--border':'#444a73','--t0':'#c8d3f5','--t1':'#828bb8','--t2':'#444a73','--blue':'#82aaff','--green':'#c3e88d','--yellow':'#ffc777','--red':'#ff757f','--purple':'#c099ff','--orange':'#ff966c'} },
+
+  // ── Light ─────────────────────────────────────────────────────────────────
+  { name:'Light',          key:'light',        group:'light',   sub:'Clean minimal light',
+    swatches:['#f8f7ff','#ffffff','#f0eeff','#7c3aed','#059669'],
+    vars:{'--bg0':'#f8f7ff','--bg1':'#ffffff','--bg2':'#f0eeff','--bg3':'#e6e3f5','--border':'#d0cceb','--t0':'#1a1633','--t1':'#4a4270','--t2':'#9990c0','--blue':'#7c3aed','--green':'#059669','--yellow':'#d97706','--red':'#dc2626','--purple':'#6366f1','--orange':'#ea580c'} },
+  { name:'Solarized Light',key:'sollight',     group:'light',   sub:'Classic Solarized',
+    swatches:['#fdf6e3','#eee8d5','#93a1a1','#268bd2','#859900'],
+    vars:{'--bg0':'#fdf6e3','--bg1':'#eee8d5','--bg2':'#e8e2d0','--bg3':'#ddd8c5','--border':'#ccc8b0','--t0':'#073642','--t1':'#586e75','--t2':'#93a1a1','--blue':'#268bd2','--green':'#859900','--yellow':'#b58900','--red':'#dc322f','--purple':'#6c71c4','--orange':'#cb4b16'} },
+  { name:'Paper',          key:'paper',        group:'light',   sub:'Warm paper white',
+    swatches:['#f5f0e8','#faf6ef','#ede8e0','#4a6fa5','#3a7d44'],
+    vars:{'--bg0':'#f5f0e8','--bg1':'#faf6ef','--bg2':'#ede8e0','--bg3':'#e0dbd0','--border':'#d0c8b8','--t0':'#2a2018','--t1':'#6a5a48','--t2':'#9a8878','--blue':'#4a6fa5','--green':'#3a7d44','--yellow':'#c07d00','--red':'#b83232','--purple':'#7b4fa5','--orange':'#c06030'} },
+  { name:'GitHub Light',   key:'github',       group:'light',   sub:'GitHub-inspired',
+    swatches:['#ffffff','#f6f8fa','#eaeef2','#0969da','#1a7f37'],
+    vars:{'--bg0':'#ffffff','--bg1':'#f6f8fa','--bg2':'#eaeef2','--bg3':'#e2e8f0','--border':'#d0d7de','--t0':'#1f2328','--t1':'#57606a','--t2':'#8c959f','--blue':'#0969da','--green':'#1a7f37','--yellow':'#9a6700','--red':'#cf222e','--purple':'#8250df','--orange':'#bc4c00'} },
+  { name:'Arc',            key:'arc',          group:'light',   sub:'macOS Arc-inspired',
+    swatches:['#f2f2f7','#ffffff','#e9e9f0','#5856d6','#34c759'],
+    vars:{'--bg0':'#f2f2f7','--bg1':'#ffffff','--bg2':'#e9e9f0','--bg3':'#e1e1ea','--border':'#c8c8d4','--t0':'#000000','--t1':'#3c3c43','--t2':'#8e8e93','--blue':'#5856d6','--green':'#34c759','--yellow':'#ff9500','--red':'#ff3b30','--purple':'#af52de','--orange':'#ff6b00'} },
+  { name:'Catppuccin Latte',key:'catlatte',    group:'light',   sub:'Catppuccin warm light',
+    swatches:['#eff1f5','#e6e9ef','#ccd0da','#8839ef','#40a02b'],
+    vars:{'--bg0':'#eff1f5','--bg1':'#e6e9ef','--bg2':'#ccd0da','--bg3':'#bcc0cc','--border':'#acb0be','--t0':'#4c4f69','--t1':'#5c5f77','--t2':'#9ca0b0','--blue':'#1e66f5','--green':'#40a02b','--yellow':'#df8e1d','--red':'#d20f39','--purple':'#8839ef','--orange':'#fe640b'} },
+  { name:'Vanilla',        key:'vanilla',      group:'light',   sub:'Crisp & clean white',
+    swatches:['#fafafa','#ffffff','#f5f5f5','#3b82f6','#22c55e'],
+    vars:{'--bg0':'#fafafa','--bg1':'#ffffff','--bg2':'#f5f5f5','--bg3':'#ebebeb','--border':'#e0e0e0','--t0':'#111111','--t1':'#555555','--t2':'#aaaaaa','--blue':'#3b82f6','--green':'#22c55e','--yellow':'#f59e0b','--red':'#ef4444','--purple':'#8b5cf6','--orange':'#f97316'} },
+  { name:'Mint',           key:'mint',         group:'light',   sub:'Fresh green tones',
+    swatches:['#f0faf4','#ffffff','#e2f5ea','#059669','#0891b2'],
+    vars:{'--bg0':'#f0faf4','--bg1':'#ffffff','--bg2':'#e2f5ea','--bg3':'#d4eddd','--border':'#b8d8c5','--t0':'#0a2e1a','--t1':'#2d6a44','--t2':'#7aaa8e','--blue':'#0891b2','--green':'#059669','--yellow':'#ca8a04','--red':'#dc2626','--purple':'#7c3aed','--orange':'#ea580c'} },
+  { name:'Breeze',         key:'breeze',       group:'light',   sub:'KDE Breeze light',
+    swatches:['#eff0f1','#fcfcfc','#e8eaed','#3daee9','#27ae60'],
+    vars:{'--bg0':'#eff0f1','--bg1':'#fcfcfc','--bg2':'#e8eaed','--bg3':'#dde0e4','--border':'#ccd0d6','--t0':'#232629','--t1':'#5a6272','--t2':'#9fa5af','--blue':'#3daee9','--green':'#27ae60','--yellow':'#f67400','--red':'#da4453','--purple':'#9b59b6','--orange':'#f47a20'} },
+  { name:'Rose Quartz',    key:'rosequartz',   group:'light',   sub:'Soft pink & lavender',
+    swatches:['#fff5f7','#ffffff','#fce8ee','#e879aa','#7c5cbf'],
+    vars:{'--bg0':'#fff5f7','--bg1':'#ffffff','--bg2':'#fce8ee','--bg3':'#f5d0dc','--border':'#e8b8c8','--t0':'#2d1830','--t1':'#784060','--t2':'#b888a0','--blue':'#7c5cbf','--green':'#2e8b57','--yellow':'#c78b00','--red':'#e83050','--purple':'#9b59b6','--orange':'#e87340'} },
+
+  // ── Special ───────────────────────────────────────────────────────────────
+  { name:'Rosé Pine',      key:'rosepine',     group:'special', sub:'Soho vibes, muted',
+    swatches:['#191724','#1f1d2e','#26233a','#c4a7e7','#9ccfd8'],
+    vars:{'--bg0':'#191724','--bg1':'#1f1d2e','--bg2':'#26233a','--bg3':'#403d52','--border':'#524f67','--t0':'#e0def4','--t1':'#908caa','--t2':'#524f67','--blue':'#9ccfd8','--green':'#31748f','--yellow':'#f6c177','--red':'#eb6f92','--purple':'#c4a7e7','--orange':'#ea9a97'} },
+  { name:'Everforest',     key:'everforest',   group:'special', sub:'Dark forest greens',
+    swatches:['#272e33','#2e383c','#374145','#7fbbb3','#a7c080'],
+    vars:{'--bg0':'#272e33','--bg1':'#2e383c','--bg2':'#374145','--bg3':'#414b50','--border':'#505a60','--t0':'#d3c6aa','--t1':'#9da9a0','--t2':'#5c6a72','--blue':'#7fbbb3','--green':'#a7c080','--yellow':'#dbbc7f','--red':'#e67e80','--purple':'#d699b6','--orange':'#e69875'} },
+  { name:'Horizon',        key:'horizon',      group:'special', sub:'Sunset horizon warm',
+    swatches:['#1c1e26','#232530','#2e303e','#e95678','#fab795'],
+    vars:{'--bg0':'#1c1e26','--bg1':'#232530','--bg2':'#2e303e','--bg3':'#3c3f4f','--border':'#4a4d5f','--t0':'#d5d8da','--t1':'#9da0a8','--t2':'#4a4d5f','--blue':'#26bbd9','--green':'#29d398','--yellow':'#fab795','--red':'#e95678','--purple':'#ee64ac','--orange':'#fab795'} },
+  { name:'Poimandres',     key:'poimandres',   group:'special', sub:'Deep space blue',
+    swatches:['#1b1e28','#202430','#252c3a','#82aaff','#5de4c7'],
+    vars:{'--bg0':'#1b1e28','--bg1':'#202430','--bg2':'#252c3a','--bg3':'#2a3142','--border':'#303748','--t0':'#e4f0fb','--t1':'#8ca7c8','--t2':'#3d5070','--blue':'#82aaff','--green':'#5de4c7','--yellow':'#fffac2','--red':'#d0679d','--purple':'#89ddff','--orange':'#91b4d5'} },
+  { name:'Vesper',         key:'vesper',       group:'special', sub:'Minimalist dark amber',
+    swatches:['#101010','#1a1a1a','#222222','#ffc799','#b8db9b'],
+    vars:{'--bg0':'#101010','--bg1':'#1a1a1a','--bg2':'#222222','--bg3':'#2e2e2e','--border':'#3c3c3c','--t0':'#f5f0e8','--t1':'#aaa090','--t2':'#555045','--blue':'#87b5c5','--green':'#b8db9b','--yellow':'#ffc799','--red':'#f08080','--purple':'#c5a0c8','--orange':'#d49060'} },
+  { name:'Neon Lights',    key:'neonlights',   group:'special', sub:'Hot pink city night',
+    swatches:['#07020e','#0f0520','#18093a','#ff00ff','#00ffff'],
+    vars:{'--bg0':'#07020e','--bg1':'#0f0520','--bg2':'#18093a','--bg3':'#220e4f','--border':'#3a1870','--t0':'#f0d8ff','--t1':'#9060c0','--t2':'#503080','--blue':'#00ffff','--green':'#00ff88','--yellow':'#ffff00','--red':'#ff0040','--purple':'#ff00ff','--orange':'#ff8800'} },
+  { name:'Matrix',         key:'matrix',       group:'special', sub:'Digital rain green',
+    swatches:['#000000','#001100','#002200','#00ff00','#00aa00'],
+    vars:{'--bg0':'#000000','--bg1':'#001100','--bg2':'#002200','--bg3':'#003300','--border':'#005500','--t0':'#00ff00','--t1':'#00aa00','--t2':'#006600','--blue':'#00ffcc','--green':'#00ff00','--yellow':'#aaff00','--red':'#ff0000','--purple':'#00ff99','--orange':'#aacc00'} },
+  { name:'Deep Sea',       key:'deepsea',      group:'special', sub:'Bioluminescent ocean',
+    swatches:['#020a12','#050f1e','#08162a','#22d3ee','#34d399'],
+    vars:{'--bg0':'#020a12','--bg1':'#050f1e','--bg2':'#08162a','--bg3':'#0e1f38','--border':'#163050','--t0':'#b0e0ff','--t1':'#4896c0','--t2':'#205070','--blue':'#22d3ee','--green':'#34d399','--yellow':'#60e0b0','--red':'#f06090','--purple':'#60a0f0','--orange':'#30c8d0'} },
+  { name:'Coffee',         key:'coffee',       group:'special', sub:'Dark espresso',
+    swatches:['#1a1008','#231810','#2e2018','#d4956a','#a8c080'],
+    vars:{'--bg0':'#1a1008','--bg1':'#231810','--bg2':'#2e2018','--bg3':'#3a2820','--border':'#503830','--t0':'#f5e8d5','--t1':'#c09870','--t2':'#806050','--blue':'#d4956a','--green':'#a8c080','--yellow':'#e8b870','--red':'#e07060','--purple':'#c090c0','--orange':'#e09050'} },
+  { name:'Night Owl',      key:'nightowl',     group:'special', sub:'Sarah Drasner theme',
+    swatches:['#011627','#01111d','#0e2233','#82aaff','#addb67'],
+    vars:{'--bg0':'#011627','--bg1':'#01111d','--bg2':'#0e2233','--bg3':'#1d3749','--border':'#1e3a5f','--t0':'#d6deeb','--t1':'#637777','--t2':'#2d4a63','--blue':'#82aaff','--green':'#addb67','--yellow':'#ecc48d','--red':'#ff6363','--purple':'#c792ea','--orange':'#f78c6c'} },
+  { name:'Rosé Pine Moon', key:'rosepine2',    group:'special', sub:'Rosé Pine Moon variant',
+    swatches:['#232136','#2a273f','#393552','#c4a7e7','#9ccfd8'],
+    vars:{'--bg0':'#232136','--bg1':'#2a273f','--bg2':'#393552','--bg3':'#44415a','--border':'#56526e','--t0':'#e0def4','--t1':'#908caa','--t2':'#56526e','--blue':'#9ccfd8','--green':'#3e8fb0','--yellow':'#f6c177','--red':'#eb6f92','--purple':'#c4a7e7','--orange':'#ea9a97'} },
+  { name:'Catppuccin Mac', key:'catmacch',     group:'special', sub:'Macchiato variant',
+    swatches:['#24273a','#1e2030','#363a4f','#c6a0f6','#a6da95'],
+    vars:{'--bg0':'#24273a','--bg1':'#1e2030','--bg2':'#363a4f','--bg3':'#494d64','--border':'#5b6078','--t0':'#cad3f5','--t1':'#b8c0e0','--t2':'#6e738d','--blue':'#8aadf4','--green':'#a6da95','--yellow':'#eed49f','--red':'#ed8796','--purple':'#c6a0f6','--orange':'#f5a97f'} },
+  { name:'Forest',         key:'forest',       group:'special', sub:'Deep woodland green',
+    swatches:['#0d1a0d','#152015','#1e2e1e','#68a868','#c8a050'],
+    vars:{'--bg0':'#0d1a0d','--bg1':'#152015','--bg2':'#1e2e1e','--bg3':'#283828','--border':'#385038','--t0':'#e0f0d8','--t1':'#90b888','--t2':'#507850','--blue':'#68c8a8','--green':'#68a868','--yellow':'#c8a050','--red':'#e87858','--purple':'#9888c8','--orange':'#d07840'} },
+  { name:'Helios',         key:'helios',       group:'special', sub:'Sun-bleached desert',
+    swatches:['#1c1a10','#252218','#302e20','#f5a623','#7ebf7e'],
+    vars:{'--bg0':'#1c1a10','--bg1':'#252218','--bg2':'#302e20','--bg3':'#3c3a28','--border':'#504e38','--t0':'#f8f0d0','--t1':'#c0a870','--t2':'#807040','--blue':'#60b8d8','--green':'#7ebf7e','--yellow':'#f5a623','--red':'#e05050','--purple':'#b880d0','--orange':'#e88030'} },
+
+  // ── Classic ───────────────────────────────────────────────────────────────
+  { name:'Amber CRT',      key:'ambercrt',     group:'special', sub:'Phosphor amber monitor',
+    swatches:['#0d0800','#1a1000','#261800','#ffb000','#ffd060'],
+    vars:{'--bg0':'#0d0800','--bg1':'#1a1000','--bg2':'#261800','--bg3':'#321f00','--border':'#503000','--t0':'#ffcc44','--t1':'#d4960a','--t2':'#996600','--blue':'#ffb000','--green':'#ffd060','--yellow':'#ffe080','--red':'#ff4400','--purple':'#ffaa00','--orange':'#ff8800'} },
+
+  { name:'DOS Blue',        key:'dosblu',       group:'special', sub:'Classic DOS blue screen',
+    swatches:['#0000aa','#000088','#0000cc','#ffff55','#ffffff'],
+    vars:{'--bg0':'#0000aa','--bg1':'#000088','--bg2':'#0000bb','--bg3':'#0000cc','--border':'#5555ff','--t0':'#ffffff','--t1':'#ccccff','--t2':'#aaaadd','--blue':'#ffff55','--green':'#55ff55','--yellow':'#ffff55','--red':'#ff5555','--purple':'#ff55ff','--orange':'#ffaa00'} },
+
+  { name:'Win Classic',     key:'winclassic',   group:'special', sub:'Windows 95/98 silver',
+    swatches:['#c0c0c0','#d4d0c8','#ffffff','#000080','#000080'],
+    vars:{'--bg0':'#c0c0c0','--bg1':'#d4d0c8','--bg2':'#ffffff','--bg3':'#e0dcd4','--border':'#808080','--t0':'#000000','--t1':'#222222','--t2':'#555555','--blue':'#000080','--green':'#008000','--yellow':'#808000','--red':'#800000','--purple':'#800080','--orange':'#804000'} },
+
+  { name:'Cobalt',          key:'cobalt',       group:'special', sub:'TextMate Cobalt classic',
+    swatches:['#002240','#00325a','#0a3f6d','#ffc600','#3ad900'],
+    vars:{'--bg0':'#002240','--bg1':'#00325a','--bg2':'#0a3f6d','--bg3':'#0d4f85','--border':'#1a5f95','--t0':'#ffffff','--t1':'#b0d8f8','--t2':'#6898c8','--blue':'#ffc600','--green':'#3ad900','--yellow':'#ffc600','--red':'#ff0000','--purple':'#ff80ff','--orange':'#ff8c00'} },
+
+  { name:'C64',             key:'c64',          group:'special', sub:'Commodore 64 blue',
+    swatches:['#4040a0','#5555bb','#7070cc','#9090ff','#ffffff'],
+    vars:{'--bg0':'#4040a0','--bg1':'#3535a0','--bg2':'#5050b0','--bg3':'#5c5cb8','--border':'#7070c8','--t0':'#ffffff','--t1':'#d0d0ff','--t2':'#9898e0','--blue':'#9090ff','--green':'#44ee44','--yellow':'#eeee44','--red':'#aa3333','--purple':'#cc66cc','--orange':'#dd8844'} },
+];
+
+const FONTS_UI = [
+  { label:'System UI',     value:'',                                                url:'' },
+  { label:'Inter',         value:"'Inter',sans-serif",                             url:'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap' },
+  { label:'Space Grotesk', value:"'Space Grotesk',sans-serif",                     url:'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap' },
+  { label:'IBM Plex Sans', value:"'IBM Plex Sans',sans-serif",                     url:'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap' },
+  { label:'Rubik',         value:"'Rubik',sans-serif",                             url:'https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&display=swap' },
+  { label:'DM Sans',       value:"'DM Sans',sans-serif",                           url:'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap' },
+  { label:'Outfit',        value:"'Outfit',sans-serif",                            url:'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap' },
+  { label:'Nunito',        value:"'Nunito',sans-serif",                            url:'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap' },
+];
+
+const FONTS_MONO = [
+  { label:'System Mono',      value:'',                                               url:'' },
+  { label:'JetBrains Mono',   value:"'JetBrains Mono',monospace",                    url:'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap' },
+  { label:'Fira Code',        value:"'Fira Code',monospace",                         url:'https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap' },
+  { label:'Source Code Pro',  value:"'Source Code Pro',monospace",                   url:'https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap' },
+  { label:'IBM Plex Mono',    value:"'IBM Plex Mono',monospace",                     url:'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap' },
+  { label:'Space Mono',       value:"'Space Mono',monospace",                        url:'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap' },
+  { label:'Roboto Mono',      value:"'Roboto Mono',monospace",                       url:'https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap' },
+];
+
+const COLOR_DEFS = {
+  bg:     [ {key:'--bg0',label:'Base background'},{key:'--bg1',label:'Card / sidebar'},{key:'--bg2',label:'Secondary panel'},{key:'--bg3',label:'Hover / tertiary'},{key:'--border',label:'Border'} ],
+  text:   [ {key:'--t0',label:'Primary text'},{key:'--t1',label:'Secondary text'},{key:'--t2',label:'Muted / label'} ],
+  accent: [ {key:'--blue',label:'Blue (accent)'},{key:'--green',label:'Green (success)'},{key:'--yellow',label:'Yellow (warn)'},{key:'--red',label:'Red (error)'},{key:'--purple',label:'Purple'},{key:'--orange',label:'Orange'} ],
+};
+
+const DARK_DEFAULTS = {'--bg0':'#09080e','--bg1':'#100e1a','--bg2':'#181526','--bg3':'#221e33','--border':'#2d2a40','--t0':'#f0eaff','--t1':'#b8acdc','--t2':'#8878b8','--blue':'#a78bfa','--green':'#34d399','--yellow':'#fbbf24','--red':'#f87171','--purple':'#818cf8','--orange':'#fb923c'};
+
+let curTheme = {};
+let activeGroup = 'all';
+let editorOpen = false;
+
+function init() {
+  SimNav.inject('theme');
+  curTheme = SimState.getTheme();
+
+  // populate font dropdowns
+  const uiSel = document.getElementById('fontFamilySel');
+  const monoSel = document.getElementById('monoFamilySel');
+  FONTS_UI.forEach(f => {
+    const o = document.createElement('option');
+    o.value = f.value; o.textContent = f.label;
+    if (f.value === (curTheme.fontFamily||'')) o.selected = true;
+    uiSel.appendChild(o);
+  });
+  FONTS_MONO.forEach(f => {
+    const o = document.createElement('option');
+    o.value = f.value; o.textContent = f.label;
+    if (f.value === (curTheme.monoFamily||'')) o.selected = true;
+    monoSel.appendChild(o);
+  });
+
+  const fs = curTheme.fontSize || 12;
+  document.getElementById('fontSizeSlider').value = fs;
+  document.getElementById('fontSizeVal').textContent = fs + 'px';
+
+  renderThemeGrid();
+  renderColorPickers();
+  renderCustomThemes();
+}
+
+function setGroup(g) {
+  activeGroup = g;
+  document.querySelectorAll('.gtab').forEach(el => el.classList.toggle('on', el.dataset.group === g));
+  renderThemeGrid();
+}
+
+function renderThemeGrid() {
+  const list = activeGroup === 'all' ? THEMES : THEMES.filter(t => t.group === activeGroup);
+  const gColors = { dark:'rgba(129,140,248,.15)', light:'rgba(52,211,153,.15)', special:'rgba(251,146,60,.15)' };
+  const gText   = { dark:'#818cf8', light:'#34d399', special:'#fb923c' };
+  document.getElementById('themeGrid').innerHTML = list.map(th => `
+    <div class="theme-card${(curTheme.name||'dark')===th.key?' on':''}" onclick="applyPrebuilt('${th.key}')">
+      <div class="tc-swatches">${th.swatches.map(c=>`<div class="tc-swatch" style="background:${c}"></div>`).join('')}</div>
+      <div class="tc-name">${th.name}</div>
+      <div class="tc-sub">${th.sub}</div>
+      <div class="tc-group-tag" style="background:${gColors[th.group]};color:${gText[th.group]}">${th.group}</div>
+    </div>
+  `).join('');
+}
+
+function resolveVar(key) {
+  const activeTheme = THEMES.find(t => t.key === (curTheme.name||'dark'));
+  const baseVars = activeTheme ? activeTheme.vars : {};
+  const customVars = curTheme.vars || {};
+  return customVars[key] || baseVars[key] || DARK_DEFAULTS[key] || '#888888';
+}
+
+function renderColorPickers() {
+  ['bg','text','accent'].forEach(group => {
+    const cid = group==='bg'?'cgBg':group==='text'?'cgText':'cgAccent';
+    document.getElementById(cid).innerHTML = COLOR_DEFS[group].map(def => {
+      const val = resolveVar(def.key);
+      const id = 'hex'+def.key.replace(/--/,'').replace(/-/g,'_');
+      return `<div class="color-row">
+        <span class="cr-lbl">${def.label}</span>
+        <input type="color" class="cr-swatch" value="${val}" data-var="${def.key}" oninput="onColorChange('${def.key}',this.value)">
+        <span class="cr-hex" id="${id}">${val}</span>
+      </div>`;
+    }).join('');
+  });
+}
+
+function toggleEditor() {
+  editorOpen = !editorOpen;
+  document.getElementById('editorBody').style.display = editorOpen ? '' : 'none';
+  document.getElementById('editorChev').classList.toggle('open', editorOpen);
+}
+
+function onColorChange(varKey, val) {
+  const id = 'hex'+varKey.replace(/--/,'').replace(/-/g,'_');
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+  if (!curTheme.vars) curTheme.vars = {};
+  curTheme.vars[varKey] = val;
+  curTheme.name = 'custom';
+  SimState.setTheme({ vars:{ ...curTheme.vars }, name:'custom' });
+  SimState.applyTheme();
+  renderThemeGrid();
+  flash();
+}
+
+function applyPrebuilt(key) {
+  const th = THEMES.find(t => t.key === key);
+  if (!th) return;
+  const prevFont = curTheme.fontFamily || '';
+  const prevMono = curTheme.monoFamily || '';
+  const prevFontUrl = curTheme.fontUrl || '';
+  curTheme = { name:key, vars:{ ...th.vars }, fontSize:curTheme.fontSize||12, fontFamily:prevFont, monoFamily:prevMono, fontUrl:prevFontUrl };
+  SimState.setTheme(curTheme);
+  SimState.applyTheme();
+  renderThemeGrid();
+  renderColorPickers();
+  flash();
+}
+
+function onFontFamily(val) {
+  const fontDef = FONTS_UI.find(f => f.value === val);
+  const url = fontDef ? fontDef.url : '';
+  curTheme.fontFamily = val;
+  curTheme.fontUrl = url || curTheme.monoFontUrl || '';
+  SimState.setTheme({ fontFamily:val, fontUrl:curTheme.fontUrl });
+  SimState.applyTheme();
+  flash();
+}
+
+function onMonoFamily(val) {
+  const fontDef = FONTS_MONO.find(f => f.value === val);
+  const url = fontDef ? fontDef.url : '';
+  curTheme.monoFamily = val;
+  curTheme.monoFontUrl = url;
+  SimState.setTheme({ monoFamily:val });
+  // load mono font separately if needed
+  if (url) {
+    let el = document.querySelector('link[data-simmonofont]');
+    if (!el || el.getAttribute('href') !== url) {
+      if (el) el.remove();
+      el = document.createElement('link');
+      el.rel = 'stylesheet'; el.setAttribute('href', url);
+      el.setAttribute('data-simmonofont','');
+      document.head.appendChild(el);
+    }
+  }
+  SimState.applyTheme();
+  flash();
+}
+
+function onFontSize(val) {
+  document.getElementById('fontSizeVal').textContent = val + 'px';
+  curTheme.fontSize = parseInt(val);
+  SimState.setTheme({ fontSize:curTheme.fontSize });
+  SimState.applyTheme();
+  flash();
+}
+
+function saveAsCustom() {
+  const nameEl = document.getElementById('customThemeName');
+  const name = nameEl.value.trim();
+  if (!name) { nameEl.focus(); return; }
+  const key = 'custom_' + Date.now();
+  const activeTheme = THEMES.find(t => t.key === (curTheme.name||'dark'));
+  const baseVars = activeTheme ? { ...activeTheme.vars } : {};
+  const mergedVars = { ...DARK_DEFAULTS, ...baseVars, ...(curTheme.vars||{}) };
+  const swatches = [mergedVars['--bg0'], mergedVars['--bg1'], mergedVars['--bg2'], mergedVars['--blue'], mergedVars['--green']];
+  const ct = { key, name, swatches, vars:mergedVars };
+  SimState.saveCustomTheme(ct);
+  nameEl.value = '';
+  renderCustomThemes();
+  flash();
+}
+
+function applyCustom(key) {
+  const ct = SimState.getCustomThemes().find(t => t.key === key);
+  if (!ct) return;
+  const prevFont = curTheme.fontFamily || '';
+  const prevMono = curTheme.monoFamily || '';
+  const prevFontUrl = curTheme.fontUrl || '';
+  curTheme = { name:key, vars:{ ...ct.vars }, fontSize:curTheme.fontSize||12, fontFamily:prevFont, monoFamily:prevMono, fontUrl:prevFontUrl };
+  SimState.setTheme(curTheme);
+  SimState.applyTheme();
+  renderThemeGrid();
+  renderColorPickers();
+  renderCustomThemes();
+  flash();
+}
+
+function deleteCustom(key) {
+  SimState.deleteCustomTheme(key);
+  if (curTheme.name === key) { applyPrebuilt('dark'); }
+  renderCustomThemes();
+  flash();
+}
+
+function renderCustomThemes() {
+  const customs = SimState.getCustomThemes();
+  const section = document.getElementById('customSection');
+  const grid = document.getElementById('customGrid');
+  const count = document.getElementById('customCount');
+  count.textContent = customs.length ? `(${customs.length})` : '(none yet)';
+  if (!customs.length) { grid.innerHTML = '<div style="font-size:10px;color:var(--t2);padding:4px 0">No custom themes saved. Use the color editor above to create one.</div>'; return; }
+  grid.innerHTML = '';
+  customs.forEach(ct => {
+    const isOn = curTheme.name === ct.key;
+    const card = document.createElement('div');
+    card.className = 'custom-card' + (isOn ? ' on' : '');
+    card.innerHTML =
+      `<div class="tc-swatches">${(ct.swatches||[]).map(c=>`<div class="tc-swatch" style="background:${c}"></div>`).join('')}</div>` +
+      `<div class="tc-name">${ct.name}</div>` +
+      `<div class="cc-del" title="Delete" onclick="event.stopPropagation();deleteCustom('${ct.key}')">✕</div>`;
+    card.addEventListener('click', () => applyCustom(ct.key));
+    grid.appendChild(card);
+  });
+}
+
+function resetAll() {
+  curTheme = { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'' };
+  SimState.setTheme(curTheme);
+  SimState.applyTheme();
+  document.getElementById('fontSizeSlider').value = 12;
+  document.getElementById('fontSizeVal').textContent = '12px';
+  document.getElementById('fontFamilySel').value = '';
+  document.getElementById('monoFamilySel').value = '';
+  const ml = document.querySelector('link[data-simmonofont]');
+  if (ml) ml.remove();
+  renderThemeGrid();
+  renderColorPickers();
+  flash();
+}
+
+function flash() {
+  const c = document.getElementById('savedChip');
+  c.style.opacity = '1';
+  setTimeout(() => c.style.opacity = '0', 1500);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
