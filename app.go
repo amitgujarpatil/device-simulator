@@ -70,6 +70,12 @@ func (a *App) UpdateMQTTPubIntervals(gpsMs, obdMs int) {
 	a.sim.SetLiveIntervals(gpsMs, obdMs)
 }
 
+// UpdateNormalModeInterval updates the Phase 2 normal-mode per-packet delay in
+// a running simulate-mode simulation without restarting it.
+func (a *App) UpdateNormalModeInterval(ms int) {
+	a.sim.SetNormalInterval(ms)
+}
+
 // PauseSimulation pauses the running simulation.
 func (a *App) PauseSimulation() {
 	a.sim.Pause()
@@ -389,14 +395,16 @@ func (a *App) GetResumeState(outputDir, tgtImei string) map[string]interface{} {
 		outputDir = filepath.Join(home, outputDir[2:])
 	}
 	result := map[string]interface{}{
-		"batchFiles":      0,
-		"batchesUploaded": 0,
-		"totalPackets":    0,
-		"totalOBDPackets": 0,
-		"obdRowsInDB":     0,
-		"obdExists":       false,
-		"phase1Complete":  false,
-		"outputDir":       outputDir,
+		"batchFiles":         0,
+		"batchesUploaded":    0,
+		"totalPackets":       0,
+		"totalOBDPackets":    0,
+		"obdRowsInDB":        0,
+		"obdExists":          false,
+		"phase1Complete":     false,
+		"phase2OBDUploaded":  false,
+		"liveStreamOffset":   0,
+		"outputDir":          outputDir,
 	}
 	if tgtImei == "" {
 		return result
@@ -404,18 +412,22 @@ func (a *App) GetResumeState(outputDir, tgtImei string) map[string]interface{} {
 
 	// Read run-state JSON written by the simulator
 	type runStateJSON struct {
-		BatchesUploaded int  `json:"batchesUploaded"`
-		TotalBatches    int  `json:"totalBatches"`
-		TotalOBDPackets int  `json:"totalOBDPackets"`
-		Phase1Complete  bool `json:"phase1Complete"`
+		BatchesUploaded   int  `json:"batchesUploaded"`
+		TotalBatches      int  `json:"totalBatches"`
+		TotalOBDPackets   int  `json:"totalOBDPackets"`
+		Phase1Complete    bool `json:"phase1Complete"`
+		Phase2OBDUploaded bool `json:"phase2ObdUploaded"`
+		LiveStreamOffset  int  `json:"liveStreamOffset"`
 	}
 	var st runStateJSON
 	if b, err := os.ReadFile(filepath.Join(outputDir, fmt.Sprintf("sim_state_%s.json", tgtImei))); err == nil {
 		json.Unmarshal(b, &st) //nolint:errcheck
 	}
-	result["batchesUploaded"] = st.BatchesUploaded
-	result["totalOBDPackets"] = st.TotalOBDPackets
-	result["phase1Complete"] = st.Phase1Complete
+	result["batchesUploaded"]   = st.BatchesUploaded
+	result["totalOBDPackets"]   = st.TotalOBDPackets
+	result["phase1Complete"]    = st.Phase1Complete
+	result["phase2OBDUploaded"] = st.Phase2OBDUploaded
+	result["liveStreamOffset"]  = st.LiveStreamOffset
 
 	// Count batch files on disk
 	pattern := filepath.Join(outputDir, fmt.Sprintf("historic_batch_*_%s.db", tgtImei))

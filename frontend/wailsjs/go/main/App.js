@@ -310,6 +310,10 @@ export function UpdateMQTTPubIntervals(arg1, arg2) {
   return window['go']['main']['App']['UpdateMQTTPubIntervals'](arg1, arg2);
 }
 
+export function UpdateNormalModeInterval(arg1) {
+  return window['go']['main']['App']['UpdateNormalModeInterval'](arg1);
+}
+
 export function UtilCertToFormats(arg1) {
   return window['go']['main']['App']['UtilCertToFormats'](arg1);
 }

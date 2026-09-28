@@ -160,6 +160,8 @@ export function TestMQTT(arg1:simulator.RegionConfig):Promise<{[key: string]: an
 
 export function UpdateMQTTPubIntervals(arg1:number,arg2:number):Promise<void>;
 
+export function UpdateNormalModeInterval(arg1:number):Promise<void>;
+
 export function UtilCertToFormats(arg1:string):Promise<utilities.CertFormats>;
 
 export function UtilCompress(arg1:string,arg2:string):Promise<utilities.CompressInfo>;

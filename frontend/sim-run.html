@@ -365,7 +365,7 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
     <div class="ph-hdr"><span>▶</span><span class="ph-title">Phase 2</span><span class="ph-sub">— sequential</span><div class="ph-badge" id="ph2Badge">Pending</div></div>
     <div class="streams">
       <div class="st" id="p2Up"><div class="st-hdr"><div class="badge-circle" style="background:var(--green)">↑</div><span class="st-lbl">OBD Upload</span></div><div class="st-prog"><div class="st-fill fg2" id="pP2U"></div></div><div class="st-stat" id="iP2U">live_obd_<strong id="p2Imei">—</strong>.db</div><div class="st-detail">Accumulated in Phase 1</div></div>
-      <div class="st" id="p2Str" style="flex:2"><div class="st-hdr"><div class="badge-circle" style="background:var(--blue)">⟳</div><span class="st-lbl">Normal Mode Streaming</span></div><div class="st-prog"><div class="st-fill fblue" id="pP2S"></div></div><div class="st-stat" id="iP2S">Published: <strong>0</strong> / <strong id="p2Tot">—</strong></div><div class="st-detail">GPS + OBD · 60s interval</div></div>
+      <div class="st" id="p2Str" style="flex:2"><div class="st-hdr"><div class="badge-circle" style="background:var(--blue)">⟳</div><span class="st-lbl">Normal Mode Streaming</span></div><div class="st-prog"><div class="st-fill fblue" id="pP2S"></div></div><div class="st-stat" id="iP2S">Published: <strong>0</strong> / <strong id="p2Tot">—</strong></div><div class="st-detail" id="p2NormalInterval">GPS + OBD · 60s interval</div></div>
     </div>
   </div>
 
@@ -515,8 +515,9 @@ function updGlobalMs(key, secVal) {
   if (!isFinite(sec) || sec <= 0) return;
   const ms = Math.round(sec * 1000);
   SimState.setGlobal({ [key]: ms });
-  // Push live changes to running MQTT Direct simulation
-  if (running && (key === 'gpsL1IntervalMs' || key === 'obdAccumIntervalMs') && (activeTest||{}).mode === 'mqtt-pub') {
+  // Push live changes to running simulation
+  const mode = (activeTest||{}).mode || 'simulate';
+  if (running && (key === 'gpsL1IntervalMs' || key === 'obdAccumIntervalMs') && mode === 'mqtt-pub') {
     const g2 = SimState.getGlobal();
     const gps = Math.round(clampInterval(g2.gpsL1IntervalMs || 10000));
     const obd = Math.round(clampInterval(g2.obdAccumIntervalMs || 5000));
@@ -524,6 +525,11 @@ function updGlobalMs(key, secVal) {
     const gi = g('mdGpsInterval'), oi = g('mdObdInterval');
     if (gi) gi.textContent = 'interval: ' + fmtInterval(gps);
     if (oi) oi.textContent = 'interval: ' + fmtInterval(obd);
+  }
+  if (running && key === 'normalModeIntervalMs' && mode !== 'mqtt-pub' && mode !== 'fetch') {
+    window.go.main.App.UpdateNormalModeInterval(ms).catch(() => {});
+    const el = g('p2NormalInterval');
+    if (el) el.textContent = 'GPS + OBD · ' + fmtInterval(ms);
   }
 }
 function clampInterval(ms) { return Math.min(Math.max(ms, 1000), 60000); }
@@ -677,20 +683,22 @@ async function loadResumeState() {
   if (!t || !t.tgtImei) {
     set('rsFetch','false','var(--t2)'); set('rsPkts','0','var(--t2)');
     set('rsBatches','0/0','var(--t2)'); set('rsObd','0/0','var(--t2)');
-    set('rsP1','false','var(--t2)'); set('rsP2','—','');
+    set('rsP1','false','var(--t2)'); set('rsP2','—','var(--t2)');
     return;
   }
   const outDir = (SimState.getGlobal().outputDir) || '';
   try {
     const rs = await window.go.main.App.GetResumeState(outDir, t.tgtImei);
     const batchFiles      = rs.batchFiles      || 0;
-    const batchesUploaded = rs.batchesUploaded  || 0;
-    const pkts            = rs.totalPackets     || 0;
-    const totalObd        = rs.totalOBDPackets  || 0;
-    const obdRows         = rs.obdRowsInDB      || 0;
-    const obdOk           = rs.obdExists        || false;
-    const p1Done          = rs.phase1Complete   || false;
-    const fetchDone       = batchFiles > 0;
+    const batchesUploaded  = rs.batchesUploaded    || 0;
+    const pkts             = rs.totalPackets       || 0;
+    const totalObd         = rs.totalOBDPackets    || 0;
+    const obdRows          = rs.obdRowsInDB        || 0;
+    const obdOk            = rs.obdExists          || false;
+    const p1Done           = rs.phase1Complete     || false;
+    const p2ObdUploaded    = rs.phase2OBDUploaded  || false;
+    const liveStreamOffset = rs.liveStreamOffset   || 0;
+    const fetchDone        = batchFiles > 0;
 
     set('rsFetch',   fetchDone ? 'true' : 'false',  fetchDone ? 'var(--green)' : 'var(--t2)');
     set('rsPkts',    pkts > 0 ? pkts.toLocaleString() : '0', pkts > 0 ? 'var(--t0)' : 'var(--t2)');
@@ -699,7 +707,20 @@ async function loadResumeState() {
     const oStr = totalObd > 0 ? `${obdRows}/${totalObd}` : (obdOk ? `${obdRows} rows` : '0');
     set('rsObd', oStr, obdRows > 0 ? (obdRows >= totalObd ? 'var(--green)' : 'var(--yellow)') : 'var(--t2)');
     set('rsP1', p1Done ? 'true' : 'false', p1Done ? 'var(--green)' : (batchesUploaded > 0 ? 'var(--yellow)' : 'var(--t2)'));
-    set('rsP2', '—', '');
+    // Phase 2: show OBD upload + live stream offset
+    let p2Str = '—';
+    let p2Color = '';
+    if (p2ObdUploaded && liveStreamOffset > 0) {
+      p2Str = `obd✓ stream:${liveStreamOffset}`;
+      p2Color = 'var(--yellow)';
+    } else if (p2ObdUploaded) {
+      p2Str = 'obd uploaded';
+      p2Color = 'var(--yellow)';
+    } else if (p1Done) {
+      p2Str = 'pending';
+      p2Color = 'var(--t2)';
+    }
+    set('rsP2', p2Str, p2Color);
   } catch(e) { console.warn('[Resume] GetResumeState failed:', e); }
 }
 
@@ -900,6 +921,10 @@ async function startSim() {
   loadResumeState(); // show disk state before simulation begins
   paused = false; pendingEvs = []; _simFinished = false;
   running = true; T0 = Date.now();
+  // Seed the Phase 2 normal-mode interval label from current settings
+  const _gl0 = SimState.getGlobal();
+  const _nm0 = _gl0.normalModeIntervalMs || 60000;
+  const _ni0 = g('p2NormalInterval'); if (_ni0) _ni0.textContent = 'GPS + OBD · ' + fmtInterval(_nm0);
   _liveMetrics = { totalPackets:0, historicPackets:0, liveGps:0, liveObd:0, batchesUploaded:0, errors:0 };
   _runId = SimState.newRunId();
   SimState.setGlobal({ _simRunning: true, _simRunId: _runId });
@@ -1021,8 +1046,13 @@ function handleSimStep(ev) {
       sC(d.rows||0, Math.max(1,d.total||1)); rs('rsObd',String(d.rows||0)); break;
     case 'phase1:done':
       phBadge('ph1Badge','Done',false,true); rs('rsP1','true',true); break;
-    case 'phase2:start':
-      g('ph2').classList.add('on'); phBadge('ph2Badge','Running',true); setRingPhase('Phase 2'); break;
+    case 'phase2:start': {
+      g('ph2').classList.add('on'); phBadge('ph2Badge','Running',true); setRingPhase('Phase 2');
+      const _gl2 = SimState.getGlobal();
+      const _ni2 = g('p2NormalInterval');
+      if (_ni2) _ni2.textContent = 'GPS + OBD · ' + fmtInterval(_gl2.normalModeIntervalMs || 60000);
+      break;
+    }
     case 'p2:upload:done':
       p2U(100); break;
     case 'p2:stream':

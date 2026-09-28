@@ -22,10 +22,12 @@ type EventEmitter func(SimEvent)
 // simRunState records Phase 1 upload progress so a stopped run can resume
 // exactly where it left off without re-uploading or re-accumulating data.
 type simRunState struct {
-	BatchesUploaded int  `json:"batchesUploaded"`
-	TotalBatches    int  `json:"totalBatches"`
-	TotalOBDPackets int  `json:"totalOBDPackets"`
-	Phase1Complete  bool `json:"phase1Complete"`
+	BatchesUploaded   int  `json:"batchesUploaded"`
+	TotalBatches      int  `json:"totalBatches"`
+	TotalOBDPackets   int  `json:"totalOBDPackets"`
+	Phase1Complete    bool `json:"phase1Complete"`
+	Phase2OBDUploaded bool `json:"phase2ObdUploaded"`
+	LiveStreamOffset  int  `json:"liveStreamOffset"`
 }
 
 func runStateFile(outDir, tgtIMEI string) string {
@@ -55,10 +57,11 @@ type Simulator struct {
 	paused   bool
 	startT   time.Time
 
-	// Live-updatable intervals for MQTT Direct mode (updated while sim is running).
-	liveMu    sync.RWMutex
-	liveGpsMs int
-	liveObdMs int
+	// Live-updatable intervals (updated via bridge while sim is running).
+	liveMu       sync.RWMutex
+	liveGpsMs    int
+	liveObdMs    int
+	liveNormalMs int
 
 	// Raw packets stored after a fetch-only run so the app can export them
 	// without touching the (possibly encrypted) SQLite batch files.
@@ -91,6 +94,22 @@ func (s *Simulator) getLiveIntervals() (int, int) {
 	s.liveMu.RLock()
 	defer s.liveMu.RUnlock()
 	return s.liveGpsMs, s.liveObdMs
+}
+
+func (s *Simulator) SetNormalInterval(ms int) {
+	s.liveMu.Lock()
+	s.liveNormalMs = ms
+	s.liveMu.Unlock()
+}
+
+func (s *Simulator) getLiveNormalInterval() time.Duration {
+	s.liveMu.RLock()
+	ms := s.liveNormalMs
+	s.liveMu.RUnlock()
+	if ms <= 0 {
+		return 60 * time.Second
+	}
+	return time.Duration(ms) * time.Millisecond
 }
 
 // New creates a new Simulator instance.
@@ -400,8 +419,8 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		Step:    "mqtt:connect",
 	})
 
-	var mqttClient interface{ Disconnect(uint) }
 	var mqttPublish func(topic string, payload []byte) error
+	var disconnectMQTT func()
 
 	if cfg.DryRun {
 		emit(SimEvent{
@@ -423,7 +442,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 			}
 			return nil
 		}
-		mqttClient = &noopMQTT{}
+		disconnectMQTT = func() {}
 	} else {
 		realClient, activeCfg, err := connectWithFallback(cfg, emit, elap)
 		if err != nil {
@@ -442,12 +461,83 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 			Ty:      "ok",
 			Step:    "mqtt:connected",
 		})
-		mqttPublish = func(topic string, payload []byte) error {
-			return publishMQTT(realClient, topic, payload)
+
+		var (
+			mqttClientMu sync.RWMutex
+			mqttReconnMu sync.Mutex
+			activeMQTT   mqtt.Client = realClient
+		)
+
+		doReconnect := func() error {
+			mqttReconnMu.Lock()
+			defer mqttReconnMu.Unlock()
+			mqttClientMu.RLock()
+			isConn := activeMQTT.IsConnected()
+			currCfg := cfg
+			mqttClientMu.RUnlock()
+			if isConn {
+				return nil
+			}
+			emit(SimEvent{Elapsed: elap(), Tag: "MQTT", Cls: "warn",
+				Msg: "Broker disconnected — reconnecting in 3s…", Ty: "warn"})
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(3 * time.Second):
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			newClient, newCfg, rerr := connectWithFallback(currCfg, emit, elap)
+			if rerr != nil {
+				return fmt.Errorf("reconnect: %w", rerr)
+			}
+			mqttClientMu.Lock()
+			old := activeMQTT
+			activeMQTT = newClient
+			cfg = newCfg
+			mqttClientMu.Unlock()
+			old.Disconnect(250)
+			emit(SimEvent{Elapsed: elap(), Tag: "MQTT", Cls: "mq",
+				Msg: fmt.Sprintf("Reconnected  clientId:%s  broker:%s:%d", newCfg.TgtIMEI, newCfg.MQTTBroker, newCfg.MQTTPort),
+				Ty: "ok", Step: "mqtt:connected"})
+			return nil
 		}
-		mqttClient = realClient
+
+		mqttPublish = func(topic string, payload []byte) error {
+			mqttClientMu.RLock()
+			c := activeMQTT
+			isConn := c.IsConnected()
+			mqttClientMu.RUnlock()
+			if !isConn {
+				if err := doReconnect(); err != nil {
+					return err
+				}
+				mqttClientMu.RLock()
+				c = activeMQTT
+				mqttClientMu.RUnlock()
+			}
+			err := publishMQTT(c, topic, payload)
+			if err != nil && errors.Is(err, mqtt.ErrNotConnected) {
+				if err2 := doReconnect(); err2 != nil {
+					return err2
+				}
+				mqttClientMu.RLock()
+				c = activeMQTT
+				mqttClientMu.RUnlock()
+				return publishMQTT(c, topic, payload)
+			}
+			return err
+		}
+
+		disconnectMQTT = func() {
+			mqttClientMu.RLock()
+			c := activeMQTT
+			mqttClientMu.RUnlock()
+			c.Disconnect(250)
+		}
 	}
-	defer mqttClient.Disconnect(250)
+	defer disconnectMQTT()
 
 	// ── Open OBD accumulation DB ──────────────────────────────────────────────
 	obdDbPath := filepath.Join(outDir, fmt.Sprintf("live_obd_%s.db", cfg.TgtIMEI))
@@ -518,7 +608,10 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		return nil
 	}
 
-	if err := runPhase2(ctx, cfg, obdDbPath, livePkts, mqttPublish, emit, startT, s); err != nil && ctx.Err() == nil {
+	// Seed live normal interval so the bridge method can update it while Phase 2 runs.
+	s.SetNormalInterval(cfg.NormalIntervalMs)
+
+	if err := runPhase2(ctx, cfg, obdDbPath, livePkts, mqttPublish, emit, startT, s, &runState, outDir, cfg.TgtIMEI); err != nil && ctx.Err() == nil {
 		emit(SimEvent{Elapsed: elap(), Tag: "PHASE 2", Cls: "er", Msg: fmt.Sprintf("Phase 2 error: %v", err), Ty: "warn"})
 	}
 
@@ -811,17 +904,26 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 // runPhase2 runs the two sequential steps:
 // 1. Upload the accumulated OBD database
 // 2. Stream all live packets via MQTT at normal interval
-func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []livePacket, publish func(string, []byte) error, emit func(SimEvent), startT time.Time, s *Simulator) error {
+func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []livePacket, publish func(string, []byte) error, emit func(SimEvent), startT time.Time, s *Simulator, runState *simRunState, outDir, tgtIMEI string) error {
 	elap := func() int64 { return time.Since(startT).Milliseconds() }
 	topic := cfg.TgtIMEI + "/obd"
 
-	// 1. Upload OBD DB
-	if cfg.DryRun {
+	// 1. Upload OBD DB — skip if already uploaded in a previous run
+	if runState.Phase2OBDUploaded {
+		emit(SimEvent{
+			Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
+			Msg: "OBD DB already uploaded — skipping", Ty: "info", Step: "p2:upload:done",
+		})
+	} else if cfg.DryRun {
 		emit(SimEvent{
 			Elapsed: elap(), Tag: "DRY/UPLOAD", Cls: "up",
 			Msg: fmt.Sprintf("SKIP upload: live_obd_%s.db (dry run)", cfg.TgtIMEI), Ty: "info",
 		})
 		time.Sleep(200 * time.Millisecond)
+		emit(SimEvent{
+			Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
+			Msg: "OBD DB upload complete", Ty: "ok", Step: "p2:upload:done",
+		})
 	} else {
 		t0 := time.Now()
 		if err := uploadFile(obdDbPath, cfg); err != nil {
@@ -833,30 +935,38 @@ func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []liv
 			emit(SimEvent{
 				Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
 				Msg: fmt.Sprintf("OK 200 — live_obd_%s.db in %dms", cfg.TgtIMEI, time.Since(t0).Milliseconds()),
-				Ty: "ok",
+				Ty:  "ok",
 			})
+			runState.Phase2OBDUploaded = true
+			saveRunState(outDir, tgtIMEI, *runState)
 		}
+		emit(SimEvent{
+			Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
+			Msg: "OBD DB upload complete", Ty: "ok", Step: "p2:upload:done",
+		})
 	}
-	emit(SimEvent{
-		Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
-		Msg: "OBD DB upload complete", Ty: "ok", Step: "p2:upload:done",
-	})
 
 	if ctx.Err() != nil {
 		return nil
 	}
 
-	// 2. Normal mode streaming
-	normalInterval := time.Duration(cfg.NormalIntervalMs) * time.Millisecond
-	if normalInterval <= 0 {
-		normalInterval = 60 * time.Second
-	}
-
+	// 2. Normal mode streaming — resume from saved packet offset
 	total := len(livePkts)
+	startIdx := runState.LiveStreamOffset
 	gpsCount := 0
 	obdCount := 0
 
-	for i, lp := range livePkts {
+	if startIdx > 0 && startIdx < total {
+		emit(SimEvent{
+			Elapsed: elap(), Tag: "P2/STREAM", Cls: "fe",
+			Msg:  fmt.Sprintf("Resuming live stream from packet %d/%d", startIdx+1, total),
+			Ty:   "info", Step: "p2:stream",
+			Data: map[string]interface{}{"current": startIdx, "total": total, "gps": gpsCount, "obd": obdCount},
+		})
+	}
+
+	for i := startIdx; i < total; i++ {
+		lp := livePkts[i]
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -865,26 +975,48 @@ func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []liv
 		}
 
 		data, _ := json.Marshal(lp.Packet)
+
 		if cfg.DryRun {
 			if i%20 == 0 {
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "DRY/P2", Cls: "fe",
-					Msg: fmt.Sprintf("SKIP publish #%d (dry run)", i+1), Ty: "info",
+					Msg: fmt.Sprintf("SKIP publish #%d/%d (dry run)", i+1, total), Ty: "info",
+					Data: map[string]interface{}{"current": i + 1, "total": total, "gps": gpsCount, "obd": obdCount},
 				})
 			}
 		} else {
 			if err := publish(topic, data); err != nil {
-				emit(SimEvent{Elapsed: elap(), Tag: "P2/STREAM", Cls: "er", Msg: fmt.Sprintf("publish error: %v", err), Ty: "warn"})
+				emit(SimEvent{Elapsed: elap(), Tag: "P2/STREAM", Cls: "er",
+					Msg: fmt.Sprintf("publish error pkt %d: %v", i+1, err), Ty: "warn"})
 			} else {
-				if lp.Type == "gps" {
-					gpsCount++
-				} else if lp.Type == "obd" {
+				pktTag := "P2/GPS"
+				pktCls := "mq"
+				if lp.Type == "obd" {
+					pktTag = "P2/OBD"
+					pktCls = "bt"
 					obdCount++
+				} else {
+					gpsCount++
 				}
+				nextDelay := s.getLiveNormalInterval()
+				nextInfo := ""
+				if i < total-1 {
+					nextInfo = fmt.Sprintf(" — next in %.0fs", nextDelay.Seconds())
+				}
+				emit(SimEvent{
+					Elapsed: elap(), Tag: pktTag, Cls: pktCls,
+					Msg:  fmt.Sprintf("#%d/%d → %s%s", i+1, total, topic, nextInfo),
+					Ty:   "info",
+					Data: map[string]interface{}{
+						"payload": string(data),
+						"current": i + 1, "total": total, "gps": gpsCount, "obd": obdCount,
+					},
+				})
 			}
 		}
 
-		if (i+1)%5 == 0 || i+1 == 1 || i+1 == total {
+		// Progress-bar step update every 5 packets (or first/last)
+		if (i+1)%5 == 0 || i == startIdx || i+1 == total {
 			emit(SimEvent{
 				Elapsed: elap(), Tag: "P2/STREAM", Cls: "fe",
 				Msg:  fmt.Sprintf("Progress: %d/%d (gps:%d obd:%d)", i+1, total, gpsCount, obdCount),
@@ -894,11 +1026,15 @@ func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []liv
 			})
 		}
 
+		// Persist offset so a subsequent resume continues from the next packet
+		runState.LiveStreamOffset = i + 1
+		saveRunState(outDir, tgtIMEI, *runState)
+
 		if i < total-1 {
 			select {
 			case <-ctx.Done():
 				return nil
-			case <-time.After(normalInterval):
+			case <-time.After(s.getLiveNormalInterval()):
 			}
 		}
 	}
