@@ -1,6 +1,46 @@
 'use strict';
 (function () {
 
+// ── SVG icon definitions ────────────────────────────────────────────────────
+const _STROKE = {
+  run:      `<polygon points="5,2.5 15.5,9 5,15.5"/>`,
+  logs:     `<line x1="3" y1="5" x2="15" y2="5"/><line x1="3" y1="9" x2="15" y2="9"/><line x1="3" y1="13" x2="11" y2="13"/>`,
+  mqtt:     `<polyline points="4,7 13,7 10.5,4.5"/><polyline points="14,11 5,11 7.5,13.5"/>`,
+  apiclient:`<polygon points="10.5,2 5.5,9.5 9.5,9.5 7.5,16 14,8.5 10,8.5"/>`,
+  mongo:    `<ellipse cx="9" cy="5" rx="5.5" ry="2.5"/><path d="M3.5 5v8c0 1.38 2.46 2.5 5.5 2.5s5.5-1.12 5.5-2.5V5"/><line x1="9" y1="2.5" x2="9" y2="15.5"/>`,
+  utilities:`<rect x="2.5" y="2.5" width="5" height="5" rx="1"/><rect x="10.5" y="2.5" width="5" height="5" rx="1"/><rect x="2.5" y="10.5" width="5" height="5" rx="1"/><rect x="10.5" y="10.5" width="5" height="5" rx="1"/>`,
+  history:  `<circle cx="9" cy="9" r="7"/><polyline points="9,5 9,9 12.5,11"/>`,
+  metrics:  `<polyline points="2,14 5.5,8 9,11.5 12.5,4.5 16,7"/>`,
+  settings: `<circle cx="9" cy="9" r="3"/><path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.6 3.6l1.4 1.4M13 13l1.4 1.4M14.4 3.6l-1.4 1.4M5 13l-1.4 1.4"/>`,
+  theme:    `<path d="M9 1.5l7.5 7.5-7.5 7.5-7.5-7.5z"/><circle cx="9" cy="9" r="3"/>`,
+};
+const _FILL = {
+  run:      `<path d="M5 2l11 7-11 7z"/>`,
+  logs:     `<rect x="3" y="4" width="12" height="2" rx="1"/><rect x="3" y="8" width="12" height="2" rx="1"/><rect x="3" y="12" width="8" height="2" rx="1"/>`,
+  mqtt:     `<path d="M4 6.5h9V5L16.5 7.5 13 10V8.5H4zm10 5H5V10L1.5 12.5 5 15v-1.5h9z"/>`,
+  apiclient:`<path d="M10.5 2H5.5L3.5 10H9l-2.5 6 8.5-10H10z"/>`,
+  mongo:    `<path d="M9 2C6 2 3.5 3.3 3.5 5v8c0 1.7 2.5 3 5.5 3s5.5-1.3 5.5-3V5C14.5 3.3 12 2 9 2zm0 1.5c2.5 0 4 .9 4 1.5s-1.5 1.5-4 1.5S5 5.6 5 5s1.5-1.5 4-1.5z"/>`,
+  utilities:`<rect x="2" y="2" width="6" height="6" rx="1.5"/><rect x="10" y="2" width="6" height="6" rx="1.5"/><rect x="2" y="10" width="6" height="6" rx="1.5"/><rect x="10" y="10" width="6" height="6" rx="1.5"/>`,
+  history:  `<path d="M9 2a7 7 0 1 0 0 14A7 7 0 0 0 9 2zm.5 4.5v4.2l3.3 2-1 1.6-4.3-2.6V6.5h2z"/>`,
+  metrics:  `<rect x="2" y="8" width="3" height="6" rx=".5"/><rect x="7.5" y="3.5" width="3" height="10.5" rx=".5"/><rect x="13" y="6" width="3" height="8" rx=".5"/>`,
+  settings: `<path d="M9 6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm6.5-.7-.9-2-1.9.5a4.8 4.8 0 0 0-1.2-.7l-.3-2H7.8l-.3 2a4.8 4.8 0 0 0-1.2.7L4.4 3.8l-.9 2 1.5 1.2c-.1.4-.1.8-.1 1.3s0 .9.1 1.3L3.5 11l.9 2 1.9-.5a4.8 4.8 0 0 0 1.2.7l.3 2h2.4l.3-2a4.8 4.8 0 0 0 1.2-.7l1.9.5.9-2-1.5-1.2c.1-.4.1-.8.1-1.3s0-.9-.1-1.3z"/>`,
+  theme:    `<path d="M9 1L17 9 9 17 1 9ZM9 5.5A3.5 3.5 0 0 0 5.5 9 3.5 3.5 0 0 0 9 12.5 3.5 3.5 0 0 0 12.5 9 3.5 3.5 0 0 0 9 5.5Z" fill-rule="evenodd"/>`,
+};
+const ICON_PACKS = {
+  outline: { sw:'1.5', lc:'round',  lj:'round', filled:false },
+  bold:    { sw:'2.5', lc:'round',  lj:'round', filled:false },
+  sharp:   { sw:'1.5', lc:'square', lj:'miter', filled:false },
+  filled:  { sw:'0',   lc:'round',  lj:'round', filled:true  },
+};
+function _icon(key, packKey) {
+  const pk = ICON_PACKS[packKey] || ICON_PACKS.outline;
+  const body = pk.filled ? (_FILL[key] || _STROKE[key]) : (_STROKE[key] || '');
+  const attrs = pk.filled
+    ? `fill="currentColor" stroke="none"`
+    : `fill="none" stroke="currentColor" stroke-width="${pk.sw}" stroke-linecap="${pk.lc}" stroke-linejoin="${pk.lj}"`;
+  return `<svg viewBox="0 0 18 18" width="15" height="15" ${attrs} style="display:block">${body}</svg>`;
+}
+
 const NAV_CSS = `
 :root{--bg0:#09080e;--bg1:#100e1a;--bg2:#181526;--bg3:#221e33;--border:#2d2a40;--t0:#f0eaff;--t1:#b8acdc;--t2:#8878b8;--blue:#a78bfa;--green:#34d399;--yellow:#fbbf24;--red:#f87171;--purple:#818cf8;--orange:#fb923c;--font-ui:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--font-mono:'SF Mono','Cascadia Code',Consolas,monospace}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -32,7 +72,7 @@ select.inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,
 .inp-row{display:flex;gap:5px}.inp-row .inp{flex:1}
 .ibtn{padding:4px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:10px;cursor:pointer;white-space:nowrap;font-weight:600;outline:none;transition:all .14s}
 .ibtn:hover{color:var(--t0);border-color:var(--t2);background:var(--bg2)}
-.btn{padding:5px 13px;border-radius:5px;border:none;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;transition:all .15s;outline:none}
+.btn{padding:5px 13px;border-radius:var(--btn-radius,5px);border:none;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;transition:all .15s;outline:none}
 .btn-go{background:var(--blue);color:#09080e}.btn-go:hover{filter:brightness(1.15);box-shadow:0 2px 14px rgba(167,139,250,.45)}.btn-go:disabled{background:var(--t2);color:var(--bg2);cursor:not-allowed}
 .btn-stop{background:var(--red);color:#fff}.btn-stop:hover{background:#ff8080;box-shadow:0 2px 10px rgba(248,113,113,.45)}.btn-stop:disabled{background:var(--bg2);color:var(--t2);cursor:not-allowed}
 .btn-ghost{background:var(--bg2);color:var(--t1);border:1px solid var(--border)}.btn-ghost:hover{background:var(--bg3);color:var(--t0);box-shadow:0 1px 6px rgba(0,0,0,.28)}
@@ -82,25 +122,59 @@ select.inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,
 .sn-ropt-name{font-size:10px;font-weight:700;color:var(--t0)}
 .sn-ropt.on .sn-ropt-name{color:var(--blue)}
 .sn-ropt-sub{font-size:8px;color:var(--t2);margin-top:1px}
+/* ── Button groups (SaaS-standard connected actions) ── */
+.btn-group{display:inline-flex;align-items:stretch;border-radius:var(--btn-radius,5px);overflow:hidden;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.btn-group .btn{border-radius:0;flex-shrink:0;border-right:1px solid rgba(0,0,0,.12);box-shadow:none}
+.btn-group .btn:last-child{border-right:none}
+.btn-group .btn:first-child{border-radius:var(--btn-radius,5px) 0 0 var(--btn-radius,5px)}
+.btn-group .btn:last-child{border-radius:0 var(--btn-radius,5px) var(--btn-radius,5px) 0}
+.btn-group .btn:only-child{border-radius:var(--btn-radius,5px);border-right:none}
+/* ── Segmented control ── */
+.seg-ctrl{display:inline-flex;background:var(--bg2);border:1px solid var(--border);border-radius:var(--btn-radius,5px);padding:2px;gap:1px;flex-shrink:0}
+.seg-btn{padding:3px 11px;border-radius:calc(max(2px,var(--btn-radius,5px) - 2px));font-size:10px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--t2);transition:all .15s;white-space:nowrap;outline:none;letter-spacing:.03em;text-transform:uppercase;font-family:var(--font-ui);--wails-draggable:no-drag}
+.seg-btn:hover:not([disabled]):not(.on){color:var(--t0);background:var(--bg3)}
+.seg-btn.on{background:var(--bg1);color:var(--t0);box-shadow:0 1px 3px rgba(0,0,0,.3),inset 0 0 0 1px var(--border)}
+.seg-btn[disabled]{opacity:.35;cursor:not-allowed;pointer-events:none}
+/* ── Toolbar helpers ── */
+.toolbar{display:flex;align-items:center;gap:4px}
+.toolbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 3px}
+/* ── Keyboard hint badges ── */
+.kbd{display:inline-block;font-size:7px;font-family:var(--font-ui);background:rgba(255,255,255,.04);border:1px solid var(--border);border-bottom-width:2px;border-radius:3px;padding:1px 4px;color:var(--t2);line-height:1.4;letter-spacing:.02em;pointer-events:none;margin-left:4px;vertical-align:middle}
+/* ── Density overrides ── */
+body.density-compact .btn{padding:3px 10px!important;font-size:10px!important}
+body.density-compact .btn.btn-sm{padding:2px 7px!important;font-size:9px!important}
+body.density-compact .inp{padding:3px 7px!important;font-size:10px!important}
+body.density-compact .hdr{height:38px!important}
+body.density-compact .fg{margin-bottom:6px!important}
+body.density-spacious .btn{padding:8px 18px!important;font-size:12px!important}
+body.density-spacious .inp{padding:7px 12px!important;font-size:12px!important}
+body.density-spacious .hdr{height:52px!important}
+body.density-spacious .fg{margin-bottom:14px!important}
+/* ── Reduce-motion ── */
+body.reduce-motion *{transition-duration:.01ms!important;animation-duration:.01ms!important}
 `;
 
 window.SimNav = {
+  icon: _icon,
+
   inject(activePage) {
     if (typeof SimState !== 'undefined') SimState.applyTheme();
+    const packKey = (typeof SimState !== 'undefined' && SimState.getTheme().iconPack) || 'outline';
     const style = document.createElement('style');
     style.textContent = NAV_CSS;
     document.head.appendChild(style);
 
     const pages = [
-      { href:'sim-run.html',      icon:'▶', tip:'Run',        key:'run'       },
-      { href:'sim-logs.html',     icon:'≡', tip:'Data Logs',  key:'logs'      },
-      { href:'sim-mqtt.html',     icon:'⇄', tip:'MQTT Client',key:'mqtt'      },
-      { href:'api-client.html',   icon:'⚡', tip:'API Client', key:'apiclient' },
-      { href:'utilities.html',    icon:'⊞', tip:'Utilities',  key:'utilities' },
-      { href:'sim-history.html',  icon:'⧖', tip:'History',    key:'history'   },
-      { href:'sim-metrics.html',  icon:'⊹', tip:'Metrics',    key:'metrics'   },
-      { href:'sim-settings.html', icon:'⚙', tip:'Settings',   key:'settings'  },
-      { href:'sim-theme.html',    icon:'◈', tip:'Theme',      key:'theme'     },
+      { href:'sim-run.html',      icon:_icon('run',      packKey), tip:'Run',         key:'run'       },
+      { href:'sim-logs.html',     icon:_icon('logs',     packKey), tip:'Data Logs',   key:'logs'      },
+      { href:'sim-mqtt.html',     icon:_icon('mqtt',     packKey), tip:'MQTT Client', key:'mqtt'      },
+      { href:'api-client.html',   icon:_icon('apiclient',packKey), tip:'API Client',  key:'apiclient' },
+      { href:'sim-mongo.html',    icon:_icon('mongo',    packKey), tip:'MongoDB',     key:'mongo'     },
+      { href:'utilities.html',    icon:_icon('utilities',packKey), tip:'Utilities',   key:'utilities' },
+      { href:'sim-history.html',  icon:_icon('history',  packKey), tip:'History',     key:'history'   },
+      { href:'sim-metrics.html',  icon:_icon('metrics',  packKey), tip:'Metrics',     key:'metrics'   },
+      { href:'sim-settings.html', icon:_icon('settings', packKey), tip:'Settings',    key:'settings'  },
+      { href:'sim-theme.html',    icon:_icon('theme',    packKey), tip:'Theme',       key:'theme'     },
     ];
 
     const nav = document.createElement('nav');

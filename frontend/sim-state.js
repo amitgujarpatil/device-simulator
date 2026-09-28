@@ -154,6 +154,15 @@ window.SimState = {
     let el = document.getElementById('_simFontStyle');
     if (!el) { el = document.createElement('style'); el.id = '_simFontStyle'; document.head.appendChild(el); }
     el.textContent = t.fontSize && t.fontSize !== 12 ? `body{font-size:${t.fontSize}px!important}` : '';
+    // button style
+    const btnRadii = { pill:'50px', sharp:'2px', soft:'10px', default:'5px' };
+    root.style.setProperty('--btn-radius', btnRadii[t.buttonStyle || 'default'] || '5px');
+    // density
+    document.body.classList.remove('density-compact','density-spacious');
+    if (t.density === 'compact') document.body.classList.add('density-compact');
+    else if (t.density === 'spacious') document.body.classList.add('density-spacious');
+    // reduce motion
+    document.body.classList.toggle('reduce-motion', !!t.reduceMotion);
   },
   // ── setup ─────────────────────────────────────────
   isSetupDone: () => !!_s.setupComplete,

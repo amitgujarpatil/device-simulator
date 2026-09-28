@@ -62,11 +62,33 @@
 .prev-wrap{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
 .prev-group{display:flex;flex-direction:column;gap:6px}
 .prev-title{font-size:9px;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:2px}
+/* Icon packs */
+.ip-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:600px){.ip-grid{grid-template-columns:repeat(2,1fr)}}
+.ip-card{border:2px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;transition:all .15s;position:relative;text-align:center}
+.ip-card:hover{border-color:var(--t2);background:var(--bg2)}
+.ip-card.on{border-color:var(--blue);background:rgba(167,139,250,.06)}
+.ip-card.on::after{content:'✓';position:absolute;top:5px;right:7px;font-size:10px;font-weight:700;color:var(--blue)}
+.ip-icons{display:flex;justify-content:center;gap:8px;margin-bottom:8px;color:var(--t1)}
+.ip-name{font-size:10px;font-weight:700;color:var(--t0)}
+.ip-sub{font-size:8px;color:var(--t2);margin-top:2px}
+/* Button styles */
+.bs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:600px){.bs-grid{grid-template-columns:repeat(2,1fr)}}
+.bs-card{border:2px solid var(--border);border-radius:8px;padding:10px 8px;cursor:pointer;transition:all .15s;position:relative;text-align:center}
+.bs-card:hover{border-color:var(--t2);background:var(--bg2)}
+.bs-card.on{border-color:var(--blue);background:rgba(167,139,250,.06)}
+.bs-card.on::after{content:'✓';position:absolute;top:5px;right:7px;font-size:10px;font-weight:700;color:var(--blue)}
+.bs-preview{display:inline-flex;align-items:center;gap:5px;margin-bottom:8px}
+.bs-btn{padding:5px 12px;border:none;background:var(--blue);color:#09080e;font-size:10px;font-weight:700;cursor:default;pointer-events:none}
+.bs-name{font-size:10px;font-weight:700;color:var(--t0)}
+.bs-sub{font-size:8px;color:var(--t2);margin-top:2px}
 /* Reset bar */
 .reset-bar{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
 .reset-lbl{font-size:11px;color:var(--t1)}
 .chev{font-size:9px;color:var(--t2);transition:transform .2s}
 .chev.open{transform:rotate(180deg)}
+.btn-pause{background:var(--yellow);color:#000}
 </style>
 </head>
 <body>
@@ -113,6 +135,18 @@
     </div>
   </div>
 
+  <!-- Icon Style -->
+  <div class="th-section">
+    <div class="th-sec-title">Icon Style</div>
+    <div class="ip-grid" id="ipGrid"></div>
+  </div>
+
+  <!-- Button Style -->
+  <div class="th-section">
+    <div class="th-sec-title">Button Style</div>
+    <div class="bs-grid" id="bsGrid"></div>
+  </div>
+
   <!-- Custom Colors (collapsible) -->
   <div class="th-section" id="editorSection">
     <div class="editor-toggle" onclick="toggleEditor()">
@@ -153,12 +187,23 @@
     <div class="th-sec-title">Preview</div>
     <div class="prev-wrap">
       <div class="prev-group">
-        <div class="prev-title">Buttons</div>
+        <div class="prev-title">Buttons — Individual</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-go" style="pointer-events:none">▶ START</button>
           <button class="btn btn-stop" style="pointer-events:none">■ STOP</button>
           <button class="btn btn-ghost" style="pointer-events:none">↺ RESET</button>
           <button class="btn" style="background:var(--yellow);color:#000;pointer-events:none">⏸ PAUSE</button>
+        </div>
+      </div>
+      <div class="prev-group">
+        <div class="prev-title">Buttons — Grouped</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <div class="btn-group" style="pointer-events:none">
+            <button class="btn btn-go">▶ START</button>
+            <button class="btn btn-stop">■ STOP</button>
+            <button class="btn btn-pause" style="background:var(--yellow);color:#000">⏸</button>
+          </div>
+          <button class="btn btn-ghost" style="pointer-events:none">↺ RESET</button>
         </div>
       </div>
       <div class="prev-group">
@@ -408,9 +453,65 @@ const COLOR_DEFS = {
 
 const DARK_DEFAULTS = {'--bg0':'#09080e','--bg1':'#100e1a','--bg2':'#181526','--bg3':'#221e33','--border':'#2d2a40','--t0':'#f0eaff','--t1':'#b8acdc','--t2':'#8878b8','--blue':'#a78bfa','--green':'#34d399','--yellow':'#fbbf24','--red':'#f87171','--purple':'#818cf8','--orange':'#fb923c'};
 
+const ICON_PACK_DEFS = [
+  { key:'outline', name:'Outline', sub:'Thin & clean',  icons:['run','logs','metrics','settings'] },
+  { key:'bold',    name:'Bold',    sub:'Thick strokes',  icons:['run','logs','metrics','settings'] },
+  { key:'sharp',   name:'Sharp',   sub:'Square caps',    icons:['run','logs','metrics','settings'] },
+  { key:'filled',  name:'Filled',  sub:'Solid shapes',   icons:['run','logs','metrics','settings'] },
+];
+
+const BTN_STYLE_DEFS = [
+  { key:'default', name:'Rounded',  sub:'Default (5px)',  radius:'5px'  },
+  { key:'soft',    name:'Soft',     sub:'Elevated (10px)', radius:'10px' },
+  { key:'pill',    name:'Pill',     sub:'Capsule shape',  radius:'50px' },
+  { key:'sharp',   name:'Sharp',    sub:'No radius',      radius:'2px'  },
+];
+
 let curTheme = {};
 let activeGroup = 'all';
 let editorOpen = false;
+
+function renderIconPacks() {
+  const cur = curTheme.iconPack || 'outline';
+  document.getElementById('ipGrid').innerHTML = ICON_PACK_DEFS.map(pk => `
+    <div class="ip-card${cur===pk.key?' on':''}" onclick="applyIconPack('${pk.key}')">
+      <div class="ip-icons">
+        ${pk.icons.map(k => SimNav.icon(k, pk.key)).join('')}
+      </div>
+      <div class="ip-name">${pk.name}</div>
+      <div class="ip-sub">${pk.sub}</div>
+    </div>
+  `).join('');
+}
+
+function applyIconPack(key) {
+  curTheme.iconPack = key;
+  SimState.setTheme({ iconPack: key });
+  renderIconPacks();
+  flash();
+}
+
+function renderButtonStyles() {
+  const cur = curTheme.buttonStyle || 'default';
+  document.getElementById('bsGrid').innerHTML = BTN_STYLE_DEFS.map(bs => `
+    <div class="bs-card${cur===bs.key?' on':''}" onclick="applyButtonStyle('${bs.key}')">
+      <div class="bs-preview">
+        <button class="bs-btn" style="border-radius:${bs.radius}">▶ Start</button>
+        <button class="bs-btn" style="border-radius:${bs.radius};background:var(--bg3);color:var(--t1);border:1px solid var(--border)">Reset</button>
+      </div>
+      <div class="bs-name">${bs.name}</div>
+      <div class="bs-sub">${bs.sub}</div>
+    </div>
+  `).join('');
+}
+
+function applyButtonStyle(key) {
+  curTheme.buttonStyle = key;
+  SimState.setTheme({ buttonStyle: key });
+  SimState.applyTheme();
+  renderButtonStyles();
+  flash();
+}
 
 function init() {
   SimNav.inject('theme');
@@ -439,6 +540,8 @@ function init() {
   renderThemeGrid();
   renderColorPickers();
   renderCustomThemes();
+  renderIconPacks();
+  renderButtonStyles();
 }
 
 function setGroup(g) {
@@ -615,7 +718,7 @@ function renderCustomThemes() {
 }
 
 function resetAll() {
-  curTheme = { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'' };
+  curTheme = { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'', iconPack:'outline', buttonStyle:'default' };
   SimState.setTheme(curTheme);
   SimState.applyTheme();
   document.getElementById('fontSizeSlider').value = 12;
@@ -626,6 +729,8 @@ function resetAll() {
   if (ml) ml.remove();
   renderThemeGrid();
   renderColorPickers();
+  renderIconPacks();
+  renderButtonStyles();
   flash();
 }
 

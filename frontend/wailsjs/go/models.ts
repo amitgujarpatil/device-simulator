@@ -330,6 +330,173 @@ export namespace main {
 
 }
 
+export namespace mongoclient {
+	
+	export class CollStats {
+	    count: number;
+	    storageSize: number;
+	    avgDocSize: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CollStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.count = source["count"];
+	        this.storageSize = source["storageSize"];
+	        this.avgDocSize = source["avgDocSize"];
+	    }
+	}
+	export class CollectionMeta {
+	    name: string;
+	    count: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CollectionMeta(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.count = source["count"];
+	    }
+	}
+	export class Connection {
+	    id: string;
+	    label: string;
+	    uri: string;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Connection(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.uri = source["uri"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	export class FieldStat {
+	    path: string;
+	    type: string;
+	    frequency: number;
+	    nullPct: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new FieldStat(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.type = source["type"];
+	        this.frequency = source["frequency"];
+	        this.nullPct = source["nullPct"];
+	    }
+	}
+	export class FindResult {
+	    docs: number[][];
+	    total: number;
+	    skip: number;
+	    limit: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new FindResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.docs = source["docs"];
+	        this.total = source["total"];
+	        this.skip = source["skip"];
+	        this.limit = source["limit"];
+	    }
+	}
+	export class ImportResult {
+	    inserted: number;
+	    updated: number;
+	    failed: number;
+	    errors: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.inserted = source["inserted"];
+	        this.updated = source["updated"];
+	        this.failed = source["failed"];
+	        this.errors = source["errors"];
+	    }
+	}
+	export class Index {
+	    name: string;
+	    keys: number[];
+	    unique: boolean;
+	    sparse: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Index(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.keys = source["keys"];
+	        this.unique = source["unique"];
+	        this.sparse = source["sparse"];
+	    }
+	}
+	export class QueryEntry {
+	    id: string;
+	    connId: string;
+	    db: string;
+	    coll: string;
+	    filter: string;
+	    sort: string;
+	    proj: string;
+	    ranAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.connId = source["connId"];
+	        this.db = source["db"];
+	        this.coll = source["coll"];
+	        this.filter = source["filter"];
+	        this.sort = source["sort"];
+	        this.proj = source["proj"];
+	        this.ranAt = source["ranAt"];
+	    }
+	}
+	export class RawResult {
+	    docs: number[][];
+	    count: number;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RawResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.docs = source["docs"];
+	        this.count = source["count"];
+	        this.message = source["message"];
+	    }
+	}
+
+}
+
 export namespace simulator {
 	
 	export class Config {

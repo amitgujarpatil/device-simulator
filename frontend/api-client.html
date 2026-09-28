@@ -315,6 +315,21 @@ mark{background:rgba(251,191,36,.3);color:inherit;border-radius:2px}
 .env-selector-row select{flex:1;padding:6px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;color:var(--t0)}
 .env-act-btn{padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:11px}
 .env-act-btn:hover{background:var(--bg1);color:var(--t0)}
+
+/* ── Method picker ───────────────────────────────────────────── */
+.method-dd{position:relative;flex-shrink:0}
+.method-dd-btn{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;cursor:pointer;user-select:none;transition:all .15s;min-width:82px}
+.method-dd-btn:hover,.method-dd-btn.open{background:var(--bg3);border-color:var(--t2)}
+.method-dd-cur{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;letter-spacing:.03em}
+.method-dd-chev{font-size:8px;color:var(--t2);margin-left:auto;flex-shrink:0;transition:transform .15s}
+.method-dd-btn.open .method-dd-chev{transform:rotate(180deg)}
+.method-dd-menu{position:absolute;top:calc(100% + 4px);left:0;background:var(--bg1);border:1px solid var(--border);border-radius:7px;padding:4px;min-width:120px;z-index:500;display:none;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+.method-dd-menu.open{display:block}
+.method-dd-item{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:5px;cursor:pointer;transition:background .1s}
+.method-dd-item:hover{background:var(--bg3)}
+.method-dd-item.active{background:rgba(167,139,250,.08)}
+.method-dd-item .method-badge{font-size:10px;padding:2px 6px;min-width:52px;text-align:center}
+.method-dd-label{font-size:11px;color:var(--t2)}
 </style>
 </head>
 <body>
@@ -378,11 +393,27 @@ mark{background:rgba(251,191,36,.3);color:inherit;border-radius:2px}
       <!-- Request Editor -->
       <div id="req-editor">
         <div id="url-bar">
-          <select id="method-select">
+          <!-- hidden select keeps value for existing JS references -->
+          <select id="method-select" style="display:none">
             <option>GET</option><option>POST</option><option>PUT</option>
             <option>PATCH</option><option>DELETE</option><option>HEAD</option>
             <option>OPTIONS</option>
           </select>
+          <div class="method-dd" id="method-dd">
+            <div class="method-dd-btn" id="method-dd-btn" onclick="toggleMethodDd()">
+              <span class="method-dd-cur method-badge mb-GET" id="method-dd-cur">GET</span>
+              <span class="method-dd-chev">▾</span>
+            </div>
+            <div class="method-dd-menu" id="method-dd-menu">
+              <div class="method-dd-item active" data-method="GET"     onclick="selectMethod('GET')">    <span class="method-badge mb-GET">GET</span>     <span class="method-dd-label">Retrieve data</span></div>
+              <div class="method-dd-item"        data-method="POST"    onclick="selectMethod('POST')">   <span class="method-badge mb-POST">POST</span>    <span class="method-dd-label">Send payload</span></div>
+              <div class="method-dd-item"        data-method="PUT"     onclick="selectMethod('PUT')">    <span class="method-badge mb-PUT">PUT</span>     <span class="method-dd-label">Replace resource</span></div>
+              <div class="method-dd-item"        data-method="PATCH"   onclick="selectMethod('PATCH')">  <span class="method-badge mb-PATCH">PATCH</span>   <span class="method-dd-label">Partial update</span></div>
+              <div class="method-dd-item"        data-method="DELETE"  onclick="selectMethod('DELETE')"> <span class="method-badge mb-DELETE">DELETE</span>  <span class="method-dd-label">Remove resource</span></div>
+              <div class="method-dd-item"        data-method="HEAD"    onclick="selectMethod('HEAD')">   <span class="method-badge mb-HEAD">HEAD</span>    <span class="method-dd-label">Headers only</span></div>
+              <div class="method-dd-item"        data-method="OPTIONS" onclick="selectMethod('OPTIONS')"><span class="method-badge mb-OPTIONS">OPTIONS</span> <span class="method-dd-label">Preflight</span></div>
+            </div>
+          </div>
           <input id="url-input" type="text" placeholder="Enter request URL…">
           <button id="code-btn" class="tb-btn" title="Generate code snippet" style="flex-shrink:0">&lt;/&gt;</button>
           <button id="save-btn">Save</button>

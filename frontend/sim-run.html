@@ -247,10 +247,12 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
   <div class="sp"></div>
   <div class="tg-wrap"><span>DRY RUN</span><div class="tg" id="dryTg" onclick="this.classList.toggle('on');dry=this.classList.contains('on')"></div></div>
   <div class="hdr-sep"></div>
-  <button class="btn btn-go" id="btnGo" onclick="startSim()">▶ START</button>
-  <button class="btn btn-stop" id="btnStop" onclick="stopSim()" disabled>■ STOP</button>
-  <button class="btn btn-pause" id="btnPause" onclick="pauseSim()" disabled>⏸ PAUSE</button>
-  <button class="btn btn-ghost" onclick="resetSim()">↺ RESET</button>
+  <div class="btn-group" id="simCtrlGroup">
+    <button class="btn btn-go" id="btnGo" onclick="startSim()" title="Start simulation">▶ START</button>
+    <button class="btn btn-stop" id="btnStop" onclick="stopSim()" disabled title="Stop simulation">■ STOP</button>
+    <button class="btn btn-pause" id="btnPause" onclick="pauseSim()" disabled title="Pause / Resume">⏸ PAUSE</button>
+  </div>
+  <button class="btn btn-ghost" onclick="resetSim()" title="Reset run state">↺ RESET</button>
 </div>
 
 <div class="main">

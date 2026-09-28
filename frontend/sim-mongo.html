@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>MongoDB — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+/* ── Body layout fix: app-wrap is column from nav.js; mg-body is the row flex ── */
+.mg-body{flex:1;display:flex;flex-direction:row;overflow:hidden;min-height:0}
+
+/* ── Tree ─────────────────────────────────────────────────────────── */
+.mg-tree{width:210px;min-width:210px;max-width:210px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.mg-tree-hdr{padding:7px 8px;display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--border);flex-shrink:0;--wails-draggable:drag}
+.mg-tree-title{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t0);flex:1}
+.mg-tree-body{flex:1;overflow-y:auto;padding:2px 0}
+.mg-tree-body::-webkit-scrollbar{width:3px}
+.mg-tree-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Rows */
+.mg-conn-row{display:flex;align-items:center;height:26px;padding:0 2px 0 2px;cursor:pointer;border-radius:4px;margin:1px 3px;position:relative;gap:1px}
+.mg-conn-row:hover{background:var(--bg2)}
+.mg-chev{width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--t2);flex-shrink:0;transition:transform .15s;border-radius:2px}
+.mg-chev.open{transform:rotate(90deg)}
+.mg-conn-dot{width:5px;height:5px;border-radius:50%;background:var(--t2);flex-shrink:0;margin:0 3px}
+.mg-conn-dot.on{background:var(--green)}
+.mg-row-label{flex:1;font-size:10px;font-weight:600;color:var(--t0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mg-row-acts{display:none;gap:1px;flex-shrink:0}
+.mg-conn-row:hover .mg-row-acts{display:flex}
+.mg-iact{width:16px;height:16px;border-radius:2px;border:none;background:transparent;color:var(--t2);cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;--wails-draggable:no-drag}
+.mg-iact:hover{background:var(--bg3);color:var(--t0)}
+.mg-iact.red:hover{color:var(--red)}
+
+.mg-db-row{display:flex;align-items:center;height:24px;padding:0 2px 0 18px;cursor:pointer;border-radius:4px;margin:0 3px;gap:2px}
+.mg-db-row:hover{background:var(--bg2)}
+.mg-db-label{flex:1;font-size:10px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mg-db-acts{display:none;gap:1px;flex-shrink:0}
+.mg-db-row:hover .mg-db-acts{display:flex}
+
+.mg-coll-row{display:flex;align-items:center;height:22px;padding:0 4px 0 30px;cursor:pointer;border-radius:4px;margin:0 3px;gap:4px}
+.mg-coll-row:hover{background:var(--bg2)}
+.mg-coll-row.active{background:rgba(167,139,250,.12)}
+.mg-coll-row.active .mg-coll-name{color:var(--blue);font-weight:600}
+.mg-coll-name{flex:1;font-size:10px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mg-coll-cnt{font-size:8px;color:var(--t2);background:var(--bg3);padding:1px 4px;border-radius:6px;flex-shrink:0}
+.mg-coll-acts{display:none;gap:1px;flex-shrink:0}
+.mg-coll-row:hover .mg-coll-acts{display:flex}
+
+.mg-tree-empty{padding:20px 10px;text-align:center;font-size:10px;color:var(--t2);line-height:1.6}
+
+/* ── Main area ─────────────────────────────────────────────────────── */
+.mg-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* Toolbar */
+.mg-toolbar{height:36px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:0 10px;flex-shrink:0;--wails-draggable:drag}
+.mg-breadcrumb{flex:1;font-size:10px;color:var(--t2);display:flex;align-items:center;gap:3px;overflow:hidden;white-space:nowrap;min-width:0}
+.mg-breadcrumb .bc-sep{color:var(--border);flex-shrink:0}
+.mg-breadcrumb .bc-part{color:var(--t1);overflow:hidden;text-overflow:ellipsis}
+.mg-breadcrumb .bc-part.last{color:var(--t0);font-weight:600}
+.mg-tbtn{height:24px;padding:0 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--t1);font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px;white-space:nowrap;transition:all .12s;--wails-draggable:no-drag}
+.mg-tbtn:hover{background:var(--bg3);color:var(--t0)}
+.mg-tbtn.primary{background:var(--blue);border-color:var(--blue);color:#09080e}
+.mg-tbtn.primary:hover{filter:brightness(1.1)}
+
+/* Tabs */
+.mg-tabs{display:flex;align-items:center;background:var(--bg1);border-bottom:1px solid var(--border);padding:0 10px;flex-shrink:0;gap:0;height:30px}
+.mg-tab{padding:0 10px;height:100%;display:flex;align-items:center;font-size:9px;font-weight:800;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.05em;text-transform:uppercase;transition:color .12s;white-space:nowrap;--wails-draggable:no-drag}
+.mg-tab:hover{color:var(--t1)}
+.mg-tab.on{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* Content wrapper — fills all remaining height */
+.mg-content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+
+/* ── Find tab ──────────────────────────────────────────────────────── */
+#tabFind{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.mg-qbar{padding:6px 10px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:nowrap;overflow-x:auto}
+.mg-qbar::-webkit-scrollbar{height:0}
+.mg-qlabel{font-size:8px;font-weight:700;color:var(--t2);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.mg-qinp{font-family:var(--font-mono);font-size:10px;height:24px;padding:0 6px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);outline:none;transition:border-color .12s}
+.mg-qinp:focus{border-color:var(--blue);background:var(--bg3)}
+.mg-qinp.w-xl{width:180px}
+.mg-qinp.w-m{width:110px}
+.mg-qinp.w-s{width:58px}
+select.mg-qinp{cursor:pointer;-webkit-appearance:none;padding:0 18px 0 6px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238878b8'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center}
+.mg-qbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px}
+
+/* Docs area */
+.mg-docs-wrap{flex:1;display:flex;overflow:hidden;min-height:0}
+.mg-docs-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding:6px 10px;min-height:0}
+.mg-docs-scroll::-webkit-scrollbar{width:4px}
+.mg-docs-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Table */
+.mg-tbl-wrap{flex:1;overflow:auto}
+.mg-tbl-wrap::-webkit-scrollbar{width:4px;height:4px}
+.mg-tbl-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.mg-table{width:100%;border-collapse:collapse;font-size:10px}
+.mg-table th{padding:4px 8px;text-align:left;font-size:8px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);background:var(--bg1);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2}
+.mg-table td{padding:4px 8px;border-bottom:1px solid rgba(45,42,64,.35);color:var(--t1);font-family:var(--font-mono);font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.mg-table tr:hover td{background:rgba(45,42,64,.5)}
+.mg-table .act-col{width:72px;white-space:nowrap}
+.mg-row-acts-inline{display:none;gap:2px}
+.mg-table tr:hover .mg-row-acts-inline{display:flex}
+.mg-rbtn{font-size:8px;padding:1px 5px;border-radius:3px;border:1px solid var(--border);background:var(--bg2);color:var(--t2);cursor:pointer;transition:all .1s;white-space:nowrap}
+.mg-rbtn:hover{background:var(--bg3);color:var(--t0)}
+.mg-rbtn.del:hover{border-color:var(--red);color:var(--red)}
+
+/* JSON cards */
+.mg-jcard{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:8px 10px;font-family:var(--font-mono);font-size:10px;line-height:1.55;color:var(--t1);position:relative;white-space:pre-wrap;word-break:break-all}
+.mg-jcard .jcard-acts{position:absolute;top:6px;right:6px;display:none;gap:3px}
+.mg-jcard:hover .jcard-acts{display:flex}
+.jk{color:var(--blue)}.jstr{color:var(--green)}.jnum{color:var(--orange)}.jbool{color:var(--yellow)}.jnull{color:var(--t2)}
+
+/* Pagination */
+.mg-pgbar{padding:4px 10px;display:flex;align-items:center;gap:6px;border-top:1px solid var(--border);font-size:9px;color:var(--t2);flex-shrink:0;background:var(--bg1)}
+.mg-pgbar .pg-info{flex:1}
+.pg-btn{font-size:9px;padding:2px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg2);color:var(--t1);cursor:pointer;transition:all .1s}
+.pg-btn:hover:not(:disabled){background:var(--bg3);color:var(--t0)}
+.pg-btn:disabled{opacity:.3;cursor:not-allowed}
+.mg-stat-bar{padding:3px 10px;font-size:8px;color:var(--t2);border-top:1px solid var(--border);display:flex;gap:12px;flex-shrink:0;background:var(--bg0)}
+.mg-stat-item{display:flex;gap:3px}.mg-sk{color:var(--t2)}.mg-sv{color:var(--t1);font-family:var(--font-mono)}
+
+/* ── Aggregate tab ─────────────────────────────────────────────────── */
+#tabAggregate{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.mg-agg-bar{padding:6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0;background:var(--bg1)}
+.mg-pipeline{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column;gap:6px}
+.mg-pipeline::-webkit-scrollbar{width:3px}
+.mg-pipeline::-webkit-scrollbar-thumb{background:var(--border)}
+.mg-stage{background:var(--bg1);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.mg-stage-hdr{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.mg-stage-num{font-size:8px;font-weight:800;color:var(--t2);min-width:16px}
+.mg-stage-type{font-size:10px;font-weight:700;color:var(--blue);flex:1}
+.mg-stage-inp{width:100%;font-family:var(--font-mono);font-size:10px;padding:6px 8px;background:var(--bg0);border:none;color:var(--t0);outline:none;resize:vertical;min-height:48px;line-height:1.5}
+.mg-stage-inp:focus{background:var(--bg2)}
+.mg-agg-results{overflow-y:auto;border-top:1px solid var(--border);padding:6px 10px;display:flex;flex-direction:column;gap:3px;max-height:45%;flex-shrink:0}
+.mg-agg-results::-webkit-scrollbar{width:3px}
+.mg-agg-results-hdr{font-size:8px;font-weight:800;letter-spacing:.07em;color:var(--t2);text-transform:uppercase;padding-bottom:4px;flex-shrink:0}
+
+/* ── Raw tab ───────────────────────────────────────────────────────── */
+#tabRaw{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.mg-raw-editor-wrap{display:flex;flex-direction:column;flex:0 0 45%;min-height:100px;border-bottom:1px solid var(--border)}
+.mg-raw-editor{width:100%;flex:1;font-family:var(--font-mono);font-size:11px;padding:10px 12px;background:var(--bg0);border:none;color:var(--t0);outline:none;resize:none;line-height:1.6;min-height:0}
+.mg-raw-editor:focus{background:var(--bg2)}
+.mg-raw-bar{padding:5px 10px;display:flex;align-items:center;gap:6px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg1)}
+.mg-raw-results{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-height:0}
+.mg-raw-results::-webkit-scrollbar{width:4px}
+.mg-raw-results::-webkit-scrollbar-thumb{background:var(--border)}
+.mg-raw-meta{font-size:9px;color:var(--t2);padding:2px 0 6px}
+.mg-raw-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--t2);font-size:10px;text-align:center;padding:20px}
+.mg-cheatsheet{font-size:9px;font-family:var(--font-mono);color:var(--t2);line-height:1.8;background:var(--bg1);border-radius:5px;padding:10px 12px;border:1px solid var(--border);text-align:left}
+.mg-cheatsheet .cs-k{color:var(--blue)}
+.mg-cheatsheet .cs-c{color:var(--t2)}
+
+/* ── Indexes tab ───────────────────────────────────────────────────── */
+#tabIndexes{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.mg-idx-bar{padding:6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0;background:var(--bg1)}
+.mg-idx-list{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column;gap:4px}
+.mg-idx-list::-webkit-scrollbar{width:3px}
+.mg-idx-list::-webkit-scrollbar-thumb{background:var(--border)}
+.mg-idx-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:5px;font-size:10px}
+.mg-idx-name{font-weight:600;color:var(--t0);min-width:120px;flex-shrink:0}
+.mg-idx-keys{font-family:var(--font-mono);color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mg-idx-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--bg3);border:1px solid var(--border);color:var(--t2);flex-shrink:0}
+.mg-idx-badge.u{background:rgba(167,139,250,.12);color:var(--blue);border-color:var(--blue)}
+
+/* ── Schema tab ────────────────────────────────────────────────────── */
+#tabSchema{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.mg-schema-bar{padding:6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0;background:var(--bg1)}
+.mg-schema-list{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column;gap:3px}
+.mg-schema-list::-webkit-scrollbar{width:3px}
+.mg-schema-list::-webkit-scrollbar-thumb{background:var(--border)}
+.mg-schema-row{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px}
+.mg-schema-path{font-family:var(--font-mono);font-size:9px;color:var(--t0);min-width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mg-schema-type{font-size:8px;padding:1px 5px;border-radius:3px;background:var(--bg3);border:1px solid var(--border);color:var(--t2);min-width:44px;text-align:center;flex-shrink:0}
+.mg-schema-bar-wrap{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.mg-schema-fill{height:100%;border-radius:2px;background:var(--blue);transition:width .3s}
+.mg-schema-pct{font-size:8px;color:var(--t2);min-width:30px;text-align:right;flex-shrink:0}
+
+/* ── Shared states ─────────────────────────────────────────────────── */
+.mg-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--t2);font-size:11px;text-align:center;padding:20px}
+.mg-empty-icon{font-size:28px;opacity:.3}
+.mg-spin{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:_spin .7s linear infinite}
+@keyframes _spin{to{transform:rotate(360deg)}}
+
+/* ── Modals ─────────────────────────────────────────────────────────── */
+.mg-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.mg-overlay.hidden{display:none}
+.mg-modal{background:var(--bg1);border:1px solid var(--border);border-radius:9px;padding:18px;min-width:360px;max-width:520px;width:92%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.7)}
+.mg-modal-title{font-size:12px;font-weight:800;color:var(--t0);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.mg-mclose{background:none;border:none;color:var(--t2);cursor:pointer;font-size:15px;padding:0 2px}
+.mg-mclose:hover{color:var(--t0)}
+.mg-modal-footer{display:flex;justify-content:flex-end;gap:7px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.mg-minp{width:100%;padding:6px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--t0);font-size:11px;outline:none;transition:border-color .12s}
+.mg-minp:focus{border-color:var(--blue);background:var(--bg3)}
+.mg-minp.mono{font-family:var(--font-mono);font-size:10px}
+textarea.mg-minp{resize:vertical;min-height:80px;line-height:1.5}
+.mg-mlbl{font-size:8px;font-weight:700;color:var(--t1);letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px;display:block}
+.mg-mfg{margin-bottom:10px}
+.mg-mfg:last-child{margin-bottom:0}
+.mg-doc-editor{width:100%;font-family:var(--font-mono);font-size:10px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;color:var(--t0);outline:none;resize:vertical;min-height:240px;line-height:1.55}
+.mg-doc-editor:focus{border-color:var(--blue);background:var(--bg3)}
+.mg-merr{font-size:9px;color:var(--red);margin-top:5px;display:none}
+.mg-minfo{font-size:9px;color:var(--t2);margin-top:4px}
+.mg-confirm-box{padding:8px 12px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);border-radius:5px;display:flex;align-items:center;gap:10px;font-size:10px;color:var(--t1)}
+
+/* Toast */
+.mg-toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:6px 14px;font-size:10px;color:var(--t0);z-index:900;box-shadow:0 4px 18px rgba(0,0,0,.5);transition:opacity .25s;white-space:nowrap}
+.mg-toast.err{border-color:var(--red);background:rgba(248,113,113,.1);color:var(--red)}
+.mg-toast.ok{border-color:var(--green);color:var(--green)}
+.mg-toast.gone{opacity:0;pointer-events:none}
+
+/* Context menu */
+.mg-ctx{position:fixed;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:3px;z-index:600;min-width:150px;box-shadow:0 8px 22px rgba(0,0,0,.55)}
+.mg-ctx.hidden{display:none}
+.mg-ctx-item{padding:5px 10px;border-radius:3px;font-size:10px;color:var(--t1);cursor:pointer;display:flex;align-items:center;gap:6px}
+.mg-ctx-item:hover{background:var(--bg2);color:var(--t0)}
+.mg-ctx-item.red{color:var(--red)}
+.mg-ctx-item.red:hover{background:rgba(248,113,113,.08)}
+.mg-ctx-sep{height:1px;background:var(--border);margin:3px 0}
+</style>
+</head>
+<body>
+<script>SimNav.inject('mongo');</script>
+
+<div class="app-wrap">
+<div class="mg-body">
+
+<!-- ── Left tree ──────────────────────────────────────────────────────── -->
+<div class="mg-tree">
+  <div class="mg-tree-hdr">
+    <span class="mg-tree-title">MongoDB</span>
+    <button class="mg-iact" id="btnAddConn" title="New connection" style="width:20px;height:20px;font-size:14px;border:1px solid var(--border);background:var(--bg2);border-radius:3px">+</button>
+  </div>
+  <div class="mg-tree-body" id="treeBody">
+    <div class="mg-tree-empty">No connections.<br>Click + to add one.</div>
+  </div>
+</div>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<div class="mg-main">
+
+  <!-- Toolbar -->
+  <div class="mg-toolbar">
+    <div class="mg-breadcrumb" id="breadcrumb">
+      <span style="color:var(--t2);font-size:10px">Select a collection</span>
+    </div>
+    <button class="mg-tbtn" id="btnRefresh" style="display:none">↻ Refresh</button>
+    <button class="mg-tbtn primary" id="btnInsert" style="display:none">+ Insert</button>
+    <button class="mg-tbtn" id="btnImport" style="display:none">⇥ Import</button>
+    <button class="mg-tbtn" id="btnExport" style="display:none">⇤ Export</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="mg-tabs" id="tabBar" style="display:none">
+    <div class="mg-tab on" data-tab="find">Find</div>
+    <div class="mg-tab" data-tab="aggregate">Aggregate</div>
+    <div class="mg-tab" data-tab="raw">Raw Query</div>
+    <div class="mg-tab" data-tab="indexes">Indexes</div>
+    <div class="mg-tab" data-tab="schema">Schema</div>
+  </div>
+
+  <div class="mg-content">
+
+    <!-- ── Find ──────────────────────────────────────────────────────── -->
+    <div id="tabFind">
+      <div class="mg-empty" id="findSplash">
+        <div class="mg-empty-icon">🍃</div>
+        <div>Select a collection to browse documents</div>
+      </div>
+      <div id="findActive" style="display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0">
+        <!-- Query bar -->
+        <div class="mg-qbar">
+          <span class="mg-qlabel">Filter</span>
+          <input class="mg-qinp w-xl" id="qFilter" placeholder="{}" value="{}">
+          <div class="mg-qbar-sep"></div>
+          <span class="mg-qlabel">Sort</span>
+          <input class="mg-qinp w-m" id="qSort" placeholder="{}">
+          <div class="mg-qbar-sep"></div>
+          <span class="mg-qlabel">Proj</span>
+          <input class="mg-qinp w-m" id="qProj" placeholder="{}">
+          <div class="mg-qbar-sep"></div>
+          <span class="mg-qlabel">Skip</span>
+          <input class="mg-qinp w-s" id="qSkip" type="number" value="0" min="0">
+          <span class="mg-qlabel">Limit</span>
+          <select class="mg-qinp w-s" id="qLimit">
+            <option value="20">20</option><option value="50">50</option>
+            <option value="100">100</option><option value="250">250</option>
+          </select>
+          <div class="mg-qbar-sep"></div>
+          <select class="mg-qinp w-s" id="qView" title="View">
+            <option value="table">Table</option>
+            <option value="json">JSON</option>
+          </select>
+          <button class="mg-tbtn primary" id="btnRun">▶ Run</button>
+          <button class="mg-tbtn" id="btnHistToggle" title="Query history">⧖</button>
+        </div>
+        <!-- Docs + history drawer -->
+        <div class="mg-docs-wrap">
+          <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0">
+            <div class="mg-empty" id="docsLoading" style="display:none"><div class="mg-spin"></div></div>
+            <div id="docsArea" style="flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0"></div>
+            <div class="mg-pgbar" id="pgBar" style="display:none">
+              <span class="pg-info" id="pgInfo"></span>
+              <button class="pg-btn" id="pgPrev">← Prev</button>
+              <button class="pg-btn" id="pgNext">Next →</button>
+            </div>
+          </div>
+          <!-- History drawer -->
+          <div id="histDrawer" style="width:0;overflow:hidden;transition:width .2s;background:var(--bg1);border-left:0 solid var(--border);flex-shrink:0;display:flex;flex-direction:column">
+            <div style="padding:6px 8px;font-size:8px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--t0);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+              <span>History</span>
+              <button class="mg-iact red" id="btnClearHist">✕</button>
+            </div>
+            <div id="histList" style="flex:1;overflow-y:auto;padding:3px"></div>
+          </div>
+        </div>
+        <div class="mg-stat-bar" id="statBar" style="display:none">
+          <span class="mg-stat-item"><span class="mg-sk">docs</span><span class="mg-sv" id="svCount">—</span></span>
+          <span class="mg-stat-item"><span class="mg-sk">size</span><span class="mg-sv" id="svSize">—</span></span>
+          <span class="mg-stat-item"><span class="mg-sk">avg</span><span class="mg-sv" id="svAvg">—</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Aggregate ─────────────────────────────────────────────────── -->
+    <div id="tabAggregate" style="display:none">
+      <div class="mg-agg-bar">
+        <select class="mg-qinp" id="aggStageType" style="width:120px">
+          <option>$match</option><option>$group</option><option>$project</option>
+          <option>$sort</option><option>$limit</option><option>$lookup</option>
+          <option>$unwind</option><option>$addFields</option><option>$count</option><option>$skip</option>
+        </select>
+        <button class="mg-tbtn" id="btnAddStage">+ Add Stage</button>
+        <div style="flex:1"></div>
+        <button class="mg-tbtn" id="btnCopyAgg">Copy JS</button>
+        <button class="mg-tbtn primary" id="btnRunAgg">▶ Run</button>
+      </div>
+      <div class="mg-pipeline" id="aggStages">
+        <div class="mg-empty" id="aggEmpty">
+          <div class="mg-empty-icon">⊞</div>
+          <div>Add stages above to build a pipeline</div>
+        </div>
+      </div>
+      <div class="mg-agg-results" id="aggResults" style="display:none">
+        <div class="mg-agg-results-hdr" id="aggResultsHdr">Results</div>
+      </div>
+    </div>
+
+    <!-- ── Raw Query ─────────────────────────────────────────────────── -->
+    <div id="tabRaw" style="display:none">
+      <div class="mg-raw-editor-wrap">
+        <textarea class="mg-raw-editor" id="rawEditor" placeholder="db.collection.find({})&#10;db.collection.insertOne({name: &quot;Alice&quot;})&#10;db.createCollection(&quot;newColl&quot;)&#10;show collections"></textarea>
+        <div class="mg-raw-bar">
+          <span style="font-size:9px;color:var(--t2)" id="rawDbLabel">No database selected</span>
+          <div style="flex:1"></div>
+          <span style="font-size:8px;color:var(--t2)">⌘↵ Run</span>
+          <button class="mg-tbtn" id="btnRawClear">Clear</button>
+          <button class="mg-tbtn primary" id="btnRawRun">▶ Run</button>
+        </div>
+      </div>
+      <div class="mg-raw-results" id="rawResults">
+        <div class="mg-raw-empty">
+          <div style="font-size:24px;opacity:.3">⌨</div>
+          <div>Type a MongoDB query above and press Run</div>
+          <div class="mg-cheatsheet">
+<span class="cs-k">db.coll.find</span>(<span class="cs-c">{filter}</span>, <span class="cs-c">{proj}</span>)<br>
+<span class="cs-k">db.coll.findOne</span>(<span class="cs-c">{filter}</span>)<br>
+<span class="cs-k">db.coll.aggregate</span>([<span class="cs-c">...stages</span>])<br>
+<span class="cs-k">db.coll.insertOne</span>(<span class="cs-c">{doc}</span>)<br>
+<span class="cs-k">db.coll.insertMany</span>([<span class="cs-c">...docs</span>])<br>
+<span class="cs-k">db.coll.updateOne</span>(<span class="cs-c">{f}</span>, <span class="cs-c">{$set:{...}}</span>)<br>
+<span class="cs-k">db.coll.updateMany</span>(<span class="cs-c">{f}</span>, <span class="cs-c">{$set:{...}}</span>)<br>
+<span class="cs-k">db.coll.deleteOne</span>(<span class="cs-c">{filter}</span>)<br>
+<span class="cs-k">db.coll.deleteMany</span>(<span class="cs-c">{filter}</span>)<br>
+<span class="cs-k">db.coll.countDocuments</span>(<span class="cs-c">{filter}</span>)<br>
+<span class="cs-k">db.coll.drop</span>()<br>
+<span class="cs-k">db.coll.renameCollection</span>(<span class="cs-c">"newName"</span>)<br>
+<span class="cs-k">db.createCollection</span>(<span class="cs-c">"name"</span>)<br>
+<span class="cs-k">show collections</span> &nbsp;·&nbsp; <span class="cs-k">show dbs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Indexes ────────────────────────────────────────────────────── -->
+    <div id="tabIndexes" style="display:none">
+      <div class="mg-idx-bar">
+        <button class="mg-tbtn" id="btnCreateIdx">+ Create Index</button>
+        <button class="mg-tbtn" id="btnRefreshIdx">↻</button>
+      </div>
+      <div class="mg-idx-list" id="idxList">
+        <div class="mg-empty"><div style="color:var(--t2);font-size:10px">Select a collection first</div></div>
+      </div>
+    </div>
+
+    <!-- ── Schema ────────────────────────────────────────────────────── -->
+    <div id="tabSchema" style="display:none">
+      <div class="mg-schema-bar">
+        <span style="font-size:9px;color:var(--t2)">Sample:</span>
+        <select class="mg-qinp" id="schemaSample" style="width:72px">
+          <option value="100">100</option><option value="500" selected>500</option>
+          <option value="1000">1 000</option><option value="0">All</option>
+        </select>
+        <button class="mg-tbtn primary" id="btnAnalyze">Analyze</button>
+      </div>
+      <div class="mg-schema-list" id="schemaList">
+        <div class="mg-empty"><div style="color:var(--t2);font-size:10px">Click Analyze to inspect field distribution</div></div>
+      </div>
+    </div>
+
+  </div><!-- .mg-content -->
+</div><!-- .mg-main -->
+</div><!-- .mg-body -->
+</div><!-- .app-wrap -->
+
+<!-- ── Context menu ────────────────────────────────────────────────────── -->
+<div class="mg-ctx hidden" id="ctxMenu">
+  <div class="mg-ctx-item" id="ctxRename">✎ Rename</div>
+  <div class="mg-ctx-item" id="ctxImportCtx">⇥ Import</div>
+  <div class="mg-ctx-item" id="ctxExportCtx">⇤ Export</div>
+  <div class="mg-ctx-sep"></div>
+  <div class="mg-ctx-item red" id="ctxDrop">🗑 Drop</div>
+</div>
+
+<!-- ── Connection modal ───────────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="connModal">
+  <div class="mg-modal">
+    <div class="mg-modal-title">
+      <span id="connModalTitle">New Connection</span>
+      <button class="mg-mclose" id="connModalClose">✕</button>
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">Label</label>
+      <input class="mg-minp" id="connLabel" placeholder="My MongoDB">
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">URI</label>
+      <input class="mg-minp mono" id="connURI" placeholder="mongodb://localhost:27017">
+      <div class="mg-minfo">URIs stored locally in mongoclient.db (unencrypted)</div>
+    </div>
+    <div id="connTestResult" style="display:none;font-size:9px;padding:4px 8px;border-radius:4px;margin-top:4px"></div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="btnTestConn">Test</button>
+      <button class="mg-tbtn" id="connCancel">Cancel</button>
+      <button class="mg-tbtn primary" id="connSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add collection modal ───────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="addCollModal">
+  <div class="mg-modal" style="min-width:300px">
+    <div class="mg-modal-title">
+      <span>New Collection</span>
+      <button class="mg-mclose" id="addCollClose">✕</button>
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">Collection name</label>
+      <input class="mg-minp mono" id="addCollName" placeholder="my_collection">
+    </div>
+    <div id="addCollErr" class="mg-merr"></div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="addCollCancel">Cancel</button>
+      <button class="mg-tbtn primary" id="addCollSave">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Rename collection modal ────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="renameCollModal">
+  <div class="mg-modal" style="min-width:300px">
+    <div class="mg-modal-title">
+      <span>Rename Collection</span>
+      <button class="mg-mclose" id="renameCollClose">✕</button>
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">New name</label>
+      <input class="mg-minp mono" id="renameCollName" placeholder="new_name">
+    </div>
+    <div id="renameCollErr" class="mg-merr"></div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="renameCollCancel">Cancel</button>
+      <button class="mg-tbtn primary" id="renameCollSave">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Drop confirm modal ────────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="dropModal">
+  <div class="mg-modal" style="min-width:300px">
+    <div class="mg-modal-title">
+      <span>Drop Collection</span>
+      <button class="mg-mclose" id="dropModalClose">✕</button>
+    </div>
+    <div class="mg-confirm-box">
+      <span style="font-size:16px;color:var(--red)">⚠</span>
+      <span id="dropModalMsg">Drop this collection permanently?</span>
+    </div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="dropCancel">Cancel</button>
+      <button class="mg-tbtn" style="background:var(--red);border-color:var(--red);color:#fff" id="dropConfirm">Drop</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Insert / Edit modal ────────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="docModal">
+  <div class="mg-modal" style="max-width:600px">
+    <div class="mg-modal-title">
+      <span id="docModalTitle">Insert Document</span>
+      <button class="mg-mclose" id="docModalClose">✕</button>
+    </div>
+    <textarea class="mg-doc-editor" id="docEditor">{}</textarea>
+    <div id="docModalErr" class="mg-merr"></div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="docCancel">Cancel</button>
+      <button class="mg-tbtn primary" id="docSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete confirm modal ──────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="delModal">
+  <div class="mg-modal" style="min-width:300px">
+    <div class="mg-modal-title">
+      <span>Delete Document</span>
+      <button class="mg-mclose" id="delModalClose">✕</button>
+    </div>
+    <div class="mg-confirm-box">
+      <span style="font-size:16px;color:var(--red)">⚠</span>
+      <span>Delete this document? This cannot be undone.</span>
+    </div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="delCancel">Cancel</button>
+      <button class="mg-tbtn" style="background:var(--red);border-color:var(--red);color:#fff" id="delConfirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Index create modal ─────────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="idxModal">
+  <div class="mg-modal">
+    <div class="mg-modal-title">
+      <span>Create Index</span>
+      <button class="mg-mclose" id="idxModalClose">✕</button>
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">Keys (JSON)</label>
+      <input class="mg-minp mono" id="idxKeys" placeholder='{"field": 1}'>
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">Name (optional)</label>
+      <input class="mg-minp" id="idxName">
+    </div>
+    <div style="display:flex;gap:14px;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t1);cursor:pointer"><input type="checkbox" id="idxUnique"> Unique</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t1);cursor:pointer"><input type="checkbox" id="idxSparse"> Sparse</label>
+    </div>
+    <div id="idxErr" class="mg-merr"></div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="idxCancel">Cancel</button>
+      <button class="mg-tbtn primary" id="idxSave">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Import modal ───────────────────────────────────────────────────── -->
+<div class="mg-overlay hidden" id="importModal">
+  <div class="mg-modal">
+    <div class="mg-modal-title">
+      <span>Import Documents</span>
+      <button class="mg-mclose" id="importModalClose">✕</button>
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">File</label>
+      <div style="display:flex;gap:5px">
+        <input class="mg-minp mono" id="importFilePath" readonly placeholder="No file selected" style="flex:1;cursor:pointer" onclick="pickImportFile()">
+        <button class="mg-tbtn" onclick="pickImportFile()">Browse</button>
+      </div>
+    </div>
+    <div class="mg-mfg">
+      <label class="mg-mlbl">Format</label>
+      <select class="mg-minp" id="importFormat">
+        <option value="json">JSON Array</option>
+        <option value="jsonl">JSONL (newline-delimited)</option>
+        <option value="csv">CSV</option>
+      </select>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--t1);cursor:pointer;margin-bottom:10px">
+      <input type="checkbox" id="importUpsert"> Upsert (match by _id)
+    </label>
+    <div id="importResult" style="display:none;font-size:9px;font-family:var(--font-mono);padding:7px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;white-space:pre-wrap"></div>
+    <div class="mg-modal-footer">
+      <button class="mg-tbtn" id="importCancel">Cancel</button>
+      <button class="mg-tbtn primary" id="importRun">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────────────────── -->
+<div class="mg-toast gone" id="toast"></div>
+
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────
+const S = {
+  connections: [],
+  connectedIds: new Set(),
+  expandedConns: {},
+  expandedDBs: {},
+  // active selection
+  activeConn: null,  // {id, label}
+  activeDB: null,
+  activeColl: null,
+  currentSkip: 0,
+  totalDocs: 0,
+  // doc modal
+  docMode: null, // 'insert'|'edit'
+  editFilter: null,
+  deleteFilter: null,
+  // ctx menu target
+  ctxConn: null, ctxDB: null, ctxColl: null,
+  // add coll target
+  addCollConn: null, addCollDB: null,
+  // rename target
+  renameConn: null, renameDB: null, renameColl: null,
+  // drop target
+  dropConn: null, dropDB: null, dropColl: null,
+  // agg
+  aggStages: [],
+};
+
+const App = () => window.go.main.App;
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function toast(msg, type='', ms=2800) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'mg-toast' + (type ? ' ' + type : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.add('gone'), ms);
+}
+
+function fmtBytes(n) {
+  if (!n) return '0 B';
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n/1024).toFixed(1) + ' KB';
+  return (n/1048576).toFixed(1) + ' MB';
+}
+function fmtNum(n) { return n == null ? '—' : Number(n).toLocaleString(); }
+
+function hl(json) {
+  return String(json)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(?:\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+      if (/^"/.test(m)) return /:$/.test(m) ? `<span class="jk">${m}</span>` : `<span class="jstr">${m}</span>`;
+      if (/true|false/.test(m)) return `<span class="jbool">${m}</span>`;
+      if (/null/.test(m)) return `<span class="jnull">${m}</span>`;
+      return `<span class="jnum">${m}</span>`;
+    });
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+async function init() {
+  await App().MCInit('');
+  S.connections = await App().MCListSavedConnections().catch(() => []) || [];
+  renderTree();
+  bindEvents();
+}
+
+// ── Tree rendering ─────────────────────────────────────────────────────────
+function renderTree() {
+  const body = document.getElementById('treeBody');
+  if (!S.connections.length) {
+    body.innerHTML = '<div class="mg-tree-empty">No connections.<br>Click + to add one.</div>';
+    return;
+  }
+  body.innerHTML = S.connections.map(renderConnNode).join('');
+  S.connections.forEach(c => {
+    if (S.expandedConns[c.id]) _expandConn(c.id);
+  });
+}
+
+function renderConnNode(c) {
+  const on = S.connectedIds.has(c.id);
+  return `<div class="mg-conn-row" id="cr_${c.id}" onclick="toggleConn('${c.id}')">
+    <span class="mg-chev" id="chev_${c.id}">▶</span>
+    <span class="mg-conn-dot${on?' on':''}" id="dot_${c.id}"></span>
+    <span class="mg-row-label" title="${esc(c.label)}">${esc(c.label)}</span>
+    <div class="mg-row-acts">
+      <button class="mg-iact" onclick="event.stopPropagation();openEditConn('${c.id}')" title="Edit">✎</button>
+      <button class="mg-iact red" onclick="event.stopPropagation();deleteConn('${c.id}')" title="Remove">✕</button>
+    </div>
+  </div>
+  <div id="crd_${c.id}" style="display:none"></div>`;
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function toggleConn(id) {
+  if (!S.connectedIds.has(id)) {
+    try {
+      await App().MCConnect(id);
+      S.connectedIds.add(id);
+      const dot = document.getElementById('dot_' + id);
+      if (dot) dot.classList.add('on');
+      toast('Connected', 'ok');
+    } catch(e) {
+      toast('Connect failed: ' + e, 'err', 5000);
+      return;
+    }
+  }
+  if (S.expandedConns[id]) {
+    S.expandedConns[id] = false;
+    document.getElementById('chev_' + id)?.classList.remove('open');
+    document.getElementById('crd_' + id).style.display = 'none';
+  } else {
+    _expandConn(id);
+  }
+}
+
+async function _expandConn(id) {
+  S.expandedConns[id] = true;
+  document.getElementById('chev_' + id)?.classList.add('open');
+  document.getElementById('crd_' + id).style.display = 'block';
+  await loadDBs(id);
+}
+
+async function loadDBs(connId) {
+  const el = document.getElementById('crd_' + connId);
+  el.innerHTML = '<div style="padding:5px 22px;font-size:9px;color:var(--t2)">Loading…</div>';
+  try {
+    const dbs = await App().MCListDatabases(connId);
+    el.innerHTML = dbs.map(db => `
+      <div class="mg-db-row" id="dbr_${connId}_${eid(db)}" onclick="toggleDB('${connId}','${esc(db)}')">
+        <span class="mg-chev" id="dbchev_${connId}_${eid(db)}">▶</span>
+        <span class="mg-db-label">🗄 ${esc(db)}</span>
+        <div class="mg-db-acts">
+          <button class="mg-iact" onclick="event.stopPropagation();openAddColl('${connId}','${esc(db)}')" title="New collection">+</button>
+        </div>
+      </div>
+      <div id="dbd_${connId}_${eid(db)}" style="display:none"></div>
+    `).join('');
+    dbs.forEach(db => {
+      if (S.expandedDBs[connId+'|'+db]) toggleDB(connId, db);
+    });
+  } catch(e) {
+    el.innerHTML = `<div style="padding:5px 22px;font-size:9px;color:var(--red)">${e}</div>`;
+  }
+}
+
+function eid(s) { return s.replace(/[^a-zA-Z0-9_]/g,'_'); }
+
+async function toggleDB(connId, db) {
+  const key = connId+'|'+db;
+  const safeDb = eid(db);
+  const chev = document.getElementById(`dbchev_${connId}_${safeDb}`);
+  const el = document.getElementById(`dbd_${connId}_${safeDb}`);
+  if (!el) return;
+  if (S.expandedDBs[key]) {
+    S.expandedDBs[key] = false;
+    chev?.classList.remove('open');
+    el.style.display = 'none';
+  } else {
+    S.expandedDBs[key] = true;
+    chev?.classList.add('open');
+    el.style.display = 'block';
+    await loadColls(connId, db);
+  }
+}
+
+async function loadColls(connId, db) {
+  const el = document.getElementById(`dbd_${connId}_${eid(db)}`);
+  el.innerHTML = '<div style="padding:4px 34px;font-size:9px;color:var(--t2)">Loading…</div>';
+  try {
+    const colls = await App().MCListCollections(connId, db);
+    if (!colls.length) {
+      el.innerHTML = '<div style="padding:4px 34px;font-size:9px;color:var(--t2)">Empty database</div>';
+      return;
+    }
+    el.innerHTML = colls.map(c => {
+      const active = S.activeConn?.id === connId && S.activeDB === db && S.activeColl === c.name;
+      return `<div class="mg-coll-row${active?' active':''}"
+        id="collr_${connId}_${eid(db)}_${eid(c.name)}"
+        onclick="selectColl('${connId}','${esc(db)}','${esc(c.name)}')"
+        oncontextmenu="showCtx(event,'${connId}','${esc(db)}','${esc(c.name)}')">
+        <span class="mg-coll-name">◷ ${esc(c.name)}</span>
+        <span class="mg-coll-cnt">${fmtNum(c.count)}</span>
+        <div class="mg-coll-acts">
+          <button class="mg-iact red" onclick="event.stopPropagation();promptDrop('${connId}','${esc(db)}','${esc(c.name)}')" title="Drop">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="padding:4px 34px;font-size:9px;color:var(--red)">${e}</div>`;
+  }
+}
+
+// ── Select collection ──────────────────────────────────────────────────────
+async function selectColl(connId, db, coll) {
+  // deactivate previous
+  if (S.activeConn && S.activeDB && S.activeColl) {
+    document.getElementById(`collr_${S.activeConn.id}_${eid(S.activeDB)}_${eid(S.activeColl)}`)?.classList.remove('active');
+  }
+  S.activeConn = S.connections.find(c => c.id === connId);
+  S.activeDB = db;
+  S.activeColl = coll;
+  S.currentSkip = 0;
+
+  document.getElementById(`collr_${connId}_${eid(db)}_${eid(coll)}`)?.classList.add('active');
+
+  // breadcrumb
+  document.getElementById('breadcrumb').innerHTML =
+    `<span class="bc-part">${esc(S.activeConn.label)}</span><span class="bc-sep">/</span><span class="bc-part">${esc(db)}</span><span class="bc-sep">/</span><span class="bc-part last">${esc(coll)}</span>`;
+
+  // show toolbar & tabs
+  ['btnRefresh','btnInsert','btnImport','btnExport'].forEach(id => document.getElementById(id).style.display = '');
+  document.getElementById('tabBar').style.display = '';
+  document.getElementById('rawDbLabel').textContent = `Database: ${db}`;
+
+  // show find active area
+  document.getElementById('findSplash').style.display = 'none';
+  document.getElementById('findActive').style.display = 'flex';
+
+  // switch to find tab if not already there
+  const activeTab = document.querySelector('.mg-tab.on')?.dataset.tab;
+  if (!activeTab || activeTab === 'find') {
+    await runFind();
+    loadStats();
+  }
+}
+
+// ── Find ───────────────────────────────────────────────────────────────────
+async function runFind() {
+  if (!S.activeConn) return;
+  const filter = document.getElementById('qFilter').value.trim() || '{}';
+  const sort   = document.getElementById('qSort').value.trim() || '{}';
+  const proj   = document.getElementById('qProj').value.trim() || '{}';
+  const skip   = parseInt(document.getElementById('qSkip').value) || 0;
+  const limit  = parseInt(document.getElementById('qLimit').value) || 20;
+  S.currentSkip = skip;
+
+  document.getElementById('docsLoading').style.display = 'flex';
+  document.getElementById('docsArea').innerHTML = '';
+  document.getElementById('pgBar').style.display = 'none';
+
+  try {
+    const res = await App().MCFind(S.activeConn.id, S.activeDB, S.activeColl, filter, sort, proj, skip, limit);
+    S.totalDocs = res.total;
+    if (filter !== '{}' || sort !== '{}' || proj !== '{}') {
+      App().MCSaveQueryHistory(S.activeConn.id, S.activeDB, S.activeColl, filter, sort, proj).catch(()=>{});
+    }
+    document.getElementById('docsLoading').style.display = 'none';
+    renderDocs(res.docs);
+    renderPagination(res);
+  } catch(e) {
+    document.getElementById('docsLoading').style.display = 'none';
+    document.getElementById('docsArea').innerHTML = `<div style="color:var(--red);padding:12px;font-size:9px;font-family:var(--font-mono)">${esc(String(e))}</div>`;
+    toast(String(e), 'err', 5000);
+  }
+}
+
+function renderDocs(docs) {
+  const area = document.getElementById('docsArea');
+  if (!docs || !docs.length) {
+    area.innerHTML = '<div class="mg-empty" style="min-height:80px"><span style="font-size:10px;color:var(--t2)">No documents</span></div>';
+    return;
+  }
+  const view = document.getElementById('qView').value;
+  if (view === 'table') renderTable(docs, area);
+  else renderJSONCards(docs, area);
+}
+
+function buildIdFilter(obj) {
+  if (!obj._id) return '{}';
+  if (typeof obj._id === 'object' && obj._id.$oid) return JSON.stringify({_id:{$oid:obj._id.$oid}});
+  return JSON.stringify({_id: obj._id});
+}
+
+function renderTable(docs, area) {
+  const cols = []; const cs = new Set();
+  docs.slice(0,8).forEach(d => {
+    const o = typeof d === 'string' ? JSON.parse(d) : d;
+    Object.keys(o).forEach(k => { if (!cs.has(k)) { cs.add(k); cols.push(k); } });
+  });
+  const vis = cols.slice(0,8);
+  const rows = docs.map(d => {
+    const o = typeof d === 'string' ? JSON.parse(d) : d;
+    const f = buildIdFilter(o);
+    const dup = {...o}; delete dup._id;
+    const cells = vis.map(k => {
+      let v = o[k];
+      if (v === undefined) return '<td></td>';
+      let s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      if (s.length > 55) s = s.slice(0,55) + '…';
+      return `<td title="${esc(s)}">${esc(s)}</td>`;
+    }).join('');
+    return `<tr>${cells}<td class="act-col"><div class="mg-row-acts-inline">
+      <button class="mg-rbtn" onclick='openEdit(${JSON.stringify(f)},${JSON.stringify(JSON.stringify(o))})'>Edit</button>
+      <button class="mg-rbtn" onclick='openEdit(null,${JSON.stringify(JSON.stringify(dup))})'>Dup</button>
+      <button class="mg-rbtn del" onclick='confirmDel(${JSON.stringify(f)})'>Del</button>
+    </div></td></tr>`;
+  }).join('');
+  area.innerHTML = `<div class="mg-tbl-wrap"><table class="mg-table">
+    <thead><tr>${vis.map(c=>`<th>${esc(c)}</th>`).join('')}<th class="act-col"></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function renderJSONCards(docs, area) {
+  area.innerHTML = `<div class="mg-docs-scroll">${docs.map(d => {
+    const o = typeof d === 'string' ? JSON.parse(d) : d;
+    const f = buildIdFilter(o);
+    const dup = {...o}; delete dup._id;
+    const pretty = JSON.stringify(o, null, 2);
+    return `<div class="mg-jcard"><div class="jcard-acts">
+      <button class="mg-rbtn" onclick='openEdit(${JSON.stringify(f)},${JSON.stringify(pretty)})'>Edit</button>
+      <button class="mg-rbtn" onclick='openEdit(null,${JSON.stringify(JSON.stringify(dup,null,2))})'>Dup</button>
+      <button class="mg-rbtn del" onclick='confirmDel(${JSON.stringify(f)})'>Del</button>
+    </div><code>${hl(pretty)}</code></div>`;
+  }).join('')}</div>`;
+}
+
+function renderPagination(res) {
+  const bar = document.getElementById('pgBar');
+  bar.style.display = 'flex';
+  const from = res.skip + 1, to = Math.min(res.skip + res.limit, res.total);
+  document.getElementById('pgInfo').textContent = `${fmtNum(from)}–${fmtNum(to)} of ${fmtNum(res.total)}`;
+  document.getElementById('pgPrev').disabled = res.skip <= 0;
+  document.getElementById('pgNext').disabled = (res.skip + res.limit) >= res.total;
+}
+
+async function loadStats() {
+  if (!S.activeConn) return;
+  try {
+    const s = await App().MCCollectionStats(S.activeConn.id, S.activeDB, S.activeColl);
+    document.getElementById('svCount').textContent = fmtNum(s.count);
+    document.getElementById('svSize').textContent = fmtBytes(s.storageSize);
+    document.getElementById('svAvg').textContent = fmtBytes(Math.round(s.avgDocSize));
+    document.getElementById('statBar').style.display = 'flex';
+  } catch(e) {}
+}
+
+// ── Insert / Edit ──────────────────────────────────────────────────────────
+function openInsert() {
+  S.docMode = 'insert'; S.editFilter = null;
+  document.getElementById('docModalTitle').textContent = 'Insert Document';
+  document.getElementById('docEditor').value = '{\n  \n}';
+  document.getElementById('docModalErr').style.display = 'none';
+  document.getElementById('docModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('docEditor').focus(), 80);
+}
+
+function openEdit(filterStr, docStr) {
+  if (filterStr) { S.docMode = 'edit'; S.editFilter = filterStr; }
+  else { S.docMode = 'insert'; S.editFilter = null; }
+  let obj; try { obj = JSON.parse(docStr); } catch(e) { obj = {}; }
+  document.getElementById('docModalTitle').textContent = filterStr ? 'Edit Document' : 'Duplicate Document';
+  document.getElementById('docEditor').value = JSON.stringify(obj, null, 2);
+  document.getElementById('docModalErr').style.display = 'none';
+  document.getElementById('docModal').classList.remove('hidden');
+}
+
+async function saveDoc() {
+  const raw = document.getElementById('docEditor').value.trim();
+  const errEl = document.getElementById('docModalErr');
+  errEl.style.display = 'none';
+  let doc; try { doc = JSON.parse(raw); } catch(e) {
+    errEl.textContent = 'Invalid JSON: ' + e.message; errEl.style.display = 'block'; return;
+  }
+  try {
+    if (S.docMode === 'insert') {
+      delete doc._id;
+      const id = await App().MCInsertOne(S.activeConn.id, S.activeDB, S.activeColl, JSON.stringify(doc));
+      toast('Inserted ' + id, 'ok');
+    } else {
+      const upd = {...doc}; delete upd._id;
+      await App().MCUpdateOne(S.activeConn.id, S.activeDB, S.activeColl, S.editFilter, JSON.stringify({$set:upd}));
+      toast('Updated', 'ok');
+    }
+    document.getElementById('docModal').classList.add('hidden');
+    runFind();
+  } catch(e) { errEl.textContent = String(e); errEl.style.display = 'block'; }
+}
+
+// ── Delete ─────────────────────────────────────────────────────────────────
+function confirmDel(filterStr) {
+  S.deleteFilter = filterStr;
+  document.getElementById('delModal').classList.remove('hidden');
+}
+
+async function doDel() {
+  try {
+    await App().MCDeleteOne(S.activeConn.id, S.activeDB, S.activeColl, S.deleteFilter);
+    document.getElementById('delModal').classList.add('hidden');
+    toast('Deleted', 'ok');
+    runFind();
+  } catch(e) { toast('Delete failed: ' + e, 'err'); }
+}
+
+// ── Collection management ──────────────────────────────────────────────────
+function openAddColl(connId, db) {
+  S.addCollConn = connId; S.addCollDB = db;
+  document.getElementById('addCollName').value = '';
+  document.getElementById('addCollErr').style.display = 'none';
+  document.getElementById('addCollModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('addCollName').focus(), 80);
+}
+
+async function doAddColl() {
+  const name = document.getElementById('addCollName').value.trim();
+  const errEl = document.getElementById('addCollErr');
+  if (!name) { errEl.textContent = 'Name is required'; errEl.style.display = 'block'; return; }
+  try {
+    await App().MCCreateCollection(S.addCollConn, S.addCollDB, name);
+    document.getElementById('addCollModal').classList.add('hidden');
+    toast(`Collection '${name}' created`, 'ok');
+    await loadColls(S.addCollConn, S.addCollDB);
+  } catch(e) { errEl.textContent = String(e); errEl.style.display = 'block'; }
+}
+
+function promptRename(connId, db, coll) {
+  S.renameConn = connId; S.renameDB = db; S.renameColl = coll;
+  document.getElementById('renameCollName').value = coll;
+  document.getElementById('renameCollErr').style.display = 'none';
+  document.getElementById('renameCollModal').classList.remove('hidden');
+  setTimeout(() => { const el = document.getElementById('renameCollName'); el.focus(); el.select(); }, 80);
+}
+
+async function doRename() {
+  const newName = document.getElementById('renameCollName').value.trim();
+  const errEl = document.getElementById('renameCollErr');
+  if (!newName) { errEl.textContent = 'Name is required'; errEl.style.display = 'block'; return; }
+  try {
+    await App().MCRenameCollection(S.renameConn, S.renameDB, S.renameColl, newName);
+    document.getElementById('renameCollModal').classList.add('hidden');
+    toast(`Renamed to '${newName}'`, 'ok');
+    // refresh tree and update active state if needed
+    if (S.activeColl === S.renameColl && S.activeDB === S.renameDB) {
+      S.activeColl = newName;
+      document.getElementById('breadcrumb').querySelector('.bc-part.last').textContent = newName;
+    }
+    await loadColls(S.renameConn, S.renameDB);
+  } catch(e) { errEl.textContent = String(e); errEl.style.display = 'block'; }
+}
+
+function promptDrop(connId, db, coll) {
+  S.dropConn = connId; S.dropDB = db; S.dropColl = coll;
+  document.getElementById('dropModalMsg').textContent = `Drop collection "${coll}"? This is permanent.`;
+  document.getElementById('dropModal').classList.remove('hidden');
+}
+
+async function doDrop() {
+  try {
+    await App().MCDropCollection(S.dropConn, S.dropDB, S.dropColl);
+    document.getElementById('dropModal').classList.add('hidden');
+    toast(`Collection dropped`, 'ok');
+    if (S.activeColl === S.dropColl && S.activeDB === S.dropDB) {
+      S.activeColl = null;
+      document.getElementById('tabBar').style.display = 'none';
+      document.getElementById('findActive').style.display = 'none';
+      document.getElementById('findSplash').style.display = 'flex';
+      document.getElementById('breadcrumb').innerHTML = '<span style="color:var(--t2);font-size:10px">Select a collection</span>';
+      ['btnRefresh','btnInsert','btnImport','btnExport'].forEach(id => document.getElementById(id).style.display='none');
+    }
+    await loadColls(S.dropConn, S.dropDB);
+  } catch(e) { toast('Drop failed: ' + e, 'err'); }
+}
+
+// ── Context menu ────────────────────────────────────────────────────────────
+function showCtx(e, connId, db, coll) {
+  e.preventDefault(); e.stopPropagation();
+  S.ctxConn = connId; S.ctxDB = db; S.ctxColl = coll;
+  const m = document.getElementById('ctxMenu');
+  m.classList.remove('hidden');
+  const x = Math.min(e.clientX, window.innerWidth - 170);
+  const y = Math.min(e.clientY, window.innerHeight - 140);
+  m.style.left = x + 'px'; m.style.top = y + 'px';
+}
+document.addEventListener('click', () => document.getElementById('ctxMenu').classList.add('hidden'));
+
+// ── Raw Query ──────────────────────────────────────────────────────────────
+async function runRaw() {
+  const query = document.getElementById('rawEditor').value.trim();
+  if (!query) return;
+  if (!S.activeConn) { toast('Connect to a MongoDB first', 'err'); return; }
+  const db = S.activeDB || 'admin';
+  const resultsEl = document.getElementById('rawResults');
+  resultsEl.innerHTML = '<div style="padding:8px;color:var(--t2);font-size:10px">Running…</div>';
+  try {
+    const res = await App().MCRunRaw(S.activeConn.id, db, query);
+    const metaText = (res.message ? res.message + ' · ' : '') + `${res.count} doc${res.count === 1 ? '' : 's'}`;
+    const cards = (res.docs || []).map(d => {
+      const o = typeof d === 'string' ? JSON.parse(d) : d;
+      return `<div class="mg-jcard"><code>${hl(JSON.stringify(o,null,2))}</code></div>`;
+    }).join('');
+    resultsEl.innerHTML = `<div class="mg-raw-meta">${esc(metaText)}</div>${cards || '<div class="mg-raw-meta">No results</div>'}`;
+    // refresh tree if query may have changed structure
+    const ql = query.toLowerCase();
+    if (ql.includes('insert') || ql.includes('drop') || ql.includes('rename') || ql.includes('createcollection')) {
+      if (S.activeConn && S.activeDB) loadColls(S.activeConn.id, S.activeDB);
+    }
+  } catch(e) {
+    resultsEl.innerHTML = `<div style="color:var(--red);padding:8px;font-size:9px;font-family:var(--font-mono)">${esc(String(e))}</div>`;
+    toast(String(e), 'err', 5000);
+  }
+}
+
+// ── Aggregation ────────────────────────────────────────────────────────────
+const AGG_DEFAULTS = {
+  '$match':'{}', '$group':'{\n  "_id": "$field"\n}', '$project':'{\n  "field": 1\n}',
+  '$sort':'{\n  "field": 1\n}', '$limit':'10', '$unwind':'"$field"',
+  '$addFields':'{\n  "newField": "$existing"\n}', '$count':'"total"', '$skip':'0',
+  '$lookup':'{\n  "from": "other",\n  "localField": "id",\n  "foreignField": "_id",\n  "as": "joined"\n}',
+};
+
+function addAggStage() {
+  const type = document.getElementById('aggStageType').value;
+  S.aggStages.push({ type, body: AGG_DEFAULTS[type] || '{}' });
+  renderPipeline();
+}
+
+function removeAggStage(i) {
+  S.aggStages.splice(i, 1);
+  renderPipeline();
+}
+
+function moveAggStage(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= S.aggStages.length) return;
+  [S.aggStages[i], S.aggStages[j]] = [S.aggStages[j], S.aggStages[i]];
+  renderPipeline();
+}
+
+function renderPipeline() {
+  const c = document.getElementById('aggStages');
+  document.getElementById('aggEmpty').style.display = S.aggStages.length ? 'none' : 'flex';
+  const stages = S.aggStages.map((s,i) => `
+    <div class="mg-stage">
+      <div class="mg-stage-hdr">
+        <span class="mg-stage-num">${i+1}</span>
+        <span class="mg-stage-type">${s.type}</span>
+        <button class="mg-rbtn" onclick="moveAggStage(${i},-1)" ${i===0?'disabled':''}>↑</button>
+        <button class="mg-rbtn" onclick="moveAggStage(${i},1)" ${i===S.aggStages.length-1?'disabled':''}>↓</button>
+        <button class="mg-rbtn" onclick="previewStage(${i})">Preview</button>
+        <button class="mg-rbtn del" onclick="removeAggStage(${i})">✕</button>
+      </div>
+      <textarea class="mg-stage-inp" id="stage_${i}" oninput="S.aggStages[${i}].body=this.value">${s.body}</textarea>
+    </div>`).join('');
+  // Replace only the stage divs, keep aggEmpty
+  document.getElementById('aggEmpty').insertAdjacentHTML('beforebegin', stages);
+  // Remove old stage divs
+  c.querySelectorAll('.mg-stage').forEach((el, idx) => { if (idx < c.querySelectorAll('.mg-stage').length - S.aggStages.length) el.remove(); });
+  // simpler: re-render everything except aggEmpty
+  c.innerHTML = stages + document.getElementById('aggEmpty').outerHTML;
+}
+
+function buildPipeline() {
+  return '[' + S.aggStages.map((s,i) => {
+    const body = document.getElementById('stage_'+i)?.value || s.body;
+    return `{${JSON.stringify(s.type)}:${body}}`;
+  }).join(',') + ']';
+}
+
+async function previewStage(upTo) {
+  if (!S.activeConn) return;
+  const pipeline = '[' + S.aggStages.slice(0, upTo+1).map((s,i) => {
+    const body = document.getElementById('stage_'+i)?.value || s.body;
+    return `{${JSON.stringify(s.type)}:${body}}`;
+  }).join(',') + ']';
+  try {
+    const res = await App().MCAggregate(S.activeConn.id, S.activeDB, S.activeColl, pipeline, 5);
+    showAggResults(`Preview stage ${upTo+1} (limit 5)`, res.docs);
+  } catch(e) { toast(String(e), 'err', 5000); }
+}
+
+async function runAgg() {
+  if (!S.activeConn || !S.aggStages.length) { toast('Add at least one stage', 'err'); return; }
+  try {
+    const res = await App().MCAggregate(S.activeConn.id, S.activeDB, S.activeColl, buildPipeline(), 0);
+    showAggResults(`${res.docs.length} results`, res.docs);
+  } catch(e) { toast(String(e), 'err', 5000); }
+}
+
+function showAggResults(label, docs) {
+  const el = document.getElementById('aggResults');
+  el.style.display = 'flex';
+  el.innerHTML = `<div class="mg-agg-results-hdr">${esc(label)}</div>` +
+    docs.map(d => `<div class="mg-jcard" style="margin-bottom:3px"><code>${hl(JSON.stringify(typeof d==='string'?JSON.parse(d):d,null,2))}</code></div>`).join('');
+}
+
+function copyAggJS() {
+  const js = `db.${S.activeColl || 'collection'}.aggregate(${buildPipeline()})`;
+  navigator.clipboard.writeText(js).then(() => toast('Copied', 'ok'));
+}
+
+// ── Indexes ────────────────────────────────────────────────────────────────
+async function loadIndexes() {
+  if (!S.activeConn) return;
+  const list = document.getElementById('idxList');
+  list.innerHTML = '<div class="mg-empty"><div class="mg-spin"></div></div>';
+  try {
+    const idxs = await App().MCListIndexes(S.activeConn.id, S.activeDB, S.activeColl);
+    list.innerHTML = idxs.map(idx => `
+      <div class="mg-idx-row">
+        <span class="mg-idx-name">${esc(idx.name)}</span>
+        <span class="mg-idx-keys">${esc(typeof idx.keys==='string'?idx.keys:JSON.stringify(idx.keys))}</span>
+        ${idx.unique?'<span class="mg-idx-badge u">unique</span>':''}
+        ${idx.sparse?'<span class="mg-idx-badge">sparse</span>':''}
+        <div style="margin-left:auto">
+          ${idx.name!=='_id_'?`<button class="mg-rbtn del" onclick="dropIdx('${esc(idx.name)}')">Drop</button>`:''}
+        </div>
+      </div>`).join('') || '<div style="padding:12px;color:var(--t2);font-size:10px">No indexes</div>';
+  } catch(e) { list.innerHTML = `<div style="padding:10px;color:var(--red);font-size:9px">${e}</div>`; }
+}
+
+async function dropIdx(name) {
+  if (!confirm(`Drop index "${name}"?`)) return;
+  try {
+    await App().MCDropIndex(S.activeConn.id, S.activeDB, S.activeColl, name);
+    toast('Dropped', 'ok'); loadIndexes();
+  } catch(e) { toast(String(e), 'err'); }
+}
+
+async function createIdx() {
+  const keys = document.getElementById('idxKeys').value.trim();
+  const name = document.getElementById('idxName').value.trim();
+  const errEl = document.getElementById('idxErr');
+  errEl.style.display = 'none';
+  if (!keys) { errEl.textContent = 'Keys required'; errEl.style.display = 'block'; return; }
+  const opts = {};
+  if (name) opts.name = name;
+  if (document.getElementById('idxUnique').checked) opts.unique = true;
+  if (document.getElementById('idxSparse').checked) opts.sparse = true;
+  try {
+    const n = await App().MCCreateIndex(S.activeConn.id, S.activeDB, S.activeColl, keys, JSON.stringify(opts));
+    toast('Created: ' + n, 'ok');
+    document.getElementById('idxModal').classList.add('hidden');
+    loadIndexes();
+  } catch(e) { errEl.textContent = String(e); errEl.style.display = 'block'; }
+}
+
+// ── Schema ─────────────────────────────────────────────────────────────────
+async function analyzeSchema() {
+  if (!S.activeConn) return;
+  const list = document.getElementById('schemaList');
+  list.innerHTML = '<div class="mg-empty"><div class="mg-spin"></div></div>';
+  try {
+    const stats = await App().MCSchemaAnalyze(S.activeConn.id, S.activeDB, S.activeColl, '{}', parseInt(document.getElementById('schemaSample').value));
+    list.innerHTML = stats.map(f => `
+      <div class="mg-schema-row">
+        <span class="mg-schema-path">${esc(f.path)}</span>
+        <span class="mg-schema-type">${esc(f.type)}</span>
+        <div class="mg-schema-bar-wrap"><div class="mg-schema-fill" style="width:${(f.frequency*100).toFixed(1)}%"></div></div>
+        <span class="mg-schema-pct">${(f.frequency*100).toFixed(0)}%</span>
+      </div>`).join('') || '<div style="padding:10px;color:var(--t2);font-size:10px">No documents</div>';
+  } catch(e) { list.innerHTML = `<div style="padding:10px;color:var(--red);font-size:9px">${e}</div>`; }
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.mg-tab').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
+  ['find','aggregate','raw','indexes','schema'].forEach(t => {
+    const el = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (el) el.style.display = t === tab ? 'flex' : 'none';
+  });
+  if (tab === 'indexes') loadIndexes();
+}
+
+// ── Connection modal ────────────────────────────────────────────────────────
+let _editConnId = null;
+function openAddConn2() {
+  _editConnId = null;
+  document.getElementById('connModalTitle').textContent = 'New Connection';
+  document.getElementById('connLabel').value = '';
+  document.getElementById('connURI').value = 'mongodb://localhost:27017';
+  document.getElementById('connTestResult').style.display = 'none';
+  document.getElementById('connModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('connLabel').focus(), 80);
+}
+
+function openEditConn(id) {
+  const c = S.connections.find(c => c.id === id);
+  if (!c) return;
+  _editConnId = id;
+  document.getElementById('connModalTitle').textContent = 'Edit Connection';
+  document.getElementById('connLabel').value = c.label;
+  document.getElementById('connURI').value = c.uri;
+  document.getElementById('connTestResult').style.display = 'none';
+  document.getElementById('connModal').classList.remove('hidden');
+}
+
+async function testConn() {
+  const uri = document.getElementById('connURI').value.trim();
+  const el = document.getElementById('connTestResult');
+  el.textContent = 'Testing…'; el.style.display = 'block';
+  el.style.cssText += ';background:var(--bg3);color:var(--t1)';
+  try {
+    await App().MCTestConnection(uri);
+    el.textContent = '✓ Connection successful';
+    el.style.cssText += ';background:rgba(52,211,153,.1);color:var(--green)';
+  } catch(e) {
+    el.textContent = '✕ ' + e;
+    el.style.cssText += ';background:rgba(248,113,113,.1);color:var(--red)';
+  }
+}
+
+async function saveConn() {
+  const label = document.getElementById('connLabel').value.trim();
+  const uri   = document.getElementById('connURI').value.trim();
+  if (!label || !uri) { toast('Label and URI required', 'err'); return; }
+  try {
+    if (_editConnId) await App().MCUpdateConnection(_editConnId, label, uri);
+    else await App().MCSaveConnection(label, uri);
+    document.getElementById('connModal').classList.add('hidden');
+    S.connections = await App().MCListSavedConnections().catch(()=>[]) || [];
+    renderTree();
+    toast('Saved', 'ok');
+  } catch(e) { toast(String(e), 'err'); }
+}
+
+async function deleteConn(id) {
+  if (!confirm('Delete this connection?')) return;
+  try {
+    await App().MCDeleteConnection(id);
+    S.connectedIds.delete(id);
+    if (S.activeConn?.id === id) {
+      S.activeConn = null; S.activeDB = null; S.activeColl = null;
+      document.getElementById('tabBar').style.display = 'none';
+      document.getElementById('findActive').style.display = 'none';
+      document.getElementById('findSplash').style.display = 'flex';
+      document.getElementById('breadcrumb').innerHTML = '<span style="color:var(--t2);font-size:10px">Select a collection</span>';
+      ['btnRefresh','btnInsert','btnImport','btnExport'].forEach(id2 => document.getElementById(id2).style.display='none');
+    }
+    S.connections = await App().MCListSavedConnections().catch(()=>[]) || [];
+    renderTree();
+    toast('Deleted', 'ok');
+  } catch(e) { toast(String(e), 'err'); }
+}
+
+// ── Export / Import ────────────────────────────────────────────────────────
+async function doExport() {
+  if (!S.activeConn) return;
+  const filter = document.getElementById('qFilter').value.trim() || '{}';
+  const fmt = prompt('Export format (json / jsonl / csv):', 'json');
+  if (!fmt) return;
+  try { await App().MCExport(S.activeConn.id, S.activeDB, S.activeColl, filter, fmt.trim()); toast('Exported', 'ok'); }
+  catch(e) { toast('Export failed: ' + e, 'err'); }
+}
+
+function openImport() {
+  document.getElementById('importFilePath').value = '';
+  document.getElementById('importResult').style.display = 'none';
+  document.getElementById('importModal').classList.remove('hidden');
+}
+
+async function pickImportFile() {
+  try {
+    const path = await App().MCPickFile();
+    if (!path) return;
+    document.getElementById('importFilePath').value = path;
+    if (path.endsWith('.jsonl')) document.getElementById('importFormat').value = 'jsonl';
+    else if (path.endsWith('.csv')) document.getElementById('importFormat').value = 'csv';
+    else document.getElementById('importFormat').value = 'json';
+  } catch(e) {}
+}
+
+async function runImport() {
+  const filePath = document.getElementById('importFilePath').value.trim();
+  if (!filePath) { toast('Select a file first', 'err'); return; }
+  const format = document.getElementById('importFormat').value;
+  const upsert = document.getElementById('importUpsert').checked;
+  const resultEl = document.getElementById('importResult');
+  resultEl.textContent = 'Importing…'; resultEl.style.display = 'block';
+  try {
+    const res = await App().MCImport(S.activeConn.id, S.activeDB, S.activeColl, format, filePath, upsert);
+    resultEl.textContent = `✓ Inserted: ${res.inserted}  Updated: ${res.updated}  Failed: ${res.failed}` +
+      (res.errors?.length ? '\n\nErrors:\n' + res.errors.join('\n') : '');
+    toast(`Import done: ${res.inserted} inserted`, 'ok');
+    runFind();
+  } catch(e) { resultEl.textContent = '✕ ' + e; toast(String(e), 'err'); }
+}
+
+// ── Query history ──────────────────────────────────────────────────────────
+function toggleHistDrawer() {
+  const d = document.getElementById('histDrawer');
+  if (d.style.width === '0px' || !d.style.width) {
+    d.style.width = '220px'; d.style.borderLeftWidth = '1px'; loadHistory();
+  } else {
+    d.style.width = '0'; d.style.borderLeftWidth = '0';
+  }
+}
+
+async function loadHistory() {
+  if (!S.activeConn) return;
+  const list = document.getElementById('histList');
+  try {
+    const entries = await App().MCQueryHistory(S.activeConn.id, S.activeDB, S.activeColl);
+    if (!entries?.length) { list.innerHTML = '<div style="padding:8px;font-size:9px;color:var(--t2)">No history</div>'; return; }
+    list.innerHTML = entries.map((e,i) => {
+      const ts = new Date(e.ranAt).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'});
+      const prev = e.filter.length > 38 ? e.filter.slice(0,38)+'…' : e.filter;
+      return `<div style="padding:5px 6px;border-radius:3px;cursor:pointer;margin-bottom:2px;border:1px solid transparent" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''" onclick="applyHist(${i})" data-i="${i}">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--t0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(prev)||'{}'}</div>
+        <div style="font-size:8px;color:var(--t2);margin-top:1px">${ts}</div>
+      </div>`;
+    }).join('');
+    list._entries = entries;
+  } catch(e) {}
+}
+
+function applyHist(i) {
+  const e = document.getElementById('histList')._entries?.[i]; if (!e) return;
+  document.getElementById('qFilter').value = e.filter || '{}';
+  document.getElementById('qSort').value = e.sort || '{}';
+  document.getElementById('qProj').value = e.proj || '{}';
+  runFind();
+}
+
+// ── Event binding ──────────────────────────────────────────────────────────
+function bindEvents() {
+  // Tree
+  document.getElementById('btnAddConn').onclick = openAddConn2;
+  // Toolbar
+  document.getElementById('btnRefresh').onclick = runFind;
+  document.getElementById('btnInsert').onclick = openInsert;
+  document.getElementById('btnImport').onclick = openImport;
+  document.getElementById('btnExport').onclick = doExport;
+  // Tabs
+  document.querySelectorAll('.mg-tab').forEach(t => t.onclick = () => switchTab(t.dataset.tab));
+  // Find
+  document.getElementById('btnRun').onclick = () => { S.currentSkip=0; document.getElementById('qSkip').value=0; runFind(); };
+  document.getElementById('btnHistToggle').onclick = toggleHistDrawer;
+  document.getElementById('btnClearHist').onclick = async () => {
+    if (!S.activeConn) return;
+    await App().MCClearQueryHistory(S.activeConn.id, S.activeDB, S.activeColl).catch(()=>{});
+    loadHistory(); toast('Cleared', 'ok');
+  };
+  document.getElementById('qFilter').addEventListener('keydown', e => {
+    if (e.key==='Enter' && (e.metaKey||e.ctrlKey)) { S.currentSkip=0; document.getElementById('qSkip').value=0; runFind(); }
+  });
+  document.getElementById('qView').onchange = () => { if (S.activeConn) runFind(); };
+  document.getElementById('pgPrev').onclick = () => {
+    const l = parseInt(document.getElementById('qLimit').value);
+    S.currentSkip = Math.max(0, S.currentSkip - l);
+    document.getElementById('qSkip').value = S.currentSkip;
+    runFind();
+  };
+  document.getElementById('pgNext').onclick = () => {
+    const l = parseInt(document.getElementById('qLimit').value);
+    S.currentSkip += l;
+    document.getElementById('qSkip').value = S.currentSkip;
+    runFind();
+  };
+  // Doc modal
+  document.getElementById('docSave').onclick = saveDoc;
+  document.getElementById('docCancel').onclick = () => document.getElementById('docModal').classList.add('hidden');
+  document.getElementById('docModalClose').onclick = () => document.getElementById('docModal').classList.add('hidden');
+  // Del modal
+  document.getElementById('delConfirm').onclick = doDel;
+  document.getElementById('delCancel').onclick = () => document.getElementById('delModal').classList.add('hidden');
+  document.getElementById('delModalClose').onclick = () => document.getElementById('delModal').classList.add('hidden');
+  // Conn modal
+  document.getElementById('connSave').onclick = saveConn;
+  document.getElementById('connCancel').onclick = () => document.getElementById('connModal').classList.add('hidden');
+  document.getElementById('connModalClose').onclick = () => document.getElementById('connModal').classList.add('hidden');
+  document.getElementById('btnTestConn').onclick = testConn;
+  // Add coll modal
+  document.getElementById('addCollSave').onclick = doAddColl;
+  document.getElementById('addCollCancel').onclick = () => document.getElementById('addCollModal').classList.add('hidden');
+  document.getElementById('addCollClose').onclick = () => document.getElementById('addCollModal').classList.add('hidden');
+  document.getElementById('addCollName').addEventListener('keydown', e => { if (e.key==='Enter') doAddColl(); });
+  // Rename modal
+  document.getElementById('renameCollSave').onclick = doRename;
+  document.getElementById('renameCollCancel').onclick = () => document.getElementById('renameCollModal').classList.add('hidden');
+  document.getElementById('renameCollClose').onclick = () => document.getElementById('renameCollModal').classList.add('hidden');
+  document.getElementById('renameCollName').addEventListener('keydown', e => { if (e.key==='Enter') doRename(); });
+  // Drop modal
+  document.getElementById('dropConfirm').onclick = doDrop;
+  document.getElementById('dropCancel').onclick = () => document.getElementById('dropModal').classList.add('hidden');
+  document.getElementById('dropModalClose').onclick = () => document.getElementById('dropModal').classList.add('hidden');
+  // Idx modal
+  document.getElementById('btnCreateIdx').onclick = () => {
+    document.getElementById('idxKeys').value=''; document.getElementById('idxName').value='';
+    document.getElementById('idxUnique').checked=false; document.getElementById('idxSparse').checked=false;
+    document.getElementById('idxErr').style.display='none';
+    document.getElementById('idxModal').classList.remove('hidden');
+  };
+  document.getElementById('btnRefreshIdx').onclick = loadIndexes;
+  document.getElementById('idxSave').onclick = createIdx;
+  document.getElementById('idxCancel').onclick = () => document.getElementById('idxModal').classList.add('hidden');
+  document.getElementById('idxModalClose').onclick = () => document.getElementById('idxModal').classList.add('hidden');
+  // Schema
+  document.getElementById('btnAnalyze').onclick = analyzeSchema;
+  // Agg
+  document.getElementById('btnAddStage').onclick = addAggStage;
+  document.getElementById('btnRunAgg').onclick = runAgg;
+  document.getElementById('btnCopyAgg').onclick = copyAggJS;
+  // Raw
+  document.getElementById('btnRawRun').onclick = runRaw;
+  document.getElementById('btnRawClear').onclick = () => {
+    document.getElementById('rawEditor').value = '';
+    document.getElementById('rawResults').innerHTML = '';
+  };
+  document.getElementById('rawEditor').addEventListener('keydown', e => {
+    if (e.key==='Enter' && (e.metaKey||e.ctrlKey)) { e.preventDefault(); runRaw(); }
+  });
+  // Import
+  document.getElementById('importRun').onclick = runImport;
+  document.getElementById('importCancel').onclick = () => document.getElementById('importModal').classList.add('hidden');
+  document.getElementById('importModalClose').onclick = () => document.getElementById('importModal').classList.add('hidden');
+  // Context menu
+  document.getElementById('ctxRename').onclick = () => promptRename(S.ctxConn, S.ctxDB, S.ctxColl);
+  document.getElementById('ctxImportCtx').onclick = () => { if(S.ctxColl) selectColl(S.ctxConn,S.ctxDB,S.ctxColl).then(openImport); };
+  document.getElementById('ctxExportCtx').onclick = () => { if(S.ctxColl) selectColl(S.ctxConn,S.ctxDB,S.ctxColl).then(doExport); };
+  document.getElementById('ctxDrop').onclick = () => promptDrop(S.ctxConn, S.ctxDB, S.ctxColl);
+  // Global Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      ['connModal','docModal','delModal','idxModal','importModal','addCollModal','renameCollModal','dropModal'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+    }
+    if ((e.metaKey||e.ctrlKey) && e.key==='n' && S.activeConn) { e.preventDefault(); openInsert(); }
+    if ((e.metaKey||e.ctrlKey) && e.key==='r' && S.activeConn) { e.preventDefault(); runFind(); }
+  });
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

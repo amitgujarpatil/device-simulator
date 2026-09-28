@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"device-simulator/pkg/apiclient"
+	"device-simulator/pkg/mongoclient"
 	"device-simulator/pkg/simulator"
 	"device-simulator/pkg/utilities"
 
@@ -820,4 +821,158 @@ func (a *App) UtilYAMLToJSON(yamlStr string) (string, error) {
 // UtilJSONToYAML converts JSON to YAML.
 func (a *App) UtilJSONToYAML(jsonStr string) (string, error) {
 	return utilities.JSONToYAML(jsonStr)
+}
+
+// ── MongoDB Studio bridge ─────────────────────────────────────────────────
+
+// MCInit opens (or creates) the mongo client SQLite store in dir.
+func (a *App) MCInit(dir string) error {
+	if dir == "" {
+		home, _ := os.UserHomeDir()
+		dir = filepath.Join(home, "Documents", "sim_output")
+	}
+	return mongoclient.InitStore(dir)
+}
+
+func (a *App) MCListSavedConnections() ([]mongoclient.Connection, error) {
+	return mongoclient.ListSavedConnections()
+}
+
+func (a *App) MCSaveConnection(label, uri string) (mongoclient.Connection, error) {
+	return mongoclient.SaveConnection(label, uri)
+}
+
+func (a *App) MCUpdateConnection(id, label, uri string) error {
+	return mongoclient.UpdateConnection(id, label, uri)
+}
+
+func (a *App) MCDeleteConnection(id string) error {
+	mongoclient.Disconnect(id)
+	return mongoclient.DeleteConnection(id)
+}
+
+func (a *App) MCConnect(id string) error {
+	conn, err := mongoclient.GetConnection(id)
+	if err != nil {
+		return fmt.Errorf("connection not found: %w", err)
+	}
+	return mongoclient.Connect(id, conn.URI)
+}
+
+func (a *App) MCTestConnection(uri string) error {
+	tmpID := fmt.Sprintf("test_%d", time.Now().UnixMilli())
+	if err := mongoclient.Connect(tmpID, uri); err != nil {
+		return err
+	}
+	mongoclient.Disconnect(tmpID)
+	return nil
+}
+
+func (a *App) MCDisconnect(id string) {
+	mongoclient.Disconnect(id)
+}
+
+func (a *App) MCListDatabases(id string) ([]string, error) {
+	return mongoclient.ListDatabases(id)
+}
+
+func (a *App) MCListCollections(id, db string) ([]mongoclient.CollectionMeta, error) {
+	return mongoclient.ListCollections(id, db)
+}
+
+func (a *App) MCCollectionStats(id, db, coll string) (mongoclient.CollStats, error) {
+	return mongoclient.GetCollStats(id, db, coll)
+}
+
+func (a *App) MCFind(id, db, coll, filter, sort, proj string, skip, limit int) (mongoclient.FindResult, error) {
+	return mongoclient.Find(id, db, coll, filter, sort, proj, skip, limit)
+}
+
+func (a *App) MCInsertOne(id, db, coll, docJSON string) (string, error) {
+	return mongoclient.InsertOne(id, db, coll, docJSON)
+}
+
+func (a *App) MCUpdateOne(id, db, coll, filter, update string) (int64, error) {
+	return mongoclient.UpdateOne(id, db, coll, filter, update)
+}
+
+func (a *App) MCDeleteOne(id, db, coll, filter string) (int64, error) {
+	return mongoclient.DeleteOne(id, db, coll, filter)
+}
+
+func (a *App) MCDeleteMany(id, db, coll, filter string) (int64, error) {
+	return mongoclient.DeleteMany(id, db, coll, filter)
+}
+
+func (a *App) MCAggregate(id, db, coll, pipeline string, limit int) (mongoclient.FindResult, error) {
+	return mongoclient.Aggregate(id, db, coll, pipeline, limit)
+}
+
+func (a *App) MCListIndexes(id, db, coll string) ([]mongoclient.Index, error) {
+	return mongoclient.ListIndexes(id, db, coll)
+}
+
+func (a *App) MCCreateIndex(id, db, coll, keysJSON, optionsJSON string) (string, error) {
+	return mongoclient.CreateIndex(id, db, coll, keysJSON, optionsJSON)
+}
+
+func (a *App) MCDropIndex(id, db, coll, indexName string) error {
+	return mongoclient.DropIndex(id, db, coll, indexName)
+}
+
+func (a *App) MCSchemaAnalyze(id, db, coll, filter string, sampleSize int) ([]mongoclient.FieldStat, error) {
+	return mongoclient.SchemaAnalyze(id, db, coll, filter, sampleSize)
+}
+
+func (a *App) MCExport(id, db, coll, filter, format string) error {
+	content, err := mongoclient.Export(id, db, coll, filter, format)
+	if err != nil {
+		return err
+	}
+	ext := "." + format
+	if format == "jsonl" {
+		ext = ".jsonl"
+	}
+	return a.SaveFile(content, coll+ext)
+}
+
+func (a *App) MCImport(id, db, coll, format, filePath string, upsert bool) (mongoclient.ImportResult, error) {
+	return mongoclient.Import(id, db, coll, format, filePath, upsert)
+}
+
+func (a *App) MCPickFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select file to import",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON / CSV", Pattern: "*.json;*.jsonl;*.csv"},
+		},
+	})
+}
+
+func (a *App) MCQueryHistory(connID, db, coll string) ([]mongoclient.QueryEntry, error) {
+	return mongoclient.ListQueryHistory(connID, db, coll)
+}
+
+func (a *App) MCSaveQueryHistory(connID, db, coll, filter, sort, proj string) error {
+	return mongoclient.SaveQueryHistory(connID, db, coll, filter, sort, proj)
+}
+
+func (a *App) MCClearQueryHistory(connID, db, coll string) error {
+	return mongoclient.ClearQueryHistory(connID, db, coll)
+}
+
+func (a *App) MCCreateCollection(id, db, coll string) error {
+	return mongoclient.CreateCollection(id, db, coll)
+}
+
+func (a *App) MCDropCollection(id, db, coll string) error {
+	return mongoclient.DropCollection(id, db, coll)
+}
+
+func (a *App) MCRenameCollection(id, db, coll, newName string) error {
+	return mongoclient.RenameCollection(id, db, coll, newName)
+}
+
+func (a *App) MCRunRaw(id, db, query string) (mongoclient.RawResult, error) {
+	return mongoclient.RunRaw(id, db, query)
 }

@@ -122,6 +122,130 @@ export function GetSystemMetrics() {
   return window['go']['main']['App']['GetSystemMetrics']();
 }
 
+export function MCAggregate(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['MCAggregate'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function MCClearQueryHistory(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCClearQueryHistory'](arg1, arg2, arg3);
+}
+
+export function MCCollectionStats(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCCollectionStats'](arg1, arg2, arg3);
+}
+
+export function MCConnect(arg1) {
+  return window['go']['main']['App']['MCConnect'](arg1);
+}
+
+export function MCCreateCollection(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCCreateCollection'](arg1, arg2, arg3);
+}
+
+export function MCCreateIndex(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['MCCreateIndex'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function MCDeleteConnection(arg1) {
+  return window['go']['main']['App']['MCDeleteConnection'](arg1);
+}
+
+export function MCDeleteMany(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['MCDeleteMany'](arg1, arg2, arg3, arg4);
+}
+
+export function MCDeleteOne(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['MCDeleteOne'](arg1, arg2, arg3, arg4);
+}
+
+export function MCDisconnect(arg1) {
+  return window['go']['main']['App']['MCDisconnect'](arg1);
+}
+
+export function MCDropCollection(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCDropCollection'](arg1, arg2, arg3);
+}
+
+export function MCDropIndex(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['MCDropIndex'](arg1, arg2, arg3, arg4);
+}
+
+export function MCExport(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['MCExport'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function MCFind(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+  return window['go']['main']['App']['MCFind'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+}
+
+export function MCImport(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['MCImport'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function MCInit(arg1) {
+  return window['go']['main']['App']['MCInit'](arg1);
+}
+
+export function MCInsertOne(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['MCInsertOne'](arg1, arg2, arg3, arg4);
+}
+
+export function MCListCollections(arg1, arg2) {
+  return window['go']['main']['App']['MCListCollections'](arg1, arg2);
+}
+
+export function MCListDatabases(arg1) {
+  return window['go']['main']['App']['MCListDatabases'](arg1);
+}
+
+export function MCListIndexes(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCListIndexes'](arg1, arg2, arg3);
+}
+
+export function MCListSavedConnections() {
+  return window['go']['main']['App']['MCListSavedConnections']();
+}
+
+export function MCPickFile() {
+  return window['go']['main']['App']['MCPickFile']();
+}
+
+export function MCQueryHistory(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCQueryHistory'](arg1, arg2, arg3);
+}
+
+export function MCRenameCollection(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['MCRenameCollection'](arg1, arg2, arg3, arg4);
+}
+
+export function MCRunRaw(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCRunRaw'](arg1, arg2, arg3);
+}
+
+export function MCSaveConnection(arg1, arg2) {
+  return window['go']['main']['App']['MCSaveConnection'](arg1, arg2);
+}
+
+export function MCSaveQueryHistory(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['MCSaveQueryHistory'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function MCSchemaAnalyze(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['MCSchemaAnalyze'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function MCTestConnection(arg1) {
+  return window['go']['main']['App']['MCTestConnection'](arg1);
+}
+
+export function MCUpdateConnection(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MCUpdateConnection'](arg1, arg2, arg3);
+}
+
+export function MCUpdateOne(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['MCUpdateOne'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function MQTTClientConnect(arg1) {
   return window['go']['main']['App']['MQTTClientConnect'](arg1);
 }
