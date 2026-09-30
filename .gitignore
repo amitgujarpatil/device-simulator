@@ -3,7 +3,9 @@ build/bin/*.AppImage
 build/bin/*.dmg
 build/bin/*.exe
 build/bin/device-simulator-linux
+build/bin/device-simulator
 build/bin/device-simulator.app/Contents/MacOS/device-simulator
+build/linux/device-simulator-linux
 
 # macOS metadata
 .DS_Store

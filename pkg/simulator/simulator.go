@@ -399,6 +399,13 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		}
 		runState.TotalPackets = len(allPackets)
 		runState.FetchPages = fetchPages
+		// Zero out split-derived fields so stale values from a previous run on
+		// the same IMEI don't persist in the state file between this fetch-save
+		// and the split-save that follows. They will be set correctly once the
+		// split completes.
+		runState.HistoricCount = 0
+		runState.LiveGpsCount = 0
+		runState.LiveObdCount = 0
 		saveRunState(outDir, cfg.TgtIMEI, runState)
 		if ctx.Err() != nil {
 			return nil
