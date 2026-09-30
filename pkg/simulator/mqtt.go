@@ -113,11 +113,29 @@ func TestMQTTConnection(rcfg RegionConfig) (bool, string) {
 	return true, fmt.Sprintf("Connected to %s:%d", rcfg.MQTTBroker, rcfg.MQTTPort)
 }
 
-// publishMQTT publishes a payload to MQTT and waits for confirmation.
+// publishMQTT publishes a payload to MQTT with up to 3 attempts and a 5s timeout per attempt.
 func publishMQTT(client mqtt.Client, topic string, payload []byte) error {
-	token := client.Publish(topic, 0, false, payload)
-	token.Wait()
-	return token.Error()
+	const maxAttempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if !client.IsConnected() {
+			return fmt.Errorf("MQTT client disconnected")
+		}
+		token := client.Publish(topic, 0, false, payload)
+		if token.WaitTimeout(5 * time.Second) {
+			if err := token.Error(); err == nil {
+				return nil
+			} else {
+				lastErr = err
+			}
+		} else {
+			lastErr = fmt.Errorf("publish timeout after 5s")
+		}
+		if attempt < maxAttempts {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+	}
+	return fmt.Errorf("publish failed after %d attempts: %w", maxAttempts, lastErr)
 }
 
 // BuildEmbeddedTLSConfig returns a *tls.Config using the bundled client cert/key/CA.

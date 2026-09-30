@@ -118,8 +118,28 @@ export function GetResumeState(arg1, arg2) {
   return window['go']['main']['App']['GetResumeState'](arg1, arg2);
 }
 
+export function GetRunLogs(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GetRunLogs'](arg1, arg2, arg3, arg4);
+}
+
 export function GetSystemMetrics() {
   return window['go']['main']['App']['GetSystemMetrics']();
+}
+
+export function LogsFetchStart(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  return window['go']['main']['App']['LogsFetchStart'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+}
+
+export function LogsFetchStop() {
+  return window['go']['main']['App']['LogsFetchStop']();
+}
+
+export function LogsGetMeta() {
+  return window['go']['main']['App']['LogsGetMeta']();
+}
+
+export function LogsGetPage(arg1, arg2) {
+  return window['go']['main']['App']['LogsGetPage'](arg1, arg2);
 }
 
 export function MCAggregate(arg1, arg2, arg3, arg4, arg5) {
@@ -290,6 +310,10 @@ export function SaveFile(arg1, arg2) {
   return window['go']['main']['App']['SaveFile'](arg1, arg2);
 }
 
+export function SaveRunLogs(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveRunLogs'](arg1, arg2, arg3);
+}
+
 export function SelectOutputDir() {
   return window['go']['main']['App']['SelectOutputDir']();
 }
@@ -312,6 +336,10 @@ export function UpdateMQTTPubIntervals(arg1, arg2) {
 
 export function UpdateNormalModeInterval(arg1) {
   return window['go']['main']['App']['UpdateNormalModeInterval'](arg1);
+}
+
+export function UpdateNormalModeIntervals(arg1, arg2) {
+  return window['go']['main']['App']['UpdateNormalModeIntervals'](arg1, arg2);
 }
 
 export function UtilCertToFormats(arg1) {

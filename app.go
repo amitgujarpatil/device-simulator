@@ -16,6 +16,7 @@ import (
 	goruntime "runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"device-simulator/pkg/apiclient"
@@ -26,12 +27,28 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// logsSession holds state for an in-progress or completed logs fetch.
+type logsSession struct {
+	mu      sync.Mutex
+	db      *sql.DB
+	dbPath  string
+	total   int
+	pages   int
+	fromMs  int64
+	untilMs int64
+	imei    string
+	done    bool
+	cancel  context.CancelFunc
+}
+
 // App is the main application struct.
 type App struct {
-	ctx     context.Context
-	sim     *simulator.Simulator
-	mqttSvc *mqttService
-	ac      *apiclient.DB
+	ctx      context.Context
+	sim      *simulator.Simulator
+	mqttSvc  *mqttService
+	ac       *apiclient.DB
+	logsMu   sync.Mutex
+	logsSess *logsSession
 }
 
 // NewApp creates a new App application struct.
@@ -74,6 +91,11 @@ func (a *App) UpdateMQTTPubIntervals(gpsMs, obdMs int) {
 // a running simulate-mode simulation without restarting it.
 func (a *App) UpdateNormalModeInterval(ms int) {
 	a.sim.SetNormalInterval(ms)
+}
+
+// UpdateNormalModeIntervals updates the Phase 2 GPS and OBD normal-mode delays separately.
+func (a *App) UpdateNormalModeIntervals(gpsMs, obdMs int) {
+	a.sim.SetNormalIntervals(gpsMs, obdMs)
 }
 
 // PauseSimulation pauses the running simulation.
@@ -152,6 +174,8 @@ func (a *App) ClearTestState(outputDir, tgtImei string) error {
 		filepath.Join(outputDir, fmt.Sprintf("historic_batch_*_%s.db", tgtImei)),
 		filepath.Join(outputDir, fmt.Sprintf("live_obd_%s.db", tgtImei)),
 		filepath.Join(outputDir, fmt.Sprintf("sim_state_%s.json", tgtImei)),
+		filepath.Join(outputDir, fmt.Sprintf("gps_l1_%s.json", tgtImei)),
+		filepath.Join(outputDir, fmt.Sprintf("live_pkts_%s.json", tgtImei)),
 	}
 	var errs []string
 	for _, pat := range patterns {
@@ -166,6 +190,73 @@ func (a *App) ClearTestState(outputDir, tgtImei string) error {
 		return fmt.Errorf("could not delete: %s", strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+// SaveRunLogs persists all run log entries as a JSON array to outputDir.
+// Called by the frontend when a simulation completes or is stopped.
+func (a *App) SaveRunLogs(outputDir, runId string, logsJson string) error {
+	if outputDir == "" {
+		home, _ := os.UserHomeDir()
+		outputDir = filepath.Join(home, "Documents", "sim_output")
+	}
+	if runId == "" {
+		return nil
+	}
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return err
+	}
+	path := filepath.Join(outputDir, fmt.Sprintf("sim_logs_%s.json", runId))
+	return os.WriteFile(path, []byte(logsJson), 0644)
+}
+
+// GetRunLogs returns one page of log entries for a run.
+// page is 1-based; pageSize 0 defaults to 200.
+func (a *App) GetRunLogs(outputDir, runId string, page, pageSize int) map[string]interface{} {
+	result := map[string]interface{}{"entries": []interface{}{}, "total": 0, "page": 1, "pages": 0, "exists": false}
+	if outputDir == "" {
+		home, _ := os.UserHomeDir()
+		outputDir = filepath.Join(home, "Documents", "sim_output")
+	}
+	if runId == "" {
+		return result
+	}
+	path := filepath.Join(outputDir, fmt.Sprintf("sim_logs_%s.json", runId))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	result["exists"] = true
+	var entries []interface{}
+	if err2 := json.Unmarshal(data, &entries); err2 != nil {
+		return result
+	}
+	total := len(entries)
+	if pageSize <= 0 {
+		pageSize = 200
+	}
+	pages := (total + pageSize - 1) / pageSize
+	if pages == 0 {
+		pages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	start := (page - 1) * pageSize
+	if start >= total {
+		result["total"] = total
+		result["pages"] = pages
+		result["page"] = page
+		return result
+	}
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	result["entries"] = entries[start:end]
+	result["total"] = total
+	result["pages"] = pages
+	result["page"] = page
+	return result
 }
 
 // ── API Client bridge ──────────────────────────────────────────────────────
@@ -404,6 +495,7 @@ func (a *App) GetResumeState(outputDir, tgtImei string) map[string]interface{} {
 		"phase1Complete":     false,
 		"phase2OBDUploaded":  false,
 		"liveStreamOffset":   0,
+		"livePktsCached":     false,
 		"outputDir":          outputDir,
 	}
 	if tgtImei == "" {
@@ -418,6 +510,14 @@ func (a *App) GetResumeState(outputDir, tgtImei string) map[string]interface{} {
 		Phase1Complete    bool `json:"phase1Complete"`
 		Phase2OBDUploaded bool `json:"phase2ObdUploaded"`
 		LiveStreamOffset  int  `json:"liveStreamOffset"`
+		LiveGpsOffset     int  `json:"liveGpsOffset"`
+		LiveObdOffset     int  `json:"liveObdOffset"`
+		TotalPackets      int  `json:"totalPackets"`
+		HistoricCount     int  `json:"historicCount"`
+		LiveGpsCount      int  `json:"liveGpsCount"`
+		LiveObdCount      int  `json:"liveObdCount"`
+		FetchPages        int  `json:"fetchPages"`
+		GpsL1Published    int  `json:"gpsL1Published"`
 	}
 	var st runStateJSON
 	if b, err := os.ReadFile(filepath.Join(outputDir, fmt.Sprintf("sim_state_%s.json", tgtImei))); err == nil {
@@ -428,6 +528,17 @@ func (a *App) GetResumeState(outputDir, tgtImei string) map[string]interface{} {
 	result["phase1Complete"]    = st.Phase1Complete
 	result["phase2OBDUploaded"] = st.Phase2OBDUploaded
 	result["liveStreamOffset"]  = st.LiveStreamOffset
+	result["liveGpsOffset"]     = st.LiveGpsOffset
+	result["liveObdOffset"]     = st.LiveObdOffset
+	result["historicCount"]     = st.HistoricCount
+	result["liveGpsCount"]      = st.LiveGpsCount
+	result["liveObdCount"]      = st.LiveObdCount
+	result["fetchPages"]        = st.FetchPages
+	result["gpsL1Published"]    = st.GpsL1Published
+	// totalPackets from JSON takes priority; fall back to batch-file counting below
+	if st.TotalPackets > 0 {
+		result["totalPackets"] = st.TotalPackets
+	}
 
 	// Count batch files on disk
 	pattern := filepath.Join(outputDir, fmt.Sprintf("historic_batch_*_%s.db", tgtImei))
@@ -461,6 +572,12 @@ func (a *App) GetResumeState(outputDir, tgtImei string) map[string]interface{} {
 			}
 			db.Close()
 		}
+	}
+
+	// Live-packets cache (for skip-fetch toggle)
+	livePktsPath := filepath.Join(outputDir, fmt.Sprintf("live_pkts_%s.json", tgtImei))
+	if _, err := os.Stat(livePktsPath); err == nil {
+		result["livePktsCached"] = true
 	}
 	return result
 }
@@ -987,4 +1104,296 @@ func (a *App) MCRenameCollection(id, db, coll, newName string) error {
 
 func (a *App) MCRunRaw(id, db, query string) (mongoclient.RawResult, error) {
 	return mongoclient.RunRaw(id, db, query)
+}
+
+// ── Logs fetch session ──────────────────────────────────────────────────────
+
+// LogsFetchStart fetches all API pages for the given IMEI + time window and
+// stores raw entries in a SQLite DB. Progress is streamed via "logs:progress"
+// events; "logs:done" fires when complete. maxEntries=0 means unlimited.
+func (a *App) LogsFetchStart(apiBase, imei, token string, fromMs, untilMs, psize, maxEntries int64) error {
+	if psize <= 0 {
+		psize = 800
+	}
+
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, "Documents", "sim_output")
+	os.MkdirAll(dir, 0755)
+	dbPath := filepath.Join(dir, fmt.Sprintf("logs_%s_%d_%d.db", imei, fromMs, untilMs))
+
+	// Cancel any existing session.
+	a.logsMu.Lock()
+	if a.logsSess != nil && a.logsSess.cancel != nil {
+		a.logsSess.cancel()
+	}
+	a.logsMu.Unlock()
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return fmt.Errorf("open db: %w", err)
+	}
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS entries (
+		id    INTEGER PRIMARY KEY AUTOINCREMENT,
+		t     INTEGER NOT NULL,
+		m_raw TEXT    NOT NULL
+	); DELETE FROM entries;`); err != nil {
+		db.Close()
+		return fmt.Errorf("init db: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(a.ctx)
+	sess := &logsSession{
+		db: db, dbPath: dbPath,
+		fromMs: fromMs, untilMs: untilMs, imei: imei,
+		cancel: cancel,
+	}
+
+	a.logsMu.Lock()
+	a.logsSess = sess
+	a.logsMu.Unlock()
+
+	go func() {
+		defer cancel()
+		client := &http.Client{Timeout: 30 * time.Second}
+		var lastT int64
+		var prevLekStr string
+		var lastSeenT int64
+		var lastBoundaryRaw string // raw JSON of last entry on previous page (the one API re-sends)
+		page := 0
+		total := 0
+
+		for {
+			select {
+			case <-ctx.Done():
+				runtime.EventsEmit(a.ctx, "logs:done", map[string]interface{}{
+					"stopped": true, "total": total, "pages": page,
+				})
+				return
+			default:
+			}
+
+			page++
+			url := fmt.Sprintf("%s/idevice/logsV2/%s?psize=%d&token=%s&from=%d&until=%d",
+				apiBase, imei, psize, token, fromMs, untilMs)
+			if lastT > 0 {
+				url += fmt.Sprintf("&last_t=%d", lastT)
+			}
+
+			var body []byte
+			var fetchErr error
+			for attempt := 1; attempt <= 3; attempt++ {
+				req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+				if err != nil {
+					fetchErr = err
+					break
+				}
+				resp, err := client.Do(req)
+				if err != nil {
+					fetchErr = err
+					if attempt < 3 {
+						time.Sleep(2 * time.Second)
+					}
+					continue
+				}
+				body, err = io.ReadAll(resp.Body)
+				resp.Body.Close()
+				if err != nil {
+					fetchErr = err
+					if attempt < 3 {
+						time.Sleep(2 * time.Second)
+					}
+					continue
+				}
+				fetchErr = nil
+				break
+			}
+			if fetchErr != nil {
+				runtime.EventsEmit(a.ctx, "logs:error", fmt.Sprintf("page %d: %s", page, fetchErr))
+				return
+			}
+
+			var result struct {
+				Logs             []json.RawMessage      `json:"logs"`
+				LastEvaluatedKey map[string]interface{} `json:"last_evaluated_key"`
+			}
+			if err := json.Unmarshal(body, &result); err != nil {
+				runtime.EventsEmit(a.ctx, "logs:error", fmt.Sprintf("parse page %d: %s", page, err))
+				return
+			}
+
+			// Insert new entries into SQLite.
+			// Skip only the ONE exact entry the API re-sends (inclusive last_t).
+			// Raw JSON equality means entries at the same timestamp that are
+			// genuinely new pass through instead of being wrongly filtered.
+			count := len(result.Logs)
+			prevPageMaxT := lastSeenT
+			prevBoundaryRaw := lastBoundaryRaw
+			newCount := 0
+			if count > 0 {
+				tx, err := db.Begin()
+				if err == nil {
+					stmt, err2 := tx.Prepare("INSERT INTO entries(t, m_raw) VALUES(?,?)")
+					if err2 == nil {
+						boundarySkipped := false
+						for _, raw := range result.Logs {
+							rawStr := string(raw)
+							var entry struct {
+								T int64           `json:"t"`
+								M json.RawMessage `json:"m"`
+							}
+							if json.Unmarshal(raw, &entry) != nil {
+								continue
+							}
+							// Skip the exact boundary entry the API re-sends (once only).
+							if !boundarySkipped && entry.T <= prevPageMaxT && rawStr == prevBoundaryRaw {
+								boundarySkipped = true
+								continue
+							}
+							var mStr string
+							if err3 := json.Unmarshal(entry.M, &mStr); err3 != nil {
+								mStr = string(entry.M)
+							}
+							stmt.Exec(entry.T, mStr)
+							if entry.T > lastSeenT {
+								lastSeenT = entry.T
+							}
+							total++
+							newCount++
+							if maxEntries > 0 && int64(total) >= maxEntries {
+								break
+							}
+						}
+						stmt.Close()
+					}
+					tx.Commit()
+				}
+				lastBoundaryRaw = string(result.Logs[len(result.Logs)-1])
+			}
+
+			sess.mu.Lock()
+			sess.total = total
+			sess.pages = page
+			sess.mu.Unlock()
+
+			runtime.EventsEmit(a.ctx, "logs:progress", map[string]interface{}{
+				"page": page, "pageEntries": count, "newEntries": newCount, "total": total,
+			})
+
+			// Stop conditions (order matters):
+			// 1. All entries in this page were duplicates — boundary loop, stop.
+			if count > 0 && newCount == 0 {
+				break
+			}
+			// 2. Hit user-defined entry limit.
+			if maxEntries > 0 && int64(total) >= maxEntries {
+				break
+			}
+			// 3. No continuation key.
+			lekBytes, _ := json.Marshal(result.LastEvaluatedKey)
+			lekStr := string(lekBytes)
+			if result.LastEvaluatedKey == nil || lekStr == "null" || lekStr == prevLekStr {
+				break
+			}
+			prevLekStr = lekStr
+
+			// Advance cursor.
+			if t, ok := result.LastEvaluatedKey["t"]; ok {
+				switch v := t.(type) {
+				case float64:
+					lastT = int64(v)
+				case json.Number:
+					lastT, _ = v.Int64()
+				}
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		sess.mu.Lock()
+		sess.done = true
+		sess.mu.Unlock()
+
+		runtime.EventsEmit(a.ctx, "logs:done", map[string]interface{}{
+			"total": total, "pages": page, "dbPath": dbPath,
+		})
+	}()
+
+	return nil
+}
+
+// LogsFetchStop cancels an in-progress fetch.
+func (a *App) LogsFetchStop() {
+	a.logsMu.Lock()
+	defer a.logsMu.Unlock()
+	if a.logsSess != nil && a.logsSess.cancel != nil {
+		a.logsSess.cancel()
+	}
+}
+
+// LogsGetPage returns a page of raw entries from the current session's SQLite DB.
+// offset is zero-based entry index; limit is entries per page.
+func (a *App) LogsGetPage(offset, limit int) (map[string]interface{}, error) {
+	a.logsMu.Lock()
+	sess := a.logsSess
+	a.logsMu.Unlock()
+	if sess == nil || sess.db == nil {
+		return nil, fmt.Errorf("no logs session")
+	}
+
+	rows, err := sess.db.Query(
+		"SELECT t, m_raw FROM entries ORDER BY t ASC, id ASC LIMIT ? OFFSET ?",
+		limit, offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type entry struct {
+		T    int64  `json:"t"`
+		MRaw string `json:"m_raw"`
+	}
+	var entries []entry
+	for rows.Next() {
+		var e entry
+		if rows.Scan(&e.T, &e.MRaw) == nil {
+			entries = append(entries, e)
+		}
+	}
+
+	sess.mu.Lock()
+	total := sess.total
+	done := sess.done
+	sess.mu.Unlock()
+
+	return map[string]interface{}{
+		"entries": entries,
+		"total":   total,
+		"done":    done,
+		"offset":  offset,
+		"limit":   limit,
+	}, nil
+}
+
+// LogsGetMeta returns metadata for the current logs session.
+func (a *App) LogsGetMeta() map[string]interface{} {
+	a.logsMu.Lock()
+	sess := a.logsSess
+	a.logsMu.Unlock()
+	if sess == nil {
+		return map[string]interface{}{"ready": false}
+	}
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	return map[string]interface{}{
+		"ready":   true,
+		"done":    sess.done,
+		"total":   sess.total,
+		"pages":   sess.pages,
+		"fromMs":  sess.fromMs,
+		"untilMs": sess.untilMs,
+		"imei":    sess.imei,
+		"dbPath":  sess.dbPath,
+	}
 }

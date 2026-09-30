@@ -29,13 +29,20 @@ type Config struct {
 	BatchUploadDelayMs int    `json:"batchUploadDelayMs"`
 	GPSl1IntervalMs    int    `json:"gpsL1IntervalMs"`
 	OBDAccumIntervalMs int    `json:"obdAccumIntervalMs"`
-	NormalIntervalMs   int    `json:"normalModeIntervalMs"`
+	NormalIntervalMs      int    `json:"normalModeIntervalMs"`
+	NormalGPSIntervalMs   int    `json:"normalGpsIntervalMs"`
+	NormalOBDIntervalMs   int    `json:"normalObdIntervalMs"`
+	// NormalStreamMode: "independent" (default) = GPS+OBD on separate goroutines/timers;
+	// "natural" = single goroutine, time-sorted original order, one delay per packet.
+	NormalStreamMode        string `json:"normalStreamMode"`
+	NaturalOrderIntervalMs  int    `json:"naturalOrderIntervalMs"`
 	APIPageSize        int    `json:"apiPageSize"`
 	APIRequestDelay    int    `json:"apiRequestDelay"`
 	OutputDir          string `json:"outputDir"`
 	DryRun             bool   `json:"dryRun"`
 	Mode               string `json:"mode"`
 	EnrichL1           bool   `json:"enrichL1"`
+	SkipFetch          bool   `json:"skipFetch"`
 }
 
 // RegionConfig is used for TestMQTT.

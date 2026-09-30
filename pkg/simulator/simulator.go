@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,7 +28,16 @@ type simRunState struct {
 	TotalOBDPackets   int  `json:"totalOBDPackets"`
 	Phase1Complete    bool `json:"phase1Complete"`
 	Phase2OBDUploaded bool `json:"phase2ObdUploaded"`
-	LiveStreamOffset  int  `json:"liveStreamOffset"`
+	LiveStreamOffset  int  `json:"liveStreamOffset"` // legacy
+	LiveGpsOffset     int  `json:"liveGpsOffset"`
+	LiveObdOffset     int  `json:"liveObdOffset"`
+	// Stats for UI restore after stop/restart
+	TotalPackets   int `json:"totalPackets"`
+	HistoricCount  int `json:"historicCount"`
+	LiveGpsCount   int `json:"liveGpsCount"`
+	LiveObdCount   int `json:"liveObdCount"`
+	FetchPages     int `json:"fetchPages"`
+	GpsL1Published int `json:"gpsL1Published"`
 }
 
 func runStateFile(outDir, tgtIMEI string) string {
@@ -49,6 +59,29 @@ func saveRunState(outDir, tgtIMEI string, st simRunState) {
 	os.WriteFile(runStateFile(outDir, tgtIMEI), b, 0644) //nolint:errcheck
 }
 
+func gpsL1StateFile(outDir, tgtIMEI string) string {
+	return filepath.Join(outDir, fmt.Sprintf("gps_l1_%s.json", tgtIMEI))
+}
+
+func saveGpsL1Index(path string, idx int) {
+	b, _ := json.Marshal(struct {
+		Index int `json:"index"`
+	}{Index: idx})
+	os.WriteFile(path, b, 0644) //nolint:errcheck
+}
+
+func loadGpsL1Index(path string) int {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	var st struct {
+		Index int `json:"index"`
+	}
+	json.Unmarshal(b, &st) //nolint:errcheck
+	return st.Index
+}
+
 // Simulator manages the simulation lifecycle.
 type Simulator struct {
 	ctx      context.Context
@@ -58,10 +91,12 @@ type Simulator struct {
 	startT   time.Time
 
 	// Live-updatable intervals (updated via bridge while sim is running).
-	liveMu       sync.RWMutex
-	liveGpsMs    int
-	liveObdMs    int
-	liveNormalMs int
+	liveMu          sync.RWMutex
+	liveGpsMs       int
+	liveObdMs       int
+	liveNormalMs    int
+	liveNormalGpsMs int
+	liveNormalObdMs int
 
 	// Raw packets stored after a fetch-only run so the app can export them
 	// without touching the (possibly encrypted) SQLite batch files.
@@ -97,14 +132,39 @@ func (s *Simulator) getLiveIntervals() (int, int) {
 }
 
 func (s *Simulator) SetNormalInterval(ms int) {
+	s.SetNormalIntervals(ms, ms)
+}
+
+func (s *Simulator) SetNormalIntervals(gpsMs, obdMs int) {
 	s.liveMu.Lock()
-	s.liveNormalMs = ms
+	s.liveNormalGpsMs = gpsMs
+	s.liveNormalObdMs = obdMs
+	// keep legacy field in sync for any callers that still read it
+	if gpsMs > 0 {
+		s.liveNormalMs = gpsMs
+	} else {
+		s.liveNormalMs = obdMs
+	}
 	s.liveMu.Unlock()
 }
 
 func (s *Simulator) getLiveNormalInterval() time.Duration {
+	return s.getLiveNormalGpsInterval()
+}
+
+func (s *Simulator) getLiveNormalGpsInterval() time.Duration {
 	s.liveMu.RLock()
-	ms := s.liveNormalMs
+	ms := s.liveNormalGpsMs
+	s.liveMu.RUnlock()
+	if ms <= 0 {
+		return 60 * time.Second
+	}
+	return time.Duration(ms) * time.Millisecond
+}
+
+func (s *Simulator) getLiveNormalObdInterval() time.Duration {
+	s.liveMu.RLock()
+	ms := s.liveNormalObdMs
 	s.liveMu.RUnlock()
 	if ms <= 0 {
 		return 60 * time.Second
@@ -207,6 +267,58 @@ func (s *Simulator) checkPause(ctx context.Context) error {
 	}
 }
 
+// waitInterruptible sleeps for d but wakes every 100ms to check for context
+// cancellation and pause, so Stop/Pause takes effect promptly even for long
+// per-packet intervals.  Returns ctx.Err() if cancelled/paused-then-cancelled,
+// nil when the full duration has elapsed.
+func (s *Simulator) waitInterruptible(ctx context.Context, d time.Duration) error {
+	deadline := time.Now().Add(d)
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nil
+		}
+		tick := 100 * time.Millisecond
+		if remaining < tick {
+			tick = remaining
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(tick):
+		}
+		if err := s.checkPause(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+// waitInterruptibleWithStop is like waitInterruptible but also exits when
+// stopCh is closed (used for GPS L1 which has its own stop channel).
+func (s *Simulator) waitInterruptibleWithStop(ctx context.Context, d time.Duration, stopCh <-chan struct{}) error {
+	deadline := time.Now().Add(d)
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nil
+		}
+		tick := 100 * time.Millisecond
+		if remaining < tick {
+			tick = remaining
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-stopCh:
+			return ctx.Err() // treat stop-channel close as cancellation
+		case <-time.After(tick):
+		}
+		if err := s.checkPause(ctx); err != nil {
+			return err
+		}
+	}
+}
+
 // runSimulation is the main simulation orchestrator.
 func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT time.Time, s *Simulator) error {
 	elap := func() int64 { return time.Since(startT).Milliseconds() }
@@ -236,148 +348,232 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		return fmt.Errorf("create output dir: %w", err)
 	}
 
-	// ── Step 1: Fetch ─────────────────────────────────────────────────────────
-	if err := s.checkPause(ctx); err != nil {
-		return nil
-	}
-	allPackets, err := fetchTelemetry(ctx, cfg, emit, startT)
-	if err != nil {
-		return fmt.Errorf("fetch: %w", err)
-	}
-	if ctx.Err() != nil {
-		return nil
-	}
+	// Load run state early — needed for SkipFetch and resume decisions.
+	runState := loadRunState(outDir, cfg.TgtIMEI)
 
-	// ── Step 2: Split ─────────────────────────────────────────────────────────
-	emit(SimEvent{
-		Elapsed: elap(),
-		Tag:     "SPLIT",
-		Cls:     "sp",
-		Msg:     "Partitioning data into historic and live sets…",
-		Ty:      "info",
-		Step:    "split:start",
-	})
+	// ── Live-packets cache path (used by SkipFetch) ──────────────────────────
+	livePktsPath := filepath.Join(outDir, fmt.Sprintf("live_pkts_%s.json", cfg.TgtIMEI))
 
-	historyEndMS := cfg.HistoryEndMS
-	if historyEndMS == 0 {
-		historyEndMS = cfg.FromMS + 12*3600*1000
-	}
-
+	var allPackets []Packet
 	var historicRows []map[string]interface{}
+	var livePkts []livePacket
 	var liveGpsPackets []map[string]interface{}
 	var liveObdPackets []map[string]interface{}
-	var livePkts []livePacket
+	var batchFiles []string
 
-	for _, p := range allPackets {
-		ptype := identifyPacketType(p.Packet)
-		if p.T < historyEndMS {
-			historicRows = append(historicRows, p.Packet)
-		} else {
-			livePkts = append(livePkts, livePacket{Packet: p.Packet, Type: ptype})
-			if ptype == "gps" {
-				liveGpsPackets = append(liveGpsPackets, p.Packet)
-			} else if ptype == "obd" {
-				liveObdPackets = append(liveObdPackets, p.Packet)
+	// SkipFetch: only activate when Phase 1 was previously completed — livePkts
+	// cache is only useful if batch files were already uploaded.
+	skipFetchDone := false
+	if cfg.SkipFetch && cfg.Mode == "simulate" && runState.Phase1Complete {
+		if data, err2 := os.ReadFile(livePktsPath); err2 == nil {
+			var cached []livePacket
+			if json.Unmarshal(data, &cached) == nil && len(cached) > 0 {
+				livePkts = cached
+				skipFetchDone = true
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "FETCH", Cls: "fe",
+					Msg:  fmt.Sprintf("Loaded %d cached live packets — skipping API fetch", len(livePkts)),
+					Ty:   "ok", Step: "fetch:done",
+					Data: map[string]interface{}{"packets": len(livePkts), "cached": true},
+				})
 			}
 		}
-	}
-
-	batchSize := cfg.BatchSize
-	if batchSize <= 0 {
-		batchSize = 30
-	}
-
-	var historicBatches [][]map[string]interface{}
-	for i := 0; i < len(historicRows); i += batchSize {
-		end := i + batchSize
-		if end > len(historicRows) {
-			end = len(historicRows)
+		if !skipFetchDone {
+			emit(SimEvent{
+				Elapsed: elap(), Tag: "FETCH", Cls: "warn",
+				Msg: "Skip-fetch: cache not found — fetching from API", Ty: "warn",
+			})
 		}
-		historicBatches = append(historicBatches, historicRows[i:end])
-	}
-	if len(historicBatches) == 0 {
-		historicBatches = append(historicBatches, []map[string]interface{}{})
 	}
 
-	totalLive := len(livePkts)
-	emit(SimEvent{
-		Elapsed: elap(),
-		Tag:     "SPLIT",
-		Cls:     "sp",
-		Msg: fmt.Sprintf("Historic: %d  Live GPS: %d  OBD: %d  (total live: %d)",
-			len(historicRows), len(liveGpsPackets), len(liveObdPackets), totalLive),
-		Ty:   "ok",
-		Step: "split:done",
-		Data: map[string]interface{}{
-			"historic":  len(historicRows),
-			"liveGps":   len(liveGpsPackets),
-			"liveObd":   len(liveObdPackets),
-			"totalLive": totalLive,
-			"batches":   len(historicBatches),
-		},
-	})
-
-	if ctx.Err() != nil {
-		return nil
-	}
-
-	// ── mqtt-pub mode: publish all packets directly via MQTT, no batch files ──
-	if cfg.Mode == "mqtt-pub" {
-		return runMQTTPubDirect(ctx, cfg, allPackets, emit, elap, s, startT)
-	}
-
-	// ── Step 3: Create batch files ───────────────────────────────────────────
-	emit(SimEvent{
-		Elapsed: elap(),
-		Tag:     "BATCHES",
-		Cls:     "bt",
-		Msg: fmt.Sprintf("Creating %d historic SQLite files (encrypted=%v)…",
-			len(historicBatches), cfg.EncryptEnabled),
-		Ty:   "info",
-		Step: "batch:creating",
-		Data: map[string]interface{}{"total": len(historicBatches), "totalLive": totalLive},
-	})
-
-	var batchFiles []string
-	for i, batch := range historicBatches {
-		if ctx.Err() != nil {
-			return nil
-		}
+	if !skipFetchDone {
+		// ── Step 1: Fetch ──────────────────────────────────────────────────────
 		if err := s.checkPause(ctx); err != nil {
 			return nil
 		}
-		dbPath := filepath.Join(outDir, fmt.Sprintf("historic_batch_%d_%s.db", i+1, cfg.TgtIMEI))
-		if _, statErr := os.Stat(dbPath); os.IsNotExist(statErr) {
-			if err := createBatchFile(i+1, batch, publicKeyPEM, dbPath, cfg, emit, startT); err != nil {
-				emit(SimEvent{
-					Elapsed: elap(), Tag: "BATCH", Cls: "bt",
-					Msg: fmt.Sprintf("Batch %d failed: %v", i+1, err), Ty: "warn",
-				})
+		var fetchErr error
+		var fetchPages int
+		allPackets, fetchPages, fetchErr = fetchTelemetry(ctx, cfg, emit, startT)
+		if fetchErr != nil {
+			return fmt.Errorf("fetch: %w", fetchErr)
+		}
+		runState.TotalPackets = len(allPackets)
+		runState.FetchPages = fetchPages
+		saveRunState(outDir, cfg.TgtIMEI, runState)
+		if ctx.Err() != nil {
+			return nil
+		}
+
+		// ── Sort validation ───────────────────────────────────────────────────
+		// fetchTelemetry already sorts, but guard defensively before any processing.
+		sorted := true
+		for i := 1; i < len(allPackets); i++ {
+			if allPackets[i].T < allPackets[i-1].T {
+				sorted = false
+				break
 			}
-		} else {
+		}
+		if !sorted {
+			sort.SliceStable(allPackets, func(i, j int) bool { return allPackets[i].T < allPackets[j].T })
 			emit(SimEvent{
-				Elapsed: elap(), Tag: "BATCH", Cls: "bt",
-				Msg: fmt.Sprintf("Batch %d: reusing existing file", i+1), Ty: "info",
+				Elapsed: elap(), Tag: "SORT", Cls: "er",
+				Msg: fmt.Sprintf("⚠ Packets were out of order — re-sorted (%d packets)", len(allPackets)),
+				Ty: "warn", Step: "sort:done",
+			})
+		} else if len(allPackets) > 0 {
+			first, last := allPackets[0].T, allPackets[len(allPackets)-1].T
+			emit(SimEvent{
+				Elapsed: elap(), Tag: "SORT", Cls: "fe",
+				Msg: fmt.Sprintf("Order validated ✓  %d packets  t=[%d … %d]", len(allPackets), first, last),
+				Ty: "info", Step: "sort:done",
+				Data: map[string]interface{}{"packets": len(allPackets), "firstT": first, "lastT": last},
 			})
 		}
-		batchFiles = append(batchFiles, dbPath)
+
+		// ── Step 2: Split ─────────────────────────────────────────────────────
+		emit(SimEvent{
+			Elapsed: elap(),
+			Tag:     "SPLIT",
+			Cls:     "sp",
+			Msg:     "Partitioning data into historic and live sets…",
+			Ty:      "info",
+			Step:    "split:start",
+		})
+
+		historyEndMS := cfg.HistoryEndMS
+		if historyEndMS == 0 {
+			historyEndMS = cfg.FromMS + 12*3600*1000
+		}
+
+		for _, p := range allPackets {
+			ptype := identifyPacketType(p.Packet)
+			if p.T < historyEndMS {
+				historicRows = append(historicRows, p.Packet)
+			} else {
+				livePkts = append(livePkts, livePacket{Packet: p.Packet, Type: ptype})
+				if ptype == "gps" {
+					liveGpsPackets = append(liveGpsPackets, p.Packet)
+				} else if ptype == "obd" {
+					liveObdPackets = append(liveObdPackets, p.Packet)
+				}
+			}
+		}
+
+		batchSize := cfg.BatchSize
+		if batchSize <= 0 {
+			batchSize = 30
+		}
+
+		var historicBatches [][]map[string]interface{}
+		for i := 0; i < len(historicRows); i += batchSize {
+			end := i + batchSize
+			if end > len(historicRows) {
+				end = len(historicRows)
+			}
+			historicBatches = append(historicBatches, historicRows[i:end])
+		}
+		if len(historicBatches) == 0 {
+			historicBatches = append(historicBatches, []map[string]interface{}{})
+		}
+
+		totalLive := len(livePkts)
+		emit(SimEvent{
+			Elapsed: elap(),
+			Tag:     "SPLIT",
+			Cls:     "sp",
+			Msg: fmt.Sprintf("Historic: %d  Live GPS: %d  OBD: %d  (total live: %d)",
+				len(historicRows), len(liveGpsPackets), len(liveObdPackets), totalLive),
+			Ty:   "ok",
+			Step: "split:done",
+			Data: map[string]interface{}{
+				"historic":  len(historicRows),
+				"liveGps":   len(liveGpsPackets),
+				"liveObd":   len(liveObdPackets),
+				"totalLive": totalLive,
+				"batches":   len(historicBatches),
+			},
+		})
+		runState.HistoricCount = len(historicRows)
+		runState.LiveGpsCount = len(liveGpsPackets)
+		runState.LiveObdCount = len(liveObdPackets)
+		saveRunState(outDir, cfg.TgtIMEI, runState)
+
+		if ctx.Err() != nil {
+			return nil
+		}
+
+		// ── mqtt-pub mode: publish all packets directly via MQTT, no batch files ──
+		if cfg.Mode == "mqtt-pub" {
+			return runMQTTPubDirect(ctx, cfg, allPackets, emit, elap, s, startT)
+		}
+
+		// ── Step 3: Create batch files ─────────────────────────────────────────
+		emit(SimEvent{
+			Elapsed: elap(),
+			Tag:     "BATCHES",
+			Cls:     "bt",
+			Msg: fmt.Sprintf("Creating %d historic SQLite files (encrypted=%v)…",
+				len(historicBatches), cfg.EncryptEnabled),
+			Ty:   "info",
+			Step: "batch:creating",
+			Data: map[string]interface{}{"total": len(historicBatches), "totalLive": totalLive},
+		})
+
+		for i, batch := range historicBatches {
+			if ctx.Err() != nil {
+				return nil
+			}
+			if err := s.checkPause(ctx); err != nil {
+				return nil
+			}
+			dbPath := filepath.Join(outDir, fmt.Sprintf("historic_batch_%d_%s.db", i+1, cfg.TgtIMEI))
+			if _, statErr := os.Stat(dbPath); os.IsNotExist(statErr) {
+				if err := createBatchFile(i+1, batch, publicKeyPEM, dbPath, cfg, emit, startT); err != nil {
+					emit(SimEvent{
+						Elapsed: elap(), Tag: "BATCH", Cls: "bt",
+						Msg: fmt.Sprintf("Batch %d failed: %v", i+1, err), Ty: "warn",
+					})
+				}
+			} else {
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "BATCH", Cls: "bt",
+					Msg: fmt.Sprintf("Batch %d: reusing existing file", i+1), Ty: "info",
+				})
+			}
+			batchFiles = append(batchFiles, dbPath)
+		}
+
+		emit(SimEvent{
+			Elapsed: elap(),
+			Tag:     "BATCH",
+			Cls:     "bt",
+			Msg:     fmt.Sprintf("All %d batch files ready", len(batchFiles)),
+			Ty:      "ok",
+			Step:    "batch:done",
+			Data:    map[string]interface{}{"count": len(batchFiles)},
+		})
+
+		// Save livePkts to cache so future SkipFetch runs can skip the API fetch.
+		if b, merr := json.Marshal(livePkts); merr == nil {
+			os.WriteFile(livePktsPath, b, 0644) //nolint:errcheck
+		}
+	} // end !skipFetchDone
+
+	// Update run-state totals after the full fetch path.
+	if !skipFetchDone {
+		runState.TotalBatches = len(batchFiles)
+		runState.TotalOBDPackets = len(liveObdPackets)
+		saveRunState(outDir, cfg.TgtIMEI, runState)
+	} else {
+		// Reconstruct GPS/OBD slices from cached livePkts (needed for GPS L1 goroutine).
+		for _, lp := range livePkts {
+			if lp.Type == "gps" {
+				liveGpsPackets = append(liveGpsPackets, lp.Packet)
+			} else if lp.Type == "obd" {
+				liveObdPackets = append(liveObdPackets, lp.Packet)
+			}
+		}
 	}
-
-	emit(SimEvent{
-		Elapsed: elap(),
-		Tag:     "BATCH",
-		Cls:     "bt",
-		Msg:     fmt.Sprintf("All %d batch files ready", len(batchFiles)),
-		Ty:      "ok",
-		Step:    "batch:done",
-		Data:    map[string]interface{}{"count": len(batchFiles)},
-	})
-
-	// Persist totals in run-state file so UI and next resume can read them.
-	runState := loadRunState(outDir, cfg.TgtIMEI)
-	runState.TotalBatches = len(batchFiles)
-	runState.TotalOBDPackets = len(liveObdPackets)
-	saveRunState(outDir, cfg.TgtIMEI, runState)
 
 	if cfg.Mode == "fetch" {
 		// Keep raw packets in memory so the frontend can export without decrypting SQLite files.
@@ -546,6 +742,118 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		return fmt.Errorf("open obd db: %w", err)
 	}
 
+	// ── GPS L1 goroutine ─────────────────────────────────────────────────────
+	// GPS L1 packets are sent continuously from Phase 1 start through Phase 2
+	// OBD-file upload. Only when the OBD accumulated file is successfully
+	// committed do we stop L1 and switch to normal-mode packets.
+	var gpsL1Wg sync.WaitGroup
+	gpsL1StopCh := make(chan struct{})
+	var gpsL1Once sync.Once
+	var gpsL1PubAtomic atomic.Int64
+	closeGpsL1 := func() {
+		gpsL1Once.Do(func() { close(gpsL1StopCh) })
+		gpsL1Wg.Wait()
+	}
+	if !runState.Phase2OBDUploaded && len(liveGpsPackets) > 0 {
+		gpsInterval := time.Duration(cfg.GPSl1IntervalMs) * time.Millisecond
+		if gpsInterval <= 0 {
+			gpsInterval = 10 * time.Second
+		}
+		gpsL1Topic := cfg.TgtIMEI + "/obd"
+		gpsL1IdxFile := gpsL1StateFile(outDir, cfg.TgtIMEI)
+		gpsL1Wg.Add(1)
+		go func() {
+			defer gpsL1Wg.Done()
+			// Resume from saved position — cycles through liveGpsPackets infinitely.
+			savedIdx := loadGpsL1Index(gpsL1IdxFile)
+			gpsIdx := savedIdx % len(liveGpsPackets)
+			published := 0
+			naturalEnd := false // true only when closed via gpsL1StopCh (Phase 2 OBD upload done)
+		gpsL1Loop:
+			for {
+				select {
+				case <-ctx.Done():
+					break gpsL1Loop
+				case <-gpsL1StopCh:
+					naturalEnd = true
+					break gpsL1Loop
+				default:
+				}
+				if err := s.checkPause(ctx); err != nil {
+					break gpsL1Loop
+				}
+				if err := s.waitInterruptibleWithStop(ctx, gpsInterval, gpsL1StopCh); err != nil {
+					// Distinguish: stop-channel fired (natural end) vs context cancelled (user stop).
+					// Check the stop channel non-blockingly — if it's already closed it's a natural end
+					// regardless of whether the context was also cancelled simultaneously.
+					select {
+					case <-gpsL1StopCh:
+						naturalEnd = true
+					default:
+					}
+					break gpsL1Loop
+				}
+				if ctx.Err() != nil {
+					break gpsL1Loop
+				}
+				raw := liveGpsPackets[gpsIdx%len(liveGpsPackets)]
+				gpsIdx++
+				var pkt interface{}
+				if cfg.EnrichL1 {
+					pkt = convertToL1Packet(raw)
+				} else {
+					pkt = raw
+				}
+				data, _ := json.Marshal(pkt)
+				if cfg.DryRun {
+					published++
+					gpsL1PubAtomic.Store(int64(published))
+					saveGpsL1Index(gpsL1IdxFile, gpsIdx)
+					emit(SimEvent{
+						Elapsed: elap(), Tag: "P1/GPS", Cls: "mq",
+						Msg:  fmt.Sprintf("GPS #%d → %s (dry run)", published, gpsL1Topic),
+						Ty:   "info", Step: "p1:gps",
+						Data: map[string]interface{}{
+							"published": published,
+							"total":     len(liveGpsPackets),
+							"payload":   string(data),
+						},
+					})
+				} else {
+					if pubErr := mqttPublish(gpsL1Topic, data); pubErr != nil {
+						emit(SimEvent{Elapsed: elap(), Tag: "P1/GPS", Cls: "er",
+							Msg: fmt.Sprintf("publish error: %v", pubErr), Ty: "warn"})
+					} else {
+						published++
+						gpsL1PubAtomic.Store(int64(published))
+						saveGpsL1Index(gpsL1IdxFile, gpsIdx)
+						emit(SimEvent{
+							Elapsed: elap(), Tag: "P1/GPS", Cls: "mq",
+							Msg:  fmt.Sprintf("GPS #%d → %s", published, gpsL1Topic),
+							Ty:   "info", Step: "p1:gps",
+							Data: map[string]interface{}{
+								"published": published,
+								"total":     len(liveGpsPackets),
+								"payload":   string(data),
+							},
+						})
+					}
+				}
+			}
+			// Only delete the index file on natural end (closeGpsL1 called after Phase 2
+			// OBD upload). On user-stop, keep it so GPS L1 resumes from the same position.
+			if naturalEnd {
+				os.Remove(gpsL1IdxFile) //nolint:errcheck
+			}
+			emit(SimEvent{
+				Elapsed: elap(), Tag: "P1/GPS", Cls: "mq",
+				Msg:  fmt.Sprintf("GPS L1 stream complete — %d published", published),
+				Ty:   "info", Step: "p1:gps",
+				Data: map[string]interface{}{"published": published, "total": len(liveGpsPackets)},
+			})
+		}()
+	}
+
 	// ── Phase 1 ───────────────────────────────────────────────────────────────
 	if runState.Phase1Complete {
 		emit(SimEvent{
@@ -570,7 +878,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 			return nil
 		}
 
-		if err := runPhase1(ctx, cfg, batchFiles, liveGpsPackets, liveObdPackets, mqttPublish, obdDb, publicKeyPEM, emit, startT, s, outDir, &runState); err != nil && ctx.Err() == nil {
+		if err := runPhase1(ctx, cfg, batchFiles, liveObdPackets, mqttPublish, obdDb, publicKeyPEM, emit, startT, s, outDir, &runState); err != nil && ctx.Err() == nil {
 			emit(SimEvent{Elapsed: elap(), Tag: "PHASE 1", Cls: "er", Msg: fmt.Sprintf("Phase 1 error: %v", err), Ty: "warn"})
 		}
 		obdDb.Close()
@@ -608,12 +916,23 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		return nil
 	}
 
-	// Seed live normal interval so the bridge method can update it while Phase 2 runs.
-	s.SetNormalInterval(cfg.NormalIntervalMs)
+	// Seed live normal GPS/OBD intervals; fall back to legacy single-interval field.
+	gpsNormalMs := cfg.NormalGPSIntervalMs
+	if gpsNormalMs <= 0 {
+		gpsNormalMs = cfg.NormalIntervalMs
+	}
+	obdNormalMs := cfg.NormalOBDIntervalMs
+	if obdNormalMs <= 0 {
+		obdNormalMs = cfg.NormalIntervalMs
+	}
+	s.SetNormalIntervals(gpsNormalMs, obdNormalMs)
 
-	if err := runPhase2(ctx, cfg, obdDbPath, livePkts, mqttPublish, emit, startT, s, &runState, outDir, cfg.TgtIMEI); err != nil && ctx.Err() == nil {
+	if err := runPhase2(ctx, cfg, obdDbPath, livePkts, mqttPublish, emit, startT, s, &runState, outDir, cfg.TgtIMEI, closeGpsL1); err != nil && ctx.Err() == nil {
 		emit(SimEvent{Elapsed: elap(), Tag: "PHASE 2", Cls: "er", Msg: fmt.Sprintf("Phase 2 error: %v", err), Ty: "warn"})
 	}
+	// GPS L1 is fully stopped after runPhase2 (closeGpsL1 was called inside).
+	runState.GpsL1Published = int(gpsL1PubAtomic.Load())
+	saveRunState(outDir, cfg.TgtIMEI, runState)
 
 	emit(SimEvent{
 		Elapsed: elap(),
@@ -648,22 +967,18 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 	return nil
 }
 
-// runPhase1 runs the three concurrent streams:
+// runPhase1 runs two concurrent streams:
 // A: sequential historic batch uploads
-// B: GPS L1 MQTT streaming (cycles until A is done)
-// C: OBD accumulation into SQLite (interval-based until A is done)
-func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPackets []map[string]interface{}, liveObdPackets []map[string]interface{}, publish func(string, []byte) error, obdDb *sql.DB, publicKeyPEM string, emit func(SimEvent), startT time.Time, s *Simulator, outDir string, runState *simRunState) error {
+// C: OBD accumulation into SQLite (interval-based, stops when A finishes)
+// GPS L1 streaming is managed by runSimulation so it spans Phase 1 and
+// Phase 2 OBD upload, stopping only after OBD history is committed.
+func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPackets []map[string]interface{}, publish func(string, []byte) error, obdDb *sql.DB, publicKeyPEM string, emit func(SimEvent), startT time.Time, s *Simulator, outDir string, runState *simRunState) error {
 	elap := func() int64 { return time.Since(startT).Milliseconds() }
 	phaseStart := time.Now()
-	topic := cfg.TgtIMEI + "/obd"
 
 	batchUploadDelay := time.Duration(cfg.BatchUploadDelayMs) * time.Millisecond
 	if batchUploadDelay <= 0 {
 		batchUploadDelay = 120 * time.Second
-	}
-	gpsInterval := time.Duration(cfg.GPSl1IntervalMs) * time.Millisecond
-	if gpsInterval <= 0 {
-		gpsInterval = 10 * time.Second
 	}
 	obdInterval := time.Duration(cfg.OBDAccumIntervalMs) * time.Millisecond
 	if obdInterval <= 0 {
@@ -706,6 +1021,8 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "DRY/UPLOAD", Cls: "up",
 					Msg: fmt.Sprintf("SKIP upload: batch_%d (dry run)", i+1), Ty: "info",
+					Step: "p1:upload",
+					Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 				})
 				time.Sleep(200 * time.Millisecond)
 			} else {
@@ -726,15 +1043,14 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 						Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 					})
 				}
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
+					Msg:  fmt.Sprintf("Batch %d/%d uploaded", i+1, len(batchFiles)),
+					Ty:   "ok",
+					Step: "p1:upload",
+					Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
+				})
 			}
-
-			emit(SimEvent{
-				Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
-				Msg:  fmt.Sprintf("Batch %d/%d uploaded", i+1, len(batchFiles)),
-				Ty:   "ok",
-				Step: "p1:upload",
-				Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
-			})
 
 			// Persist upload progress so we can resume after a stop
 			runState.BatchesUploaded = i + 1
@@ -752,74 +1068,6 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 		emit(SimEvent{
 			Elapsed: elap(), Tag: "P1/UPLOAD", Cls: "up",
 			Msg: fmt.Sprintf("All %d batches uploaded — signalling streams to stop", len(batchFiles)), Ty: "ok",
-		})
-	}()
-
-	// ── Stream B: GPS L1 MQTT ───────────────────────────────────────────────
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if len(liveGpsPackets) == 0 {
-			<-phase1Done
-			return
-		}
-
-		gpsIdx := 0
-		published := 0
-
-	gpsLoop:
-		for {
-			// Non-blocking check before sleeping
-			select {
-			case <-ctx.Done():
-				break gpsLoop
-			case <-phase1Done:
-				break gpsLoop
-			default:
-			}
-			// Block if paused (respects Stop immediately via ctx)
-			if err := s.checkPause(ctx); err != nil {
-				break gpsLoop
-			}
-			// Wait the GPS interval; time.After avoids accumulated ticks during pause
-			select {
-			case <-ctx.Done():
-				break gpsLoop
-			case <-phase1Done:
-				break gpsLoop
-			case <-time.After(gpsInterval):
-			}
-
-			raw := liveGpsPackets[gpsIdx%len(liveGpsPackets)]
-			gpsIdx++
-			var pkt interface{}
-			if cfg.EnrichL1 {
-				pkt = convertToL1Packet(raw)
-			} else {
-				pkt = raw
-			}
-			data, _ := json.Marshal(pkt)
-			if err := publish(topic, data); err != nil {
-				emit(SimEvent{Elapsed: elap(), Tag: "P1/GPS", Cls: "er", Msg: fmt.Sprintf("publish error: %v", err), Ty: "warn"})
-			} else {
-				published++
-				emit(SimEvent{
-					Elapsed: elap(), Tag: "P1/GPS", Cls: "mq",
-					Msg:  fmt.Sprintf("GPS #%d → %s", published, topic),
-					Ty:   "info", Step: "p1:gps",
-					Data: map[string]interface{}{
-						"published": published,
-						"total":     len(liveGpsPackets),
-						"payload":   string(data),
-					},
-				})
-			}
-		}
-		emit(SimEvent{
-			Elapsed: elap(), Tag: "P1/GPS", Cls: "mq",
-			Msg:  fmt.Sprintf("GPS L1 stream stopped — total published: %d", published),
-			Ty:   "info", Step: "p1:gps",
-			Data: map[string]interface{}{"published": published, "total": len(liveGpsPackets)},
 		})
 	}()
 
@@ -901,14 +1149,145 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveGpsPack
 	return nil
 }
 
+// runNaturalOrderStream streams livePkts in original time-sorted order (GPS and OBD
+// interleaved as fetched) using a single configured delay between every packet.
+// Resume uses LiveStreamOffset — the sequential index into livePkts.
+func runNaturalOrderStream(ctx context.Context, cfg Config, livePkts []livePacket, topic string, publish func(string, []byte) error, emit func(SimEvent), elap func() int64, s *Simulator, runState *simRunState, outDir, tgtIMEI string) error {
+	total := len(livePkts)
+	startIdx := runState.LiveStreamOffset
+
+	interval := time.Duration(cfg.NaturalOrderIntervalMs) * time.Millisecond
+	if interval <= 0 {
+		interval = 500 * time.Millisecond
+	}
+
+	fmtDelay := func(d time.Duration) string {
+		if d < time.Second {
+			return fmt.Sprintf("%dms", d.Milliseconds())
+		}
+		return fmt.Sprintf("%.0fs", d.Seconds())
+	}
+
+	gpsCount, obdCount := 0, 0
+	// Pre-count totals for remaining display
+	totalGps, totalObd := 0, 0
+	for _, lp := range livePkts {
+		if lp.Type == "gps" {
+			totalGps++
+		} else if lp.Type == "obd" {
+			totalObd++
+		}
+	}
+
+	if startIdx > 0 && startIdx < total {
+		for _, lp := range livePkts[:startIdx] {
+			if lp.Type == "gps" {
+				gpsCount++
+			} else if lp.Type == "obd" {
+				obdCount++
+			}
+		}
+		emit(SimEvent{
+			Elapsed: elap(), Tag: "P2/NAT", Cls: "fe",
+			Msg:  fmt.Sprintf("Resuming natural order from #%d/%d (gps:%d obd:%d)", startIdx+1, total, gpsCount, obdCount),
+			Ty:   "info", Step: "p2:stream",
+			Data: map[string]interface{}{
+				"current": startIdx, "total": total,
+				"gps": gpsCount, "obd": obdCount,
+				"totalGps": totalGps, "totalObd": totalObd,
+			},
+		})
+	}
+
+	for i := startIdx; i < total; i++ {
+		if ctx.Err() != nil {
+			return nil
+		}
+		if err := s.checkPause(ctx); err != nil {
+			return nil
+		}
+		lp := livePkts[i]
+		data, _ := json.Marshal(lp.Packet)
+
+		pktTag := "P2/GPS"
+		pktCls := "mq"
+		if lp.Type == "obd" {
+			pktTag = "P2/OBD"
+			pktCls = "bt"
+			obdCount++
+		} else {
+			gpsCount++
+		}
+
+		nextInfo := ""
+		if i < total-1 {
+			nextInfo = fmt.Sprintf(" — next in %s", fmtDelay(interval))
+		}
+
+		if cfg.DryRun {
+			emit(SimEvent{
+				Elapsed: elap(), Tag: pktTag, Cls: pktCls,
+				Msg:  fmt.Sprintf("#%d/%d → %s (dry run)%s", i+1, total, topic, nextInfo),
+				Ty:   "info", Step: "p2:stream",
+				Data: map[string]interface{}{
+					"payload": string(data),
+					"current": i + 1, "total": total,
+					"gps": gpsCount, "obd": obdCount,
+					"totalGps": totalGps, "totalObd": totalObd,
+				},
+			})
+		} else {
+			if err := publish(topic, data); err != nil {
+				emit(SimEvent{Elapsed: elap(), Tag: pktTag, Cls: "er",
+					Msg: fmt.Sprintf("publish error pkt %d: %v", i+1, err), Ty: "warn"})
+			} else {
+				emit(SimEvent{
+					Elapsed: elap(), Tag: pktTag, Cls: pktCls,
+					Msg:  fmt.Sprintf("#%d/%d → %s%s", i+1, total, topic, nextInfo),
+					Ty:   "info", Step: "p2:stream",
+					Data: map[string]interface{}{
+						"payload": string(data),
+						"current": i + 1, "total": total,
+						"gps": gpsCount, "obd": obdCount,
+						"totalGps": totalGps, "totalObd": totalObd,
+					},
+				})
+			}
+		}
+
+		runState.LiveStreamOffset = i + 1
+		saveRunState(outDir, tgtIMEI, *runState)
+
+		if i < total-1 {
+			if s.waitInterruptible(ctx, interval) != nil {
+				return nil
+			}
+		}
+	}
+
+	emit(SimEvent{
+		Elapsed: elap(), Tag: "P2/NAT", Cls: "fe",
+		Msg:  fmt.Sprintf("Natural order complete — GPS: %d, OBD: %d", gpsCount, obdCount),
+		Ty:   "ok", Step: "p2:stream",
+		Data: map[string]interface{}{
+			"current": total, "total": total,
+			"gps": gpsCount, "obd": obdCount,
+			"totalGps": totalGps, "totalObd": totalObd,
+		},
+	})
+	return nil
+}
+
 // runPhase2 runs the two sequential steps:
 // 1. Upload the accumulated OBD database
 // 2. Stream all live packets via MQTT at normal interval
-func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []livePacket, publish func(string, []byte) error, emit func(SimEvent), startT time.Time, s *Simulator, runState *simRunState, outDir, tgtIMEI string) error {
+func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []livePacket, publish func(string, []byte) error, emit func(SimEvent), startT time.Time, s *Simulator, runState *simRunState, outDir, tgtIMEI string, closeGpsL1 func()) error {
 	elap := func() int64 { return time.Since(startT).Milliseconds() }
 	topic := cfg.TgtIMEI + "/obd"
 
-	// 1. Upload OBD DB — skip if already uploaded in a previous run
+	// 1. Upload OBD DB — skip if already uploaded in a previous run.
+	// Normal-mode streaming is BLOCKED until this succeeds; GPS L1 continues
+	// in the background throughout all retry attempts.
 	if runState.Phase2OBDUploaded {
 		emit(SimEvent{
 			Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
@@ -922,129 +1301,246 @@ func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []liv
 		time.Sleep(200 * time.Millisecond)
 		emit(SimEvent{
 			Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
-			Msg: "OBD DB upload complete", Ty: "ok", Step: "p2:upload:done",
+			Msg: "OBD DB upload complete (dry run)", Ty: "ok", Step: "p2:upload:done",
 		})
 	} else {
-		t0 := time.Now()
-		if err := uploadFile(obdDbPath, cfg); err != nil {
+		const retryDelay = 30 * time.Second
+		for attempt := 1; ; attempt++ {
+			if ctx.Err() != nil {
+				closeGpsL1()
+				return nil
+			}
+			t0 := time.Now()
+			if err := uploadFile(obdDbPath, cfg); err != nil {
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "er",
+					Msg: fmt.Sprintf("OBD upload attempt %d FAILED: %v — retrying in %.0fs (GPS L1 continues)", attempt, err, retryDelay.Seconds()),
+					Ty: "warn",
+				})
+				if s.waitInterruptible(ctx, retryDelay) != nil {
+					closeGpsL1()
+					return nil
+				}
+				continue
+			}
 			emit(SimEvent{
-				Elapsed: elap(), Tag: "UPLOAD", Cls: "er",
-				Msg: fmt.Sprintf("OBD upload FAILED: %v", err), Ty: "warn",
-			})
-		} else {
-			emit(SimEvent{
-				Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
-				Msg: fmt.Sprintf("OK 200 — live_obd_%s.db in %dms", cfg.TgtIMEI, time.Since(t0).Milliseconds()),
+				Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
+				Msg: fmt.Sprintf("OK 200 — live_obd_%s.db in %dms (attempt %d)", cfg.TgtIMEI, time.Since(t0).Milliseconds(), attempt),
 				Ty:  "ok",
 			})
 			runState.Phase2OBDUploaded = true
 			saveRunState(outDir, tgtIMEI, *runState)
+			emit(SimEvent{
+				Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
+				Msg: "OBD DB upload complete", Ty: "ok", Step: "p2:upload:done",
+			})
+			break
 		}
-		emit(SimEvent{
-			Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "up",
-			Msg: "OBD DB upload complete", Ty: "ok", Step: "p2:upload:done",
-		})
 	}
+
+	// GPS L1 has served its purpose — signal it to stop before normal mode begins.
+	closeGpsL1()
 
 	if ctx.Err() != nil {
 		return nil
 	}
 
-	// 2. Normal mode streaming — resume from saved packet offset
-	total := len(livePkts)
-	startIdx := runState.LiveStreamOffset
-	gpsCount := 0
-	obdCount := 0
+	// 2. Natural Order mode — single goroutine, time-sorted original order, one delay.
+	if cfg.NormalStreamMode == "natural" {
+		return runNaturalOrderStream(ctx, cfg, livePkts, topic, publish, emit, elap, s, runState, outDir, tgtIMEI)
+	}
 
-	if startIdx > 0 && startIdx < total {
+	// 3. Independent Streams mode (default) — GPS and OBD on separate goroutines so each
+	// fires at its own configured interval without blocking the other.
+	var gpsQueue []livePacket
+	var obdQueue []livePacket
+	for _, lp := range livePkts {
+		switch lp.Type {
+		case "gps":
+			gpsQueue = append(gpsQueue, lp)
+		case "obd":
+			obdQueue = append(obdQueue, lp)
+		}
+	}
+	totalGps := len(gpsQueue)
+	totalObd := len(obdQueue)
+	total := totalGps + totalObd
+
+	// Format sub-second delays as ms, ≥1s as seconds
+	fmtDelay := func(d time.Duration) string {
+		if d < time.Second {
+			return fmt.Sprintf("%dms", d.Milliseconds())
+		}
+		return fmt.Sprintf("%.0fs", d.Seconds())
+	}
+
+	// Atomic sent counters shared between both goroutines for progress events.
+	var gpsSentA, obdSentA atomic.Int64
+
+	// Mutex for runState saves so both goroutines don't race on the file.
+	var stateMu sync.Mutex
+	saveState := func() {
+		stateMu.Lock()
+		saveRunState(outDir, tgtIMEI, *runState)
+		stateMu.Unlock()
+	}
+
+	if runState.LiveGpsOffset > 0 || runState.LiveObdOffset > 0 {
 		emit(SimEvent{
 			Elapsed: elap(), Tag: "P2/STREAM", Cls: "fe",
-			Msg:  fmt.Sprintf("Resuming live stream from packet %d/%d", startIdx+1, total),
-			Ty:   "info", Step: "p2:stream",
-			Data: map[string]interface{}{"current": startIdx, "total": total, "gps": gpsCount, "obd": obdCount},
+			Msg: fmt.Sprintf("Resuming — GPS from #%d/%d  OBD from #%d/%d",
+				runState.LiveGpsOffset+1, totalGps, runState.LiveObdOffset+1, totalObd),
+			Ty: "info", Step: "p2:stream",
+			Data: map[string]interface{}{
+				"current": runState.LiveGpsOffset + runState.LiveObdOffset,
+				"total": total, "gps": runState.LiveGpsOffset, "obd": runState.LiveObdOffset,
+				"totalGps": totalGps, "totalObd": totalObd,
+			},
 		})
 	}
 
-	for i := startIdx; i < total; i++ {
-		lp := livePkts[i]
-		if ctx.Err() != nil {
-			return nil
-		}
-		if err := s.checkPause(ctx); err != nil {
-			return nil
-		}
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-		data, _ := json.Marshal(lp.Packet)
-
-		if cfg.DryRun {
-			if i%20 == 0 {
-				emit(SimEvent{
-					Elapsed: elap(), Tag: "DRY/P2", Cls: "fe",
-					Msg: fmt.Sprintf("SKIP publish #%d/%d (dry run)", i+1, total), Ty: "info",
-					Data: map[string]interface{}{"current": i + 1, "total": total, "gps": gpsCount, "obd": obdCount},
-				})
+	// GPS goroutine
+	go func() {
+		defer wg.Done()
+		start := runState.LiveGpsOffset
+		for i := start; i < len(gpsQueue); i++ {
+			if ctx.Err() != nil {
+				return
 			}
-		} else {
-			if err := publish(topic, data); err != nil {
-				emit(SimEvent{Elapsed: elap(), Tag: "P2/STREAM", Cls: "er",
-					Msg: fmt.Sprintf("publish error pkt %d: %v", i+1, err), Ty: "warn"})
-			} else {
-				pktTag := "P2/GPS"
-				pktCls := "mq"
-				if lp.Type == "obd" {
-					pktTag = "P2/OBD"
-					pktCls = "bt"
-					obdCount++
-				} else {
-					gpsCount++
-				}
-				nextDelay := s.getLiveNormalInterval()
-				nextInfo := ""
-				if i < total-1 {
-					nextInfo = fmt.Sprintf(" — next in %.0fs", nextDelay.Seconds())
-				}
+			if err := s.checkPause(ctx); err != nil {
+				return
+			}
+			lp := gpsQueue[i]
+			data, _ := json.Marshal(lp.Packet)
+			gpsSentA.Add(1)
+			gs := int(gpsSentA.Load())
+			os2 := int(obdSentA.Load())
+			interval := s.getLiveNormalGpsInterval()
+			nextInfo := ""
+			if i < len(gpsQueue)-1 {
+				nextInfo = fmt.Sprintf(" — next in %s", fmtDelay(interval))
+			}
+			if cfg.DryRun {
 				emit(SimEvent{
-					Elapsed: elap(), Tag: pktTag, Cls: pktCls,
-					Msg:  fmt.Sprintf("#%d/%d → %s%s", i+1, total, topic, nextInfo),
-					Ty:   "info",
+					Elapsed: elap(), Tag: "P2/GPS", Cls: "mq",
+					Msg:  fmt.Sprintf("#%d/%d → %s (dry run)%s", gs, totalGps, topic, nextInfo),
+					Ty:   "info", Step: "p2:stream",
 					Data: map[string]interface{}{
 						"payload": string(data),
-						"current": i + 1, "total": total, "gps": gpsCount, "obd": obdCount,
+						"current": gs + os2, "total": total,
+						"gps": gs, "obd": os2,
+						"totalGps": totalGps, "totalObd": totalObd,
 					},
 				})
+			} else {
+				if err := publish(topic, data); err != nil {
+					emit(SimEvent{Elapsed: elap(), Tag: "P2/GPS", Cls: "er",
+						Msg: fmt.Sprintf("GPS publish error #%d: %v", gs, err), Ty: "warn"})
+				} else {
+					emit(SimEvent{
+						Elapsed: elap(), Tag: "P2/GPS", Cls: "mq",
+						Msg:  fmt.Sprintf("#%d/%d → %s%s", gs, totalGps, topic, nextInfo),
+						Ty:   "info", Step: "p2:stream",
+						Data: map[string]interface{}{
+							"payload": string(data),
+							"current": gs + os2, "total": total,
+							"gps": gs, "obd": os2,
+							"totalGps": totalGps, "totalObd": totalObd,
+						},
+					})
+				}
+			}
+			stateMu.Lock()
+			runState.LiveGpsOffset = i + 1
+			stateMu.Unlock()
+			saveState()
+			if i < len(gpsQueue)-1 {
+				if s.waitInterruptible(ctx, interval) != nil {
+					return
+				}
 			}
 		}
+	}()
 
-		// Progress-bar step update every 5 packets (or first/last)
-		if (i+1)%5 == 0 || i == startIdx || i+1 == total {
-			emit(SimEvent{
-				Elapsed: elap(), Tag: "P2/STREAM", Cls: "fe",
-				Msg:  fmt.Sprintf("Progress: %d/%d (gps:%d obd:%d)", i+1, total, gpsCount, obdCount),
-				Ty:   "info",
-				Step: "p2:stream",
-				Data: map[string]interface{}{"current": i + 1, "total": total, "gps": gpsCount, "obd": obdCount},
-			})
-		}
-
-		// Persist offset so a subsequent resume continues from the next packet
-		runState.LiveStreamOffset = i + 1
-		saveRunState(outDir, tgtIMEI, *runState)
-
-		if i < total-1 {
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(s.getLiveNormalInterval()):
+	// OBD goroutine
+	go func() {
+		defer wg.Done()
+		start := runState.LiveObdOffset
+		for i := start; i < len(obdQueue); i++ {
+			if ctx.Err() != nil {
+				return
+			}
+			if err := s.checkPause(ctx); err != nil {
+				return
+			}
+			lp := obdQueue[i]
+			data, _ := json.Marshal(lp.Packet)
+			obdSentA.Add(1)
+			gs := int(gpsSentA.Load())
+			os2 := int(obdSentA.Load())
+			interval := s.getLiveNormalObdInterval()
+			nextInfo := ""
+			if i < len(obdQueue)-1 {
+				nextInfo = fmt.Sprintf(" — next in %s", fmtDelay(interval))
+			}
+			if cfg.DryRun {
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "P2/OBD", Cls: "bt",
+					Msg:  fmt.Sprintf("#%d/%d → %s (dry run)%s", os2, totalObd, topic, nextInfo),
+					Ty:   "info", Step: "p2:stream",
+					Data: map[string]interface{}{
+						"payload": string(data),
+						"current": gs + os2, "total": total,
+						"gps": gs, "obd": os2,
+						"totalGps": totalGps, "totalObd": totalObd,
+					},
+				})
+			} else {
+				if err := publish(topic, data); err != nil {
+					emit(SimEvent{Elapsed: elap(), Tag: "P2/OBD", Cls: "er",
+						Msg: fmt.Sprintf("OBD publish error #%d: %v", os2, err), Ty: "warn"})
+				} else {
+					emit(SimEvent{
+						Elapsed: elap(), Tag: "P2/OBD", Cls: "bt",
+						Msg:  fmt.Sprintf("#%d/%d → %s%s", os2, totalObd, topic, nextInfo),
+						Ty:   "info", Step: "p2:stream",
+						Data: map[string]interface{}{
+							"payload": string(data),
+							"current": gs + os2, "total": total,
+							"gps": gs, "obd": os2,
+							"totalGps": totalGps, "totalObd": totalObd,
+						},
+					})
+				}
+			}
+			stateMu.Lock()
+			runState.LiveObdOffset = i + 1
+			stateMu.Unlock()
+			saveState()
+			if i < len(obdQueue)-1 {
+				if s.waitInterruptible(ctx, interval) != nil {
+					return
+				}
 			}
 		}
-	}
+	}()
 
+	wg.Wait()
+
+	gs := int(gpsSentA.Load())
+	os2 := int(obdSentA.Load())
 	emit(SimEvent{
 		Elapsed: elap(), Tag: "P2/STREAM", Cls: "fe",
-		Msg:  fmt.Sprintf("Normal mode complete — GPS: %d, OBD: %d", gpsCount, obdCount),
-		Ty:   "ok",
-		Step: "p2:stream",
-		Data: map[string]interface{}{"current": total, "total": total, "gps": gpsCount, "obd": obdCount},
+		Msg:  fmt.Sprintf("Normal mode complete — GPS: %d, OBD: %d", gs, os2),
+		Ty:   "ok", Step: "p2:stream",
+		Data: map[string]interface{}{
+			"current": gs + os2, "total": total,
+			"gps": gs, "obd": os2,
+			"totalGps": totalGps, "totalObd": totalObd,
+		},
 	})
 	return nil
 }

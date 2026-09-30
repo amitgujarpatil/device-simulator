@@ -527,12 +527,17 @@ export namespace simulator {
 	    gpsL1IntervalMs: number;
 	    obdAccumIntervalMs: number;
 	    normalModeIntervalMs: number;
+	    normalGpsIntervalMs: number;
+	    normalObdIntervalMs: number;
+	    normalStreamMode: string;
+	    naturalOrderIntervalMs: number;
 	    apiPageSize: number;
 	    apiRequestDelay: number;
 	    outputDir: string;
 	    dryRun: boolean;
 	    mode: string;
 	    enrichL1: boolean;
+	    skipFetch: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -567,12 +572,17 @@ export namespace simulator {
 	        this.gpsL1IntervalMs = source["gpsL1IntervalMs"];
 	        this.obdAccumIntervalMs = source["obdAccumIntervalMs"];
 	        this.normalModeIntervalMs = source["normalModeIntervalMs"];
+	        this.normalGpsIntervalMs = source["normalGpsIntervalMs"];
+	        this.normalObdIntervalMs = source["normalObdIntervalMs"];
+	        this.normalStreamMode = source["normalStreamMode"];
+	        this.naturalOrderIntervalMs = source["naturalOrderIntervalMs"];
 	        this.apiPageSize = source["apiPageSize"];
 	        this.apiRequestDelay = source["apiRequestDelay"];
 	        this.outputDir = source["outputDir"];
 	        this.dryRun = source["dryRun"];
 	        this.mode = source["mode"];
 	        this.enrichL1 = source["enrichL1"];
+	        this.skipFetch = source["skipFetch"];
 	    }
 	}
 	export class RegionConfig {

@@ -64,7 +64,17 @@ export function GetDefaultOutputDir():Promise<string>;
 
 export function GetResumeState(arg1:string,arg2:string):Promise<{[key: string]: any}>;
 
+export function GetRunLogs(arg1:string,arg2:string,arg3:number,arg4:number):Promise<{[key: string]: any}>;
+
 export function GetSystemMetrics():Promise<{[key: string]: any}>;
+
+export function LogsFetchStart(arg1:string,arg2:string,arg3:string,arg4:number,arg5:number,arg6:number,arg7:number):Promise<void>;
+
+export function LogsFetchStop():Promise<void>;
+
+export function LogsGetMeta():Promise<{[key: string]: any}>;
+
+export function LogsGetPage(arg1:number,arg2:number):Promise<{[key: string]: any}>;
 
 export function MCAggregate(arg1:string,arg2:string,arg3:string,arg4:string,arg5:number):Promise<mongoclient.FindResult>;
 
@@ -150,6 +160,8 @@ export function ResumeSimulation():Promise<void>;
 
 export function SaveFile(arg1:string,arg2:string):Promise<void>;
 
+export function SaveRunLogs(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function SelectOutputDir():Promise<string>;
 
 export function StartSimulation(arg1:simulator.Config):Promise<void>;
@@ -161,6 +173,8 @@ export function TestMQTT(arg1:simulator.RegionConfig):Promise<{[key: string]: an
 export function UpdateMQTTPubIntervals(arg1:number,arg2:number):Promise<void>;
 
 export function UpdateNormalModeInterval(arg1:number):Promise<void>;
+
+export function UpdateNormalModeIntervals(arg1:number,arg2:number):Promise<void>;
 
 export function UtilCertToFormats(arg1:string):Promise<utilities.CertFormats>;
 

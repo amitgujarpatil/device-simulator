@@ -55,10 +55,10 @@ func convertToL1Packet(pkt map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT time.Time) ([]Packet, error) {
+func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT time.Time) ([]Packet, int, error) {
 	psize := cfg.APIPageSize
 	if psize <= 0 {
-		psize = 1000
+		psize = 800
 	}
 	delay := cfg.APIRequestDelay
 	if delay <= 0 {
@@ -80,12 +80,14 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 	page := 0
 	var lastKey map[string]interface{}
 	var prevLastKeyStr string
+	var lastSeenT int64
+	var lastBoundaryRaw string // raw JSON of last entry on previous page (the one API re-sends)
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	for {
 		select {
 		case <-ctx.Done():
-			return allRows, ctx.Err()
+			return allRows, page, ctx.Err()
 		default:
 		}
 		page++
@@ -94,7 +96,16 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 			cfg.APIBase, cfg.SrcIMEI, psize, cfg.APIToken, cfg.FromMS, cfg.UntilMS)
 		if lastKey != nil {
 			if t, ok := lastKey["t"]; ok {
-				url += fmt.Sprintf("&last_t=%v", t)
+				var lastT int64
+				switch v := t.(type) {
+				case float64:
+					lastT = int64(v)
+				case json.Number:
+					lastT, _ = v.Int64()
+				}
+				if lastT > 0 {
+					url += fmt.Sprintf("&last_t=%d", lastT)
+				}
 			}
 		}
 
@@ -127,7 +138,7 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 			break
 		}
 		if fetchErr != nil {
-			return allRows, fmt.Errorf("page %d: %w", page, fetchErr)
+			return allRows, page, fmt.Errorf("page %d: %w", page, fetchErr)
 		}
 
 		var result struct {
@@ -135,11 +146,18 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 			LastEvaluatedKey map[string]interface{} `json:"last_evaluated_key"`
 		}
 		if err := json.Unmarshal(body, &result); err != nil {
-			return allRows, fmt.Errorf("parse page %d: %w", page, err)
+			return allRows, page, fmt.Errorf("parse page %d: %w", page, err)
 		}
 
-		prevLen := len(allRows)
+		// Snapshot boundary from the previous page. We skip only the ONE exact
+		// entry the API re-sends (inclusive last_t). Using raw JSON equality
+		// means entries at the same timestamp that are genuinely new pass through.
+		prevPageMaxT := lastSeenT
+		prevBoundaryRaw := lastBoundaryRaw
+		boundarySkipped := false
+		newCount := 0
 		for _, rawLog := range result.Logs {
+			rawStr := string(rawLog)
 			var entry struct {
 				T int64           `json:"t"`
 				M json.RawMessage `json:"m"`
@@ -147,17 +165,18 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 			if err := json.Unmarshal(rawLog, &entry); err != nil {
 				continue
 			}
+			// Skip the exact boundary entry the API re-sends (once only).
+			if !boundarySkipped && entry.T <= prevPageMaxT && rawStr == prevBoundaryRaw {
+				boundarySkipped = true
+				continue
+			}
 
 			var telArr []map[string]interface{}
-			// M can be a JSON string (containing array) or a direct array
 			var mStr string
 			if err := json.Unmarshal(entry.M, &mStr); err == nil {
-				// It's a string — parse it as JSON array
 				json.Unmarshal([]byte(mStr), &telArr)
 			} else {
-				// Try as direct array first
 				if err2 := json.Unmarshal(entry.M, &telArr); err2 != nil {
-					// Try as single object
 					var single map[string]interface{}
 					if err3 := json.Unmarshal(entry.M, &single); err3 == nil {
 						telArr = []map[string]interface{}{single}
@@ -172,24 +191,27 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 				}
 				allRows = append(allRows, Packet{T: entry.T, Packet: pkt})
 			}
+			if entry.T > lastSeenT {
+				lastSeenT = entry.T
+			}
+			newCount++
+		}
+		if len(result.Logs) > 0 {
+			lastBoundaryRaw = string(result.Logs[len(result.Logs)-1])
 		}
 
-		newCount := len(allRows) - prevLen
 		emit(SimEvent{
 			Elapsed: time.Since(startT).Milliseconds(),
 			Tag:     "FETCH",
 			Cls:     "fe",
-			Msg:     fmt.Sprintf("Page %d  %d entries (total: %d)", page, len(result.Logs), len(allRows)),
+			Msg:     fmt.Sprintf("Page %d  %d entries (%d new, total: %d)", page, len(result.Logs), newCount, len(allRows)),
 			Ty:      "info",
 			Step:    "fetch:page",
-			Data:    map[string]interface{}{"page": page, "count": len(result.Logs), "total": len(allRows)},
+			Data:    map[string]interface{}{"page": page, "count": len(result.Logs), "new": newCount, "total": len(allRows)},
 		})
-		_ = newCount
 
-		if len(result.Logs) == 0 {
-			break
-		}
-		if len(result.Logs) == 1 && result.LastEvaluatedKey == nil {
+		// All entries in this page were duplicates of the boundary — we're done.
+		if len(result.Logs) > 0 && newCount == 0 {
 			break
 		}
 
@@ -204,14 +226,14 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 		if delay > 0 {
 			select {
 			case <-ctx.Done():
-				return allRows, ctx.Err()
+				return allRows, page, ctx.Err()
 			case <-time.After(time.Duration(delay) * time.Millisecond):
 			}
 		}
 	}
 
-	// Sort by timestamp
-	sort.Slice(allRows, func(i, j int) bool { return allRows[i].T < allRows[j].T })
+	// Stable sort by timestamp — preserves API-returned order for equal-timestamp entries.
+	sort.SliceStable(allRows, func(i, j int) bool { return allRows[i].T < allRows[j].T })
 
 	emit(SimEvent{
 		Elapsed: time.Since(startT).Milliseconds(),
@@ -222,5 +244,5 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 		Step:    "fetch:done",
 		Data:    map[string]interface{}{"packets": len(allRows), "pages": page},
 	})
-	return allRows, nil
+	return allRows, page, nil
 }

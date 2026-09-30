@@ -128,7 +128,7 @@
 .clr{margin-left:auto;font-size:10px;color:var(--t2);cursor:pointer}.clr:hover{color:var(--t1)}
 .log-body{flex:1;overflow-y:auto;font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:10px;line-height:1.55}
 .log-body::-webkit-scrollbar{width:3px}.log-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.le{padding:2px 10px;display:flex;gap:5px;border-bottom:1px solid rgba(45,42,64,.4)}
+.le{padding:2px 10px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;border-bottom:1px solid rgba(45,42,64,.4)}
 .le:hover{background:var(--bg2)}
 .lts{color:var(--t2);min-width:46px;flex-shrink:0}
 .ltg{min-width:66px;flex-shrink:0;font-weight:700}
@@ -151,7 +151,9 @@
 /* Log payload expansion */
 .le-exp{font-size:8px;color:var(--blue);cursor:pointer;padding:0 4px;flex-shrink:0;opacity:.7;user-select:none}
 .le-exp:hover{opacity:1}
-.le-payload{font-size:9px;font-family:var(--font-mono,'SF Mono','Cascadia Code',Consolas,monospace);color:var(--t1);background:var(--bg0);border:1px solid var(--border);border-radius:3px;padding:6px 8px;margin:3px 0 3px 51px;white-space:pre-wrap;word-break:break-all;display:none;max-height:200px;overflow-y:auto}
+.le-payload{font-size:9px;font-family:var(--font-mono,'SF Mono','Cascadia Code',Consolas,monospace);color:var(--t1);background:var(--bg0);border:1px solid var(--border);border-radius:3px;padding:10px 12px;margin:2px 0 4px;white-space:pre-wrap;word-break:break-all;display:none;max-height:320px;overflow-y:auto;width:100%}
+/* Colored JSON in payloads */
+.json-key{color:#a78bfa}.json-str{color:#34d399}.json-num{color:#fb923c}.json-bool{color:#fbbf24}.json-null{color:#f87171}
 /* Inline-editable sidebar fields */
 .lf-inp{font-size:10px;color:var(--t0);font-family:monospace;background:var(--bg2);border:1px solid transparent;border-radius:4px;padding:3px 6px;flex:1;min-width:0;outline:none;width:100%;height:24px;transition:background .2s,border-color .15s,box-shadow .2s}
 .lf-inp:focus{background:var(--bg3);border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,.12)}
@@ -365,7 +367,7 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
     <div class="ph-hdr"><span>▶</span><span class="ph-title">Phase 2</span><span class="ph-sub">— sequential</span><div class="ph-badge" id="ph2Badge">Pending</div></div>
     <div class="streams">
       <div class="st" id="p2Up"><div class="st-hdr"><div class="badge-circle" style="background:var(--green)">↑</div><span class="st-lbl">OBD Upload</span></div><div class="st-prog"><div class="st-fill fg2" id="pP2U"></div></div><div class="st-stat" id="iP2U">live_obd_<strong id="p2Imei">—</strong>.db</div><div class="st-detail">Accumulated in Phase 1</div></div>
-      <div class="st" id="p2Str" style="flex:2"><div class="st-hdr"><div class="badge-circle" style="background:var(--blue)">⟳</div><span class="st-lbl">Normal Mode Streaming</span></div><div class="st-prog"><div class="st-fill fblue" id="pP2S"></div></div><div class="st-stat" id="iP2S">Published: <strong>0</strong> / <strong id="p2Tot">—</strong></div><div class="st-detail" id="p2NormalInterval">GPS + OBD · 60s interval</div></div>
+      <div class="st" id="p2Str" style="flex:2"><div class="st-hdr"><div class="badge-circle" style="background:var(--blue)">⟳</div><span class="st-lbl">Normal Mode Streaming</span></div><div class="st-prog"><div class="st-fill fblue" id="pP2S"></div></div><div class="st-stat" id="iP2S">Published: <strong>0</strong> / <strong id="p2Tot">—</strong></div><div class="p2-split" style="display:flex;gap:8px;margin:3px 0;font-size:11px"><div class="p2-box" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 7px"><div style="color:var(--green);font-weight:600;font-size:10px;letter-spacing:.5px;margin-bottom:2px">GPS</div><div style="color:var(--t0)">Sent <strong id="p2GpsSent">0</strong>/<strong id="p2GpsTot">—</strong></div><div style="color:var(--t2)">Rem <strong id="p2GpsRem">—</strong></div></div><div class="p2-box" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 7px"><div style="color:var(--orange);font-weight:600;font-size:10px;letter-spacing:.5px;margin-bottom:2px">OBD</div><div style="color:var(--t0)">Sent <strong id="p2ObdSent">0</strong>/<strong id="p2ObdTot">—</strong></div><div style="color:var(--t2)">Rem <strong id="p2ObdRem">—</strong></div></div></div><div class="st-detail" id="p2NormalInterval">GPS + OBD · 60s interval</div></div>
     </div>
   </div>
 
@@ -526,14 +528,27 @@ function updGlobalMs(key, secVal) {
     if (gi) gi.textContent = 'interval: ' + fmtInterval(gps);
     if (oi) oi.textContent = 'interval: ' + fmtInterval(obd);
   }
-  if (running && key === 'normalModeIntervalMs' && mode !== 'mqtt-pub' && mode !== 'fetch') {
-    window.go.main.App.UpdateNormalModeInterval(ms).catch(() => {});
+  if (running && (key === 'normalGpsIntervalMs' || key === 'normalObdIntervalMs') && mode !== 'mqtt-pub' && mode !== 'fetch') {
+    const g2 = SimState.getGlobal();
+    const gpsMs2 = g2.normalGpsIntervalMs || 60000;
+    const obdMs2 = g2.normalObdIntervalMs || 60000;
+    window.go.main.App.UpdateNormalModeIntervals(gpsMs2, obdMs2).catch(() => {});
     const el = g('p2NormalInterval');
-    if (el) el.textContent = 'GPS + OBD · ' + fmtInterval(ms);
+    if (el) el.textContent = _p2NiText(g2);
   }
 }
-function clampInterval(ms) { return Math.min(Math.max(ms, 1000), 60000); }
+function clampInterval(ms) { return Math.min(Math.max(ms, 100), 60000); }
 function fmtInterval(ms) { return ms >= 1000 ? (ms/1000).toFixed(1)+'s' : ms+'ms'; }
+function _p2NiText(gl) {
+  const mode = (gl||SimState.getGlobal()).normalStreamMode || 'independent';
+  if (mode === 'natural') {
+    const ni = (gl||SimState.getGlobal()).naturalOrderIntervalMs || 500;
+    return 'Natural Order · ' + fmtInterval(ni) + '/pkt';
+  }
+  const gps = (gl||SimState.getGlobal()).normalGpsIntervalMs || 60000;
+  const obd = (gl||SimState.getGlobal()).normalObdIntervalMs || 60000;
+  return 'GPS ' + fmtInterval(gps) + ' · OBD ' + fmtInterval(obd);
+}
 
 function patchActiveTest(key, val) {
   if (!activeTest || running) return;
@@ -588,8 +603,10 @@ function renderCfgSummary() {
     if (isCount) {
       return `<div class="ct-row"><span class="ct-lbl">${lbl}</span><div class="ct-inp-wrap"><input class="ct-inp" type="number" min="${minMs}" max="${maxMs}" step="${stepMs}" value="${Math.round(valMs)}" onchange="updGlobal('${key}',this.value,null)" oninput="updGlobal('${key}',this.value,null)"></div></div>`;
     }
-    const sec = Math.round(valMs / 1000);
-    return `<div class="ct-row"><span class="ct-lbl">${lbl}</span><div class="ct-inp-wrap"><input class="ct-inp" type="number" min="${Math.round(minMs/1000)}" max="${Math.round(maxMs/1000)}" step="${Math.max(1,Math.round(stepMs/1000))}" value="${sec}" onchange="updGlobalMs('${key}',this.value)" oninput="updGlobalMs('${key}',this.value)"><span class="ct-unit">s</span></div></div>`;
+    // Allow sub-second (ms) by showing decimal seconds; step drives spinner increment.
+    const fmt = v => +(v / 1000).toFixed(3).replace(/\.?0+$/, '');
+    const stepSec = stepMs >= 1000 ? +(stepMs / 1000).toFixed(1) : 0.1;
+    return `<div class="ct-row"><span class="ct-lbl">${lbl}</span><div class="ct-inp-wrap"><input class="ct-inp" type="number" min="${fmt(minMs)}" max="${fmt(maxMs)}" step="${stepSec}" value="${fmt(valMs)}" onchange="updGlobalMs('${key}',this.value)" oninput="updGlobalMs('${key}',this.value)"><span class="ct-unit">s</span></div></div>`;
   };
 
   const isMqttDirect = (t.mode || 'simulate') === 'mqtt-pub';
@@ -650,14 +667,20 @@ function renderCfgSummary() {
         ${isFetch ? `
         ${tRow('Batch Size', 'batchSize', 5, 100, 5, gl.batchSize||30, true)}
         ` : isMqttDirect ? `
-        ${tRow('GPS Interval', 'gpsL1IntervalMs', 1000, 60000, 1000, Math.min(Math.max(gl.gpsL1IntervalMs||10000,1000),60000))}
-        ${tRow('OBD Interval', 'obdAccumIntervalMs', 1000, 60000, 1000, Math.min(Math.max(gl.obdAccumIntervalMs||5000,1000),60000))}
+        ${tRow('GPS Interval',  'gpsL1IntervalMs',    100, 60000, 100, Math.min(Math.max(gl.gpsL1IntervalMs||10000,100),60000))}
+        ${tRow('OBD Interval',  'obdAccumIntervalMs', 100, 60000, 100, Math.min(Math.max(gl.obdAccumIntervalMs||5000,100),60000))}
         ` : `
-        ${tRow('Batch Upload', 'batchUploadDelayMs', 30000, 600000, 10000, gl.batchUploadDelayMs||120000)}
-        ${tRow('GPS L1 Interval', 'gpsL1IntervalMs', 5000, 60000, 5000, gl.gpsL1IntervalMs||10000)}
-        ${tRow('OBD Accum', 'obdAccumIntervalMs', 30000, 600000, 10000, gl.obdAccumIntervalMs||120000)}
-        ${tRow('Normal Mode', 'normalModeIntervalMs', 10000, 300000, 5000, gl.normalModeIntervalMs||60000)}
-        ${tRow('Batch Size', 'batchSize', 5, 100, 5, gl.batchSize||30, true)}
+        ${tRow('Batch Upload',   'batchUploadDelayMs', 30000, 600000, 10000, gl.batchUploadDelayMs||120000)}
+        ${tRow('GPS L1 Interval','gpsL1IntervalMs',      100,  60000,   100, gl.gpsL1IntervalMs||10000)}
+        ${tRow('OBD Accum',      'obdAccumIntervalMs',  1000, 600000,  1000, gl.obdAccumIntervalMs||120000)}
+        <div class="ct-row"><span class="ct-lbl">Stream Mode</span><div class="ct-inp-wrap" style="flex:1"><select class="ct-inp" style="height:22px;font-size:11px;padding:0 4px" onchange="updGlobal('normalStreamMode',this.value,null);renderConfig()"><option value="independent" ${(gl.normalStreamMode||'independent')==='independent'?'selected':''}>Independent (GPS+OBD separate timers)</option><option value="natural" ${gl.normalStreamMode==='natural'?'selected':''}>Natural Order (time-sorted, one delay)</option></select></div></div>
+        ${(gl.normalStreamMode||'independent')==='independent' ? `
+        ${tRow('Normal GPS',     'normalGpsIntervalMs', 100, 300000,  100, gl.normalGpsIntervalMs||60000)}
+        ${tRow('Normal OBD',     'normalObdIntervalMs', 100, 300000,  100, gl.normalObdIntervalMs||60000)}
+        ` : `
+        ${tRow('Natural Interval','naturalOrderIntervalMs', 100, 300000, 100, gl.naturalOrderIntervalMs||500)}
+        `}
+        ${tRow('Batch Size',     'batchSize', 5, 100, 5, gl.batchSize||30, true)}
         `}
       </div>
     </div>
@@ -670,6 +693,7 @@ function renderCfgSummary() {
         <div class="kv"><span class="k">OBD Rows</span><span class="v" id="rsObd">0/0</span></div>
         <div class="kv"><span class="k">Ph1 Done</span><span class="v" id="rsP1">false</span></div>
         <div class="kv"><span class="k">Ph2 Done</span><span class="v" id="rsP2">—</span></div>
+        <div class="kv" id="skipFetchRow" style="display:none"><span class="k">Skip Fetch</span><div class="lf-tg-wrap"><div class="tg" id="skipFetchChk" onclick="this.classList.toggle('on');SimState.setGlobal({_skipFetch:this.classList.contains('on')})"></div><span class="lf-tg-lbl" id="skipFetchLbl">use cached pkts</span></div></div>
       </div>
     </div>
   `;
@@ -689,38 +713,102 @@ async function loadResumeState() {
   const outDir = (SimState.getGlobal().outputDir) || '';
   try {
     const rs = await window.go.main.App.GetResumeState(outDir, t.tgtImei);
-    const batchFiles      = rs.batchFiles      || 0;
-    const batchesUploaded  = rs.batchesUploaded    || 0;
-    const pkts             = rs.totalPackets       || 0;
-    const totalObd         = rs.totalOBDPackets    || 0;
-    const obdRows          = rs.obdRowsInDB        || 0;
-    const obdOk            = rs.obdExists          || false;
-    const p1Done           = rs.phase1Complete     || false;
-    const p2ObdUploaded    = rs.phase2OBDUploaded  || false;
-    const liveStreamOffset = rs.liveStreamOffset   || 0;
-    const fetchDone        = batchFiles > 0;
+    const batchFiles      = rs.batchFiles        || 0;
+    const batchesUploaded = rs.batchesUploaded   || 0;
+    const pkts            = rs.totalPackets      || 0;
+    const totalObd        = rs.totalOBDPackets   || 0;
+    const obdRows         = rs.obdRowsInDB       || 0;
+    const obdOk           = rs.obdExists         || false;
+    const p1Done          = rs.phase1Complete    || false;
+    const p2ObdUploaded   = rs.phase2OBDUploaded || false;
+    const liveGpsOffset   = rs.liveGpsOffset     || 0;
+    const liveObdOffset   = rs.liveObdOffset     || 0;
+    const historicCount   = rs.historicCount     || 0;
+    const liveGpsCount    = rs.liveGpsCount      || 0;
+    const liveObdCount    = rs.liveObdCount      || 0;
+    const fetchPages      = rs.fetchPages        || 0;
+    const gpsL1Published  = rs.gpsL1Published    || 0;
+    const fetchDone       = batchFiles > 0 || pkts > 0;
 
-    set('rsFetch',   fetchDone ? 'true' : 'false',  fetchDone ? 'var(--green)' : 'var(--t2)');
-    set('rsPkts',    pkts > 0 ? pkts.toLocaleString() : '0', pkts > 0 ? 'var(--t0)' : 'var(--t2)');
+    // ── Sidebar resume state ──────────────────────────────────────────────────
+    set('rsFetch', fetchDone ? 'true' : 'false', fetchDone ? 'var(--green)' : 'var(--t2)');
+    set('rsPkts',  pkts > 0 ? pkts.toLocaleString() : '0', pkts > 0 ? 'var(--t0)' : 'var(--t2)');
     const bStr = batchFiles > 0 ? `${batchesUploaded}/${batchFiles}` : '0/0';
     set('rsBatches', bStr, batchesUploaded > 0 ? (batchesUploaded >= batchFiles ? 'var(--green)' : 'var(--yellow)') : 'var(--t2)');
     const oStr = totalObd > 0 ? `${obdRows}/${totalObd}` : (obdOk ? `${obdRows} rows` : '0');
     set('rsObd', oStr, obdRows > 0 ? (obdRows >= totalObd ? 'var(--green)' : 'var(--yellow)') : 'var(--t2)');
     set('rsP1', p1Done ? 'true' : 'false', p1Done ? 'var(--green)' : (batchesUploaded > 0 ? 'var(--yellow)' : 'var(--t2)'));
-    // Phase 2: show OBD upload + live stream offset
-    let p2Str = '—';
-    let p2Color = '';
-    if (p2ObdUploaded && liveStreamOffset > 0) {
-      p2Str = `obd✓ stream:${liveStreamOffset}`;
+    let p2Str = '—', p2Color = '';
+    const liveOffset = liveGpsOffset + liveObdOffset;
+    if (p2ObdUploaded && liveOffset > 0) {
+      p2Str = `obd✓ gps:${liveGpsOffset} obd:${liveObdOffset}`;
       p2Color = 'var(--yellow)';
     } else if (p2ObdUploaded) {
-      p2Str = 'obd uploaded';
-      p2Color = 'var(--yellow)';
+      p2Str = 'obd uploaded'; p2Color = 'var(--yellow)';
     } else if (p1Done) {
-      p2Str = 'pending';
-      p2Color = 'var(--t2)';
+      p2Str = 'pending'; p2Color = 'var(--t2)';
     }
     set('rsP2', p2Str, p2Color);
+
+    // ── Live metrics counters + bars ─────────────────────────────────────────
+    if (pkts > 0) {
+      const maxP = Math.max(1, pkts);
+      mc('stPkts','mcPkts', pkts.toLocaleString(), pkts, maxP, 'rmPkts','rmPktsLbl');
+      mc('stHist','mcHist', String(historicCount), historicCount, maxP, 'rmHist','rmHistLbl');
+      const liveTotal = Math.max(1, liveGpsCount + liveObdCount);
+      mc('stGps','mcGps', String(liveGpsCount), liveGpsCount, liveTotal, 'rmGps','rmGpsLbl');
+      mc('stObd','mcObd', String(liveObdCount), liveObdCount, liveTotal, 'rmObd','rmObdLbl');
+    }
+
+    // ── Pipeline step badges ─────────────────────────────────────────────────
+    if (fetchDone) {
+      done('cFetch','sFetch','pFetch');
+      setS('iFetch', `Pages: <strong>${fetchPages||'?'}</strong> · <strong>${pkts.toLocaleString()}</strong> pkts`);
+    }
+    if (historicCount > 0 || liveGpsCount > 0 || liveObdCount > 0) {
+      done('cSplit','sSplit','pSplit');
+      setS('iSplit', `<strong>${historicCount}</strong> hist · <strong>${liveGpsCount+liveObdCount}</strong> live`);
+    }
+    if (batchFiles > 0) {
+      const bDone = batchesUploaded >= batchFiles;
+      if (bDone) { done('cBatch','sBatch','pBatch'); } else { g('cBatch').className='step run'; const el=g('sBatch');el.className='ss r';el.textContent='Partial'; }
+      setS('iBatch', `<strong>${batchFiles}</strong> files${bDone ? ' ✓' : ` · ${batchesUploaded} uploaded`}`);
+    }
+    if (p1Done || batchesUploaded > 0) {
+      done('cMqtt','sMqtt','pMqtt');
+      setS('iMqtt','Broker: <strong>Connected ✓</strong>');
+    }
+
+    // ── Phase 1 streams ───────────────────────────────────────────────────────
+    if (batchFiles > 0 || batchesUploaded > 0) {
+      g('ph1').classList.add('on');
+      sA(batchesUploaded, Math.max(1,batchFiles), batchesUploaded);
+    }
+    if (gpsL1Published > 0) sB(gpsL1Published, Math.max(1,liveGpsCount));
+    if (obdRows > 0) sC(obdRows, Math.max(1,totalObd));
+    if (p1Done) phBadge('ph1Badge','Done',false,true);
+    else if (batchesUploaded > 0) phBadge('ph1Badge','Partial',true);
+
+    // ── Phase 2 ───────────────────────────────────────────────────────────────
+    if (p1Done) {
+      g('ph2').classList.add('on');
+      if (p2ObdUploaded) {
+        p2U(100);
+        const imeiEl=g('p2Imei'); if(imeiEl) imeiEl.textContent=t.tgtImei||'—';
+      }
+      if (liveGpsOffset > 0 || liveObdOffset > 0) {
+        const totalStream = Math.max(1, liveGpsCount + liveObdCount);
+        p2S(liveOffset, totalStream, liveGpsOffset, liveObdOffset, liveGpsCount, liveObdCount);
+      }
+      phBadge('ph2Badge', p2ObdUploaded ? (liveOffset > 0 ? 'Partial' : 'OBD done') : 'Pending');
+    }
+
+    // ── Skip-fetch toggle ─────────────────────────────────────────────────────
+    const liveCached = rs.livePktsCached || false;
+    const sfRow = g('skipFetchRow');
+    if (sfRow) sfRow.style.display = liveCached ? '' : 'none';
+    const chk = g('skipFetchChk');
+    if (chk) chk.classList.toggle('on', !!(SimState.getGlobal()._skipFetch) && liveCached);
   } catch(e) { console.warn('[Resume] GetResumeState failed:', e); }
 }
 
@@ -820,11 +908,32 @@ function sA(cur,tot,n){g('pA').style.width=Math.round(cur/tot*100)+'%';setS('iA'
 function sB(pub,tot){g('pB').style.width=Math.round(pub/tot*100)+'%';setS('iB',`Published: <strong>${pub}</strong>`);g('stB').classList.add('on')}
 function sC(rows,tot){g('pC').style.width=Math.round(rows/tot*100)+'%';setS('iC',`Rows: <strong>${rows}</strong>`);g('stC').classList.add('on')}
 function p2U(pct){g('pP2U').style.width=pct+'%';setS('iP2U',`live_obd_<strong>${(activeTest||{}).tgtImei||'—'}</strong>.db ✓`);g('p2Up').classList.add('on')}
-function p2S(cur,tot){g('pP2S').style.width=Math.round(cur/tot*100)+'%';setS('iP2S',`Published: <strong>${cur}</strong>/<strong>${tot}</strong>`);g('p2Str').classList.add('on')}
+function p2S(cur,tot,gpsSent,obdSent,totGps,totObd){
+  g('pP2S').style.width=Math.round(cur/Math.max(1,tot)*100)+'%';
+  setS('iP2S',`Published: <strong>${cur}</strong>/<strong>${tot}</strong>`);
+  g('p2Str').classList.add('on');
+  if(totGps!=null){
+    g('p2GpsTot').textContent=totGps;g('p2GpsSent').textContent=gpsSent||0;
+    g('p2GpsRem').textContent=Math.max(0,totGps-(gpsSent||0));
+  }
+  if(totObd!=null){
+    g('p2ObdTot').textContent=totObd;g('p2ObdSent').textContent=obdSent||0;
+    g('p2ObdRem').textContent=Math.max(0,totObd-(obdSent||0));
+  }
+}
 
 // ── Log ───────────────────────────────────────────────────────
+function colorJson(obj){
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return JSON.stringify(obj,null,2).replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,m=>{
+    if(/^"/.test(m)){if(/:$/.test(m))return`<span class="json-key">${esc(m)}</span>`;return`<span class="json-str">${esc(m)}</span>`;}
+    if(/true|false/.test(m))return`<span class="json-bool">${m}</span>`;
+    if(/null/.test(m))return`<span class="json-null">${m}</span>`;
+    return`<span class="json-num">${m}</span>`;
+  });
+}
 function addLog(ts,tag,cls,msg,ty,rawData){const e={ts,tag,cls,msg,ty,rawData};logs.push(e);renderEntry(e)}
-function renderEntry(e){if(af!=='all'&&e.ty!==af)return;const d=document.createElement('div');d.className='le';d.dataset.ty=e.ty;const mc2=e.ty==='ok'?'ok':e.ty==='warn'?'warn':e.ty==='err'?'err':e.ty==='ph'?'ph':'';const hasP=e.rawData&&e.rawData.payload;d.innerHTML=`<span class="lts">${e.ts}</span><span class="ltg ${e.cls}">[${e.tag}]</span><span class="lm ${mc2}">${e.msg}</span>${hasP?'<span class="le-exp">{…}</span>':''}`;if(hasP){const pre=document.createElement('pre');pre.className='le-payload';pre.style.display='none';try{pre.textContent=JSON.stringify(JSON.parse(e.rawData.payload),null,2);}catch(_){pre.textContent=e.rawData.payload;}const btn=d.querySelector('.le-exp');btn.addEventListener('click',function(ev){ev.stopPropagation();const show=pre.style.display==='none';pre.style.display=show?'block':'none';this.textContent=show?'{✕}':'{…}';});d.appendChild(pre);}const b=g('logBody');b.appendChild(d);b.scrollTop=b.scrollHeight}
+function renderEntry(e){if(af!=='all'&&e.ty!==af)return;const d=document.createElement('div');d.className='le';d.dataset.ty=e.ty;const mc2=e.ty==='ok'?'ok':e.ty==='warn'?'warn':e.ty==='err'?'err':e.ty==='ph'?'ph':'';const hasP=e.rawData&&e.rawData.payload;d.innerHTML=`<span class="lts">${e.ts}</span><span class="ltg ${e.cls}">[${e.tag}]</span><span class="lm ${mc2}">${e.msg}</span>${hasP?'<span class="le-exp">{…}</span>':''}`;if(hasP){const pre=document.createElement('pre');pre.className='le-payload';pre.style.display='none';try{pre.textContent=JSON.stringify(JSON.parse(e.rawData.payload));}catch(_){pre.textContent=e.rawData.payload;}const btn=d.querySelector('.le-exp');btn.addEventListener('click',function(ev){ev.stopPropagation();const show=pre.style.display==='none';pre.style.display=show?'block':'none';this.textContent=show?'{✕}':'{…}';});d.appendChild(pre);}const b=g('logBody');b.appendChild(d);if(b.scrollHeight-b.scrollTop-b.clientHeight<60)b.scrollTop=b.scrollHeight}
 function clearLog(){logs=[];g('logBody').innerHTML=''}
 function filt(type,el){af=type;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on','g','y','r'));el.classList.add('on');if(type==='warn')el.classList.add('y');if(type==='err')el.classList.add('r');g('logBody').innerHTML='';logs.forEach(e=>renderEntry(e))}
 function xport(fmt){let content,mime,ext;const now=new Date().toISOString().replace(/[:.]/g,'-');if(fmt==='txt'){content=logs.map(e=>`${e.ts.padEnd(8)}  [${e.tag.padEnd(12)}]  ${e.msg}`).join('\n');mime='text/plain';ext='txt';}else if(fmt==='json'){content=JSON.stringify(logs.map(e=>{const o={ts:e.ts,tag:e.tag,type:e.ty,msg:e.msg};if(e.rawData&&e.rawData.payload){try{o.payload=JSON.parse(e.rawData.payload);}catch(_){o.payload=e.rawData.payload;}}return o;}),null,2);mime='application/json';ext='json';}else{content='ts,tag,type,msg\n'+logs.map(e=>`"${e.ts}","${e.tag}","${e.ty}","${e.msg.replace(/"/g,'""')}"`).join('\n');mime='text/csv';ext='csv';}const blob=new Blob([content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`run-logs-${now}.${ext}`;a.click();URL.revokeObjectURL(a.href)}
@@ -872,11 +981,11 @@ function buildSimConfig() {
   const mqttBroker   = effectivePlain ? (r.mqttBrokerPlain)                 : (r.mqttBroker   || '');
   const mqttPort     = effectivePlain ? (r.mqttPortPlain   || 1883)         : (r.mqttPort     || 8884);
   const tlsCerts     = effectivePlain ? 'none'                              : (r.tlsCerts     || 'embedded');
-  // In MQTT Direct mode clamp GPS/OBD intervals to the slider range (1s–60s).
+  // In MQTT Direct mode clamp GPS/OBD intervals to the allowed range (100ms–60s).
   // Stored values from other modes (e.g. 120s OBD accum) would otherwise make each packet wait 2 min.
   const clamp = (v, lo, hi, def) => { const n = v || def; return Math.min(Math.max(n, lo), hi); };
-  const gpsMs = isMqttPub ? clamp(g2.gpsL1IntervalMs,    1000, 60000, 10000) : (g2.gpsL1IntervalMs    || 10000);
-  const obdMs = isMqttPub ? clamp(g2.obdAccumIntervalMs, 1000, 60000,  5000) : (g2.obdAccumIntervalMs || 120000);
+  const gpsMs = isMqttPub ? clamp(g2.gpsL1IntervalMs,     100, 60000, 10000) : (g2.gpsL1IntervalMs    || 10000);
+  const obdMs = isMqttPub ? clamp(g2.obdAccumIntervalMs,  100, 60000,  5000) : (g2.obdAccumIntervalMs || 120000);
   return {
     srcImei: t.srcImei || '',
     tgtImei: t.tgtImei || '',
@@ -906,8 +1015,13 @@ function buildSimConfig() {
     batchUploadDelayMs: g2.batchUploadDelayMs || 120000,
     gpsL1IntervalMs:    gpsMs,
     obdAccumIntervalMs: obdMs,
-    normalModeIntervalMs: g2.normalModeIntervalMs || 60000,
-    apiPageSize:   g2.apiPageSize || 1000,
+    normalModeIntervalMs: g2.normalGpsIntervalMs || g2.normalModeIntervalMs || 60000,
+    normalGpsIntervalMs:  g2.normalGpsIntervalMs || 60000,
+    normalObdIntervalMs:  g2.normalObdIntervalMs || 60000,
+    normalStreamMode:     g2.normalStreamMode || 'independent',
+    naturalOrderIntervalMs: g2.naturalOrderIntervalMs || 500,
+    skipFetch: !!g2._skipFetch,
+    apiPageSize:   g2.apiPageSize || 800,
     apiRequestDelay: g2.apiRequestDelay || 300,
     outputDir:    g2.outputDir || '',
     dryRun:       dry,
@@ -923,12 +1037,13 @@ async function startSim() {
   running = true; T0 = Date.now();
   // Seed the Phase 2 normal-mode interval label from current settings
   const _gl0 = SimState.getGlobal();
-  const _nm0 = _gl0.normalModeIntervalMs || 60000;
-  const _ni0 = g('p2NormalInterval'); if (_ni0) _ni0.textContent = 'GPS + OBD · ' + fmtInterval(_nm0);
+  const _gps0 = _gl0.normalGpsIntervalMs || 60000;
+  const _obd0 = _gl0.normalObdIntervalMs || 60000;
+  const _ni0 = g('p2NormalInterval'); if (_ni0) _ni0.textContent = _p2NiText();
   _liveMetrics = { totalPackets:0, historicPackets:0, liveGps:0, liveObd:0, batchesUploaded:0, errors:0 };
   _runId = SimState.newRunId();
   SimState.setGlobal({ _simRunning: true, _simRunId: _runId });
-  SimState.addRun({ id:_runId, testId:activeTest.id, testName:activeTest.name, regionKey:SimState.getActiveRegionKey(), srcImei:activeTest.srcImei, tgtImei:activeTest.tgtImei, from:activeTest.from, until:activeTest.until, histEnd:activeTest.histEnd, mode:activeTest.mode, startedAt:new Date().toISOString(), completedAt:null, status:'running', durationSec:null, metrics:{}, logSnapshot:[] });
+  SimState.addRun({ id:_runId, testId:activeTest.id, testName:activeTest.name, regionKey:SimState.getActiveRegionKey(), srcImei:activeTest.srcImei, tgtImei:activeTest.tgtImei, from:activeTest.from, until:activeTest.until, histEnd:activeTest.histEnd, mode:activeTest.mode, outputDir:SimState.getGlobal().outputDir||'', startedAt:new Date().toISOString(), completedAt:null, status:'running', durationSec:null, metrics:{}, logSnapshot:[] });
   g('btnGo').disabled = true; g('btnStop').disabled = false; g('btnPause').disabled = false;
   setStatus('run', 'Running');
   setRingPhase('Starting');
@@ -1050,13 +1165,13 @@ function handleSimStep(ev) {
       g('ph2').classList.add('on'); phBadge('ph2Badge','Running',true); setRingPhase('Phase 2');
       const _gl2 = SimState.getGlobal();
       const _ni2 = g('p2NormalInterval');
-      if (_ni2) _ni2.textContent = 'GPS + OBD · ' + fmtInterval(_gl2.normalModeIntervalMs || 60000);
+      if (_ni2) _ni2.textContent = _p2NiText(_gl2);
       break;
     }
     case 'p2:upload:done':
       p2U(100); break;
     case 'p2:stream':
-      p2S(d.current||0, Math.max(1,d.total||1)); break;
+      p2S(d.current||0, d.total||0, d.gps||0, d.obd||0, d.totalGps, d.totalObd); break;
     case 'phase2:done':
       phBadge('ph2Badge','Done',false,true); rs('rsP2','true',true); setRingPhase('Done'); break;
     case 'done':
@@ -1081,6 +1196,16 @@ function handleSimStep(ev) {
 
 async function stopSim() {
   if (!_simFinished && running && _runId) saveRunRecord('stopped');
+  // Persist full log to disk before clearing state
+  if (_runId && logs.length) {
+    const outDir = SimState.getGlobal().outputDir || '';
+    if (outDir) {
+      try {
+        const logData = JSON.stringify(logs.map(e => ({ts:e.ts,tag:e.tag,cls:e.cls,msg:e.msg,ty:e.ty,payload:(e.rawData&&e.rawData.payload)||null})));
+        window.go.main.App.SaveRunLogs(outDir, String(_runId), logData).catch(()=>{});
+      } catch(_) {}
+    }
+  }
   if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
   timers.forEach(clearTimeout); timers = []; running = false; paused = false; pendingEvs = [];
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
@@ -1126,6 +1251,8 @@ function _resetUI() {
   setS('iFetch','Pages: <strong>—</strong>');setS('iSplit','Hist/Live: <strong>—</strong>');setS('iBatch','Files: <strong>—</strong>');setS('iMqtt','Broker: <strong>—</strong>');
   ['stPkts','stHist','stGps','stObd'].forEach(id=>setS(id,'0'));
   setS('iA','Batch <strong>0</strong>/<strong>—</strong>');setS('iB','Published: <strong>0</strong>');setS('iC','Rows: <strong>0</strong>');setS('iP2U','live_obd_<strong>—</strong>.db');setS('iP2S','Published: <strong>0</strong>/<strong>—</strong>');
+  ['p2GpsSent','p2GpsRem','p2ObdSent','p2ObdRem'].forEach(id=>{const e=g(id);if(e)e.textContent='0'});
+  ['p2GpsTot','p2ObdTot'].forEach(id=>{const e=g(id);if(e)e.textContent='—'});
   ['stA','stB','stC','p2Up','p2Str','ph1','ph2','mqttDirectCard'].forEach(id=>g(id).classList.remove('on'));
   phBadge('ph1Badge','Pending');phBadge('ph2Badge','Pending');phBadge('mqttDirectBadge','Pending');
   const fdCard = g('fetchDlCard'); if (fdCard) fdCard.classList.remove('ready');
