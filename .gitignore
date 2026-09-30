@@ -1,0 +1,10 @@
+# Build outputs — binaries and installers
+build/bin/*.AppImage
+build/bin/*.dmg
+build/bin/*.exe
+build/bin/device-simulator-linux
+build/bin/device-simulator.app/Contents/MacOS/device-simulator
+
+# macOS metadata
+.DS_Store
+build/.DS_Store
