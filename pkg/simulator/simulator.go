@@ -458,9 +458,10 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 				historicRows = append(historicRows, p.Packet)
 			} else {
 				livePkts = append(livePkts, livePacket{Packet: p.Packet, Type: ptype})
-				if ptype == "gps" {
+				switch ptype {
+				case "gps":
 					liveGpsPackets = append(liveGpsPackets, p.Packet)
-				} else if ptype == "obd" {
+				case "obd":
 					liveObdPackets = append(liveObdPackets, p.Packet)
 				}
 			}
@@ -511,7 +512,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 
 		// ── mqtt-pub mode: publish all packets directly via MQTT, no batch files ──
 		if cfg.Mode == "mqtt-pub" {
-			return runMQTTPubDirect(ctx, cfg, allPackets, emit, elap, s, startT)
+			return runMQTTPubDirect(ctx, cfg, allPackets, emit, elap, s)
 		}
 
 		// ── Step 3: Create batch files ─────────────────────────────────────────
@@ -574,9 +575,10 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 	} else {
 		// Reconstruct GPS/OBD slices from cached livePkts (needed for GPS L1 goroutine).
 		for _, lp := range livePkts {
-			if lp.Type == "gps" {
+			switch lp.Type {
+			case "gps":
 				liveGpsPackets = append(liveGpsPackets, lp.Packet)
-			} else if lp.Type == "obd" {
+			case "obd":
 				liveObdPackets = append(liveObdPackets, lp.Packet)
 			}
 		}
@@ -885,7 +887,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 			return nil
 		}
 
-		if err := runPhase1(ctx, cfg, batchFiles, liveObdPackets, mqttPublish, obdDb, publicKeyPEM, emit, startT, s, outDir, &runState); err != nil && ctx.Err() == nil {
+		if err := runPhase1(ctx, cfg, batchFiles, liveObdPackets, obdDb, publicKeyPEM, emit, startT, s, outDir, &runState); err != nil && ctx.Err() == nil {
 			emit(SimEvent{Elapsed: elap(), Tag: "PHASE 1", Cls: "er", Msg: fmt.Sprintf("Phase 1 error: %v", err), Ty: "warn"})
 		}
 		obdDb.Close()
@@ -979,7 +981,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 // C: OBD accumulation into SQLite (interval-based, stops when A finishes)
 // GPS L1 streaming is managed by runSimulation so it spans Phase 1 and
 // Phase 2 OBD upload, stopping only after OBD history is committed.
-func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPackets []map[string]interface{}, publish func(string, []byte) error, obdDb *sql.DB, publicKeyPEM string, emit func(SimEvent), startT time.Time, s *Simulator, outDir string, runState *simRunState) error {
+func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPackets []map[string]interface{}, obdDb *sql.DB, publicKeyPEM string, emit func(SimEvent), startT time.Time, s *Simulator, outDir string, runState *simRunState) error {
 	elap := func() int64 { return time.Since(startT).Milliseconds() }
 	phaseStart := time.Now()
 
@@ -1181,18 +1183,20 @@ func runNaturalOrderStream(ctx context.Context, cfg Config, livePkts []livePacke
 	// Pre-count totals for remaining display
 	totalGps, totalObd := 0, 0
 	for _, lp := range livePkts {
-		if lp.Type == "gps" {
+		switch lp.Type {
+		case "gps":
 			totalGps++
-		} else if lp.Type == "obd" {
+		case "obd":
 			totalObd++
 		}
 	}
 
 	if startIdx > 0 && startIdx < total {
 		for _, lp := range livePkts[:startIdx] {
-			if lp.Type == "gps" {
+			switch lp.Type {
+			case "gps":
 				gpsCount++
-			} else if lp.Type == "obd" {
+			case "obd":
 				obdCount++
 			}
 		}
@@ -1561,7 +1565,7 @@ func (n *noopMQTT) Disconnect(_ uint) {}
 
 // runMQTTPubDirect implements the "mqtt-pub" mode: fetch → split → publish all
 // packets directly to MQTT without creating batch files or HTTP uploads.
-func runMQTTPubDirect(ctx context.Context, cfg Config, allPackets []Packet, emit func(SimEvent), elap func() int64, s *Simulator, startT time.Time) error {
+func runMQTTPubDirect(ctx context.Context, cfg Config, allPackets []Packet, emit func(SimEvent), elap func() int64, s *Simulator) error {
 	topic := cfg.TgtIMEI + "/obd"
 
 	// Split into independent GPS and OBD streams — filter out handshake/unknown.
