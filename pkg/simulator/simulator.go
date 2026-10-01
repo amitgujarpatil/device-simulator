@@ -887,10 +887,19 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 			return nil
 		}
 
-		if err := runPhase1(ctx, cfg, batchFiles, liveObdPackets, obdDb, publicKeyPEM, emit, startT, s, outDir, &runState); err != nil && ctx.Err() == nil {
-			emit(SimEvent{Elapsed: elap(), Tag: "PHASE 1", Cls: "er", Msg: fmt.Sprintf("Phase 1 error: %v", err), Ty: "warn"})
-		}
+		p1Err := runPhase1(ctx, cfg, batchFiles, liveObdPackets, obdDb, publicKeyPEM, emit, startT, s, outDir, &runState)
 		obdDb.Close()
+
+		if p1Err != nil && ctx.Err() == nil {
+			// Upload failed permanently — do not mark Phase 1 complete, do not run Phase 2.
+			emit(SimEvent{
+				Elapsed: elap(), Tag: "PHASE 1", Cls: "er",
+				Msg:  fmt.Sprintf("Phase 1 stopped due to upload failure: %v", p1Err),
+				Ty:   "err", Step: "error",
+			})
+			closeGpsL1()
+			return p1Err
+		}
 
 		if ctx.Err() == nil {
 			runState.Phase1Complete = true
@@ -1002,6 +1011,13 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPack
 	var wg sync.WaitGroup
 
 	// ── Stream A: sequential historic uploads ───────────────────────────────
+	const maxUploadAttempts = 3
+	const uploadRetryDelay = 15 * time.Second
+
+	// uploadErr captures any fatal upload error from Stream A so runPhase1 can
+	// return it to the caller after wg.Wait().
+	var uploadErr error
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -1019,59 +1035,93 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPack
 			if i < runState.BatchesUploaded {
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
-					Msg: fmt.Sprintf("SKIP batch_%d/%d (already uploaded)", i+1, len(batchFiles)), Ty: "info",
-					Step: "p1:upload",
+					Msg:  fmt.Sprintf("SKIP batch_%d/%d (already uploaded)", i+1, len(batchFiles)),
+					Ty:   "info", Step: "p1:upload",
 					Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 				})
 				continue
 			}
 
-			uploaded := false
 			if cfg.DryRun {
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "DRY/UPLOAD", Cls: "up",
-					Msg: fmt.Sprintf("SKIP upload: batch_%d (dry run)", i+1), Ty: "info",
-					Step: "p1:upload",
+					Msg:  fmt.Sprintf("SKIP upload: batch_%d/%d (dry run)", i+1, len(batchFiles)),
+					Ty:   "info", Step: "p1:upload",
 					Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 				})
 				time.Sleep(200 * time.Millisecond)
-				uploaded = true
+				runState.BatchesUploaded = i + 1
+				saveRunState(outDir, cfg.TgtIMEI, *runState)
 			} else {
-				t0 := time.Now()
-				err := uploadFile(dbPath, i+1, cfg)
-				elapsed := time.Since(t0)
-				if err != nil {
+				// Announce which file is about to be sent so the URL is visible in logs.
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
+					Msg: fmt.Sprintf("Uploading batch_%d/%d → %s", i+1, len(batchFiles), cfg.UploadURL),
+					Ty:  "info",
+				})
+
+				var batchErr error
+				for attempt := 1; attempt <= maxUploadAttempts; attempt++ {
+					if ctx.Err() != nil {
+						return
+					}
+					t0 := time.Now()
+					batchErr = uploadFile(dbPath, i+1, cfg)
+					elapsed := time.Since(t0)
+
+					if batchErr == nil {
+						emit(SimEvent{
+							Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
+							Msg:  fmt.Sprintf("OK 200 — batch_%d/%d in %dms", i+1, len(batchFiles), elapsed.Milliseconds()),
+							Ty:   "ok", Step: "p1:upload",
+							Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
+						})
+						break
+					}
+
 					emit(SimEvent{
 						Elapsed: elap(), Tag: "UPLOAD", Cls: "er",
-						Msg: fmt.Sprintf("batch_%d FAILED: %v — will retry on next run", i+1, err), Ty: "warn",
-						Step: "p1:upload",
-						Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
+						Msg: fmt.Sprintf("batch_%d attempt %d/%d FAILED (%dms): %v",
+							i+1, attempt, maxUploadAttempts, elapsed.Milliseconds(), batchErr),
+						Ty: "warn",
 					})
-				} else {
-					emit(SimEvent{
-						Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
-						Msg:  fmt.Sprintf("OK 200 — batch_%d/%d in %dms", i+1, len(batchFiles), elapsed.Milliseconds()),
-						Ty:   "ok",
-						Step: "p1:upload",
-						Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
-					})
-					uploaded = true
-				}
-			}
 
-			// Only persist progress when the upload actually succeeded.
-			// On failure the batch index stays at the previous value so it will
-			// be retried on the next resume.
-			if uploaded {
+					if attempt < maxUploadAttempts {
+						emit(SimEvent{
+							Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
+							Msg: fmt.Sprintf("Retrying batch_%d in %.0fs…", i+1, uploadRetryDelay.Seconds()),
+							Ty:  "info",
+						})
+						if s.waitInterruptible(ctx, uploadRetryDelay) != nil {
+							return
+						}
+					}
+				}
+
+				if batchErr != nil {
+					// All attempts exhausted — stop Phase 1.
+					uploadErr = fmt.Errorf("batch_%d failed after %d attempts: %w", i+1, maxUploadAttempts, batchErr)
+					emit(SimEvent{
+						Elapsed: elap(), Tag: "UPLOAD", Cls: "er",
+						Msg: fmt.Sprintf("FATAL: %v — stopping Phase 1", uploadErr),
+						Ty:  "err", Step: "error",
+					})
+					return
+				}
+
 				runState.BatchesUploaded = i + 1
 				saveRunState(outDir, cfg.TgtIMEI, *runState)
 			}
 
+			// Interruptible delay between batches (not after the last one).
 			if i < len(batchFiles)-1 {
-				select {
-				case <-ctx.Done():
+				emit(SimEvent{
+					Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
+					Msg: fmt.Sprintf("Waiting %.0fs before batch_%d…", batchUploadDelay.Seconds(), i+2),
+					Ty:  "info",
+				})
+				if s.waitInterruptible(ctx, batchUploadDelay) != nil {
 					return
-				case <-time.After(batchUploadDelay):
 				}
 			}
 		}
@@ -1155,9 +1205,8 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPack
 
 	wg.Wait()
 
-	phaseElapsed := time.Since(phaseStart).Milliseconds()
-	_ = phaseElapsed
-	return nil
+	_ = time.Since(phaseStart)
+	return uploadErr
 }
 
 // runNaturalOrderStream streams livePkts in original time-sorted order (GPS and OBD
