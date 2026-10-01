@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func uploadFile(filePath string, cfg Config) error {
+func uploadFile(filePath string, seqID int, cfg Config) error {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("open file: %w", err)
@@ -37,7 +37,7 @@ func uploadFile(filePath string, cfg Config) error {
 	req.Header.Set("intangles-user-token", cfg.UserToken)
 	req.Header.Set("imei", cfg.TgtIMEI)
 	req.Header.Set("session-token", cfg.SessionToken)
-	req.Header.Set("seq-id", "1")
+	req.Header.Set("seq-id", fmt.Sprintf("%d", seqID))
 	if cfg.EncryptEnabled {
 		req.Header.Set("is-file-encrypted", "true")
 	}

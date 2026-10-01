@@ -1024,6 +1024,7 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPack
 				continue
 			}
 
+			uploaded := false
 			if cfg.DryRun {
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "DRY/UPLOAD", Cls: "up",
@@ -1032,36 +1033,37 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPack
 					Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 				})
 				time.Sleep(200 * time.Millisecond)
+				uploaded = true
 			} else {
 				t0 := time.Now()
-				err := uploadFile(dbPath, cfg)
+				err := uploadFile(dbPath, i+1, cfg)
 				elapsed := time.Since(t0)
 				if err != nil {
 					emit(SimEvent{
 						Elapsed: elap(), Tag: "UPLOAD", Cls: "er",
-						Msg: fmt.Sprintf("batch_%d FAILED: %v", i+1, err), Ty: "warn",
+						Msg: fmt.Sprintf("batch_%d FAILED: %v — will retry on next run", i+1, err), Ty: "warn",
+						Step: "p1:upload",
+						Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 					})
 				} else {
 					emit(SimEvent{
 						Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
-						Msg:  fmt.Sprintf("OK 200 — batch_%d in %dms", i+1, elapsed.Milliseconds()),
+						Msg:  fmt.Sprintf("OK 200 — batch_%d/%d in %dms", i+1, len(batchFiles), elapsed.Milliseconds()),
 						Ty:   "ok",
 						Step: "p1:upload",
 						Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
 					})
+					uploaded = true
 				}
-				emit(SimEvent{
-					Elapsed: elap(), Tag: "UPLOAD", Cls: "up",
-					Msg:  fmt.Sprintf("Batch %d/%d uploaded", i+1, len(batchFiles)),
-					Ty:   "ok",
-					Step: "p1:upload",
-					Data: map[string]interface{}{"current": i + 1, "total": len(batchFiles), "n": i + 1},
-				})
 			}
 
-			// Persist upload progress so we can resume after a stop
-			runState.BatchesUploaded = i + 1
-			saveRunState(outDir, cfg.TgtIMEI, *runState)
+			// Only persist progress when the upload actually succeeded.
+			// On failure the batch index stays at the previous value so it will
+			// be retried on the next resume.
+			if uploaded {
+				runState.BatchesUploaded = i + 1
+				saveRunState(outDir, cfg.TgtIMEI, *runState)
+			}
 
 			if i < len(batchFiles)-1 {
 				select {
@@ -1318,7 +1320,7 @@ func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []liv
 				return nil
 			}
 			t0 := time.Now()
-			if err := uploadFile(obdDbPath, cfg); err != nil {
+			if err := uploadFile(obdDbPath, 1, cfg); err != nil {
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "P2/UPLOAD", Cls: "er",
 					Msg: fmt.Sprintf("OBD upload attempt %d FAILED: %v — retrying in %.0fs (GPS L1 continues)", attempt, err, retryDelay.Seconds()),
