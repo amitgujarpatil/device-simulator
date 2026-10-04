@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>Validate — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+.app-wrap{flex-direction:column!important}
+/* ── Header bar ── */
+.page-hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 14px;height:44px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.ph-title{font-size:12px;font-weight:700;color:var(--t0)}.ph-title span{color:var(--blue)}
+.ph-sub{font-size:10px;color:var(--t2);font-family:monospace}
+.sp{flex:1}
+.ph-btn{padding:4px 12px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s;white-space:nowrap}
+.ph-btn:hover{background:var(--bg3);color:var(--t0)}
+.ph-btn.primary{background:var(--blue);color:#000;border-color:var(--blue)}.ph-btn.primary:hover{filter:brightness(1.12)}
+.ph-btn:disabled{opacity:.4;cursor:not-allowed}
+.ph-spinner{display:none;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+.ph-spinner.on{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ── Summary row ── */
+.sum-row{display:flex;gap:8px;padding:10px 14px;background:var(--bg0);border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
+.sc{flex:1;min-width:120px;background:var(--bg1);border:1px solid var(--border);border-radius:7px;padding:9px 12px;display:flex;flex-direction:column;gap:4px}
+.sc.match{border-color:rgba(52,211,153,.3)}.sc.diff{border-color:rgba(251,191,36,.3)}.sc.miss{border-color:rgba(248,113,113,.3)}
+.sc-title{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2)}
+.sc-nums{display:flex;gap:16px}
+.sc-pair{display:flex;flex-direction:column;align-items:center;gap:1px}
+.sc-lbl{font-size:8px;color:var(--t2)}.sc-num{font-size:20px;font-weight:800;font-family:monospace;line-height:1;color:var(--t0)}
+.sc-diff{font-size:10px;font-weight:700;align-self:center;padding:2px 7px;border-radius:4px}
+.sc-diff.ok{background:rgba(52,211,153,.12);color:var(--green)}.sc-diff.warn{background:rgba(251,191,36,.12);color:var(--yellow)}.sc-diff.bad{background:rgba(248,113,113,.12);color:var(--red)}
+/* ── Tabs ── */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg1);padding:0 14px;flex-shrink:0}
+.tab{padding:8px 14px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;cursor:pointer;color:var(--t2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s}
+.tab:hover{color:var(--t1)}.tab.on{color:var(--blue);border-bottom-color:var(--blue)}
+/* ── Filter bar ── */
+.filter-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;border-bottom:1px solid var(--border);background:var(--bg1);flex-shrink:0;flex-wrap:wrap}
+.fb-lbl{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
+.chip{padding:2px 8px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s}
+.chip.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.chip.src.on{background:rgba(129,140,248,.13);border-color:#818cf8;color:#818cf8}
+.chip.tgt.on{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
+.chip.type.on{background:rgba(251,191,36,.12);border-color:var(--yellow);color:var(--yellow)}
+.fb-sep{width:1px;height:14px;background:var(--border)}
+.fb-search{flex:1;min-width:120px;max-width:240px;padding:4px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:10px;outline:none}
+.fb-search:focus{border-color:var(--blue)}
+/* ── Table area ── */
+.tbl-wrap{flex:1;overflow:auto}
+.tbl-wrap::-webkit-scrollbar{width:4px;height:4px}.tbl-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+table.dtbl{width:100%;border-collapse:collapse;font-size:10px}
+table.dtbl th{position:sticky;top:0;padding:5px 12px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);background:var(--bg1);border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+table.dtbl th:hover{color:var(--t0)}
+table.dtbl th.asc::after{content:' ▲';font-size:7px}
+table.dtbl th.desc::after{content:' ▼';font-size:7px}
+table.dtbl td{padding:5px 12px;border-bottom:1px solid rgba(45,42,64,.35);color:var(--t1);vertical-align:top;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.dtbl tr:hover td{background:var(--bg2);color:var(--t0)}
+table.dtbl td.mono{font-family:monospace;color:var(--t0)}
+table.dtbl td.src{color:#818cf8}table.dtbl td.tgt{color:var(--green)}
+table.dtbl td.match{color:var(--green)}.dtbl td.diff{color:var(--yellow)}.dtbl td.bad{color:var(--red)}
+/* Expandable raw JSON */
+.exp-btn{font-size:8px;color:var(--blue);cursor:pointer;padding:0 4px;opacity:.7;user-select:none}
+.exp-btn:hover{opacity:1}
+.exp-row td{padding:0 12px 6px!important;max-width:none!important;overflow:visible!important;white-space:normal!important}
+.exp-pre{font-size:9px;font-family:var(--font-mono,'SF Mono','Cascadia Code',Consolas,monospace);color:var(--t1);background:var(--bg0);border:1px solid var(--border);border-radius:4px;padding:10px 12px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;margin:0}
+/* ── Footer bar ── */
+.ftr{display:flex;align-items:center;gap:6px;padding:6px 14px;border-top:1px solid var(--border);background:var(--bg1);flex-shrink:0}
+.ftr-info{font-size:9px;color:var(--t2);flex:1;font-family:monospace}
+.ftr-btn{padding:4px 10px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1)}
+.ftr-btn:hover{background:var(--bg3);color:var(--t0)}
+/* ── Empty / error states ── */
+.empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;flex:1;color:var(--t2);font-size:11px;padding:40px}
+.empty-icon{font-size:28px;opacity:.3}
+.err-banner{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:5px;padding:8px 12px;font-size:10px;color:var(--red);margin:10px 14px}
+/* ── Alert type breakdown section ── */
+.breakdown{padding:12px 14px;border-bottom:1px solid var(--border);background:var(--bg0)}
+.breakdown-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:8px}
+.bkd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px}
+.bkd-row{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;font-size:9px}
+.bkd-type{flex:1;color:var(--t1)}.bkd-src{color:#818cf8;font-family:monospace;min-width:24px;text-align:right}.bkd-tgt{color:var(--green);font-family:monospace;min-width:24px;text-align:right}.bkd-sep{color:var(--t2)}.bkd-d{font-family:monospace;min-width:24px;text-align:right}
+.bkd-d.ok{color:var(--green)}.bkd-d.warn{color:var(--yellow)}.bkd-d.bad{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+<!-- Wails injects sim-nav.js side-nav here -->
+
+<div class="page-hdr">
+  <div>
+    <div class="ph-title">Sim <span>Validate</span></div>
+    <div class="ph-sub" id="phSub">Loading…</div>
+  </div>
+  <div class="sp"></div>
+  <div class="ph-spinner" id="phSpinner"></div>
+  <button class="ph-btn primary" id="reCheckBtn" onclick="reCheck()" disabled>▶ Re-Check</button>
+  <button class="ph-btn" onclick="history.back()">← Back</button>
+</div>
+
+<!-- Summary -->
+<div class="sum-row" id="sumRow">
+  <div class="sc" id="scTrips">
+    <div class="sc-title">Trips</div>
+    <div class="sc-nums">
+      <div class="sc-pair"><span class="sc-lbl">SRC</span><span class="sc-num" id="scSrcTrips">—</span></div>
+      <div class="sc-pair"><span class="sc-lbl">TGT</span><span class="sc-num" id="scTgtTrips">—</span></div>
+      <div class="sc-diff" id="scTripsDiff"></div>
+    </div>
+  </div>
+  <div class="sc" id="scAlerts">
+    <div class="sc-title">Alerts</div>
+    <div class="sc-nums">
+      <div class="sc-pair"><span class="sc-lbl">SRC</span><span class="sc-num" id="scSrcAlerts">—</span></div>
+      <div class="sc-pair"><span class="sc-lbl">TGT</span><span class="sc-num" id="scTgtAlerts">—</span></div>
+      <div class="sc-diff" id="scAlertsDiff"></div>
+    </div>
+  </div>
+  <div class="sc" id="scDtcs">
+    <div class="sc-title">DTCs</div>
+    <div class="sc-nums">
+      <div class="sc-pair"><span class="sc-lbl">SRC</span><span class="sc-num" id="scSrcDtcs">—</span></div>
+      <div class="sc-pair"><span class="sc-lbl">TGT</span><span class="sc-num" id="scTgtDtcs">—</span></div>
+      <div class="sc-diff" id="scDtcsDiff"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Error banner -->
+<div class="err-banner" id="errBanner" style="display:none"></div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <span class="tab on" id="tabTrips"  onclick="switchTab('trips')">Trips</span>
+  <span class="tab"    id="tabAlerts" onclick="switchTab('alerts')">Alerts</span>
+  <span class="tab"    id="tabDtcs"   onclick="switchTab('dtcs')">DTCs</span>
+</div>
+
+<!-- Filter bar -->
+<div class="filter-bar" id="filterBar">
+  <span class="fb-lbl">Vehicle</span>
+  <span class="chip src on" id="fSrc" onclick="toggleFilter('src',this)">SRC</span>
+  <span class="chip tgt on" id="fTgt" onclick="toggleFilter('tgt',this)">TGT</span>
+  <div class="fb-sep"></div>
+  <input class="fb-search" id="fbSearch" type="text" placeholder="Search…" oninput="applyFilters()">
+  <div class="sp"></div>
+</div>
+
+<!-- Breakdown (alerts tab only) -->
+<div class="breakdown" id="breakdownPanel" style="display:none">
+  <div class="breakdown-title">Per-Type Breakdown</div>
+  <div class="bkd-grid" id="bkdGrid"></div>
+</div>
+
+<!-- Table -->
+<div class="tbl-wrap" id="tblWrap">
+  <div class="empty" id="emptyState">
+    <div class="empty-icon">◎</div>
+    <span>No validation data — go back and click Check</span>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="ftr">
+  <span class="ftr-info" id="ftrInfo"></span>
+  <button class="ftr-btn" onclick="exportData('csv')">↓ CSV</button>
+  <button class="ftr-btn" onclick="exportData('json')">↓ JSON</button>
+</div>
+</div>
+
+<script>
+'use strict';
+let _result = null;
+let _activeTab = 'trips';
+let _showSrc = true, _showTgt = true;
+let _sortCol = null, _sortDir = 1;
+let _search = '';
+
+// ── Load saved result ─────────────────────────────────────────
+function loadResult() {
+  try {
+    const raw = localStorage.getItem('sim_val_result');
+    if (raw) {
+      _result = JSON.parse(raw);
+      applyResult();
+    }
+  } catch(e) {}
+}
+
+function applyResult() {
+  if (!_result) return;
+  const t = SimState.getActiveTest(), r = SimState.getRegion(SimState.getActiveRegionKey());
+  const checkedAt = _result.checkedAt ? new Date(_result.checkedAt).toLocaleString() : '';
+  const testName = t ? t.name : 'Unknown Test';
+  const src = _result.src || {}, tgt = _result.tgt || {};
+  document.getElementById('phSub').textContent =
+    testName + ' · ' + fmtMs(t && t.from) + ' → ' + fmtMs(t && t.until) + ' · Checked ' + checkedAt;
+
+  // Summary cards
+  renderSummaryCard('Trips',  'scTrips',  src.tripCount||0,  tgt.tripCount||0);
+  renderSummaryCard('Alerts', 'scAlerts', src.alertCount||0, tgt.alertCount||0);
+  renderSummaryCard('DTCs',   'scDtcs',   (src.dtcActiveCount||0)+(src.dtcInactiveCount||0),   (tgt.dtcActiveCount||0)+(tgt.dtcInactiveCount||0));
+
+  // Error banner
+  const errs = [...(src.errors||[]),...(tgt.errors||[])];
+  if (_result.error) errs.unshift(_result.error);
+  if (errs.length) {
+    document.getElementById('errBanner').style.display = '';
+    document.getElementById('errBanner').textContent = errs.join(' | ');
+  } else {
+    document.getElementById('errBanner').style.display = 'none';
+  }
+
+  // Enable re-check if we have the minimum: userToken (accId is auto-resolved from IMEI)
+  if (r && r.userToken) document.getElementById('reCheckBtn').disabled = false;
+
+  renderTab();
+}
+
+function renderSummaryCard(title, id, srcN, tgtN) {
+  const d = tgtN - srcN;
+  const cls = d === 0 ? 'ok' : (Math.abs(d) <= 2 ? 'warn' : 'bad');
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'sc ' + (cls === 'ok' ? 'match' : cls === 'warn' ? 'diff' : 'miss');
+  const srcEl = document.getElementById(id.replace('sc','sc') + 'Src' + title.charAt(0).toUpperCase() + title.slice(1).replace('s','s'));
+  // Use named IDs
+  const map = {scTrips:['scSrcTrips','scTgtTrips','scTripsDiff'],scAlerts:['scSrcAlerts','scTgtAlerts','scAlertsDiff'],scDtcs:['scSrcDtcs','scTgtDtcs','scDtcsDiff']};
+  const ids = map[id];
+  if (!ids) return;
+  document.getElementById(ids[0]).textContent = srcN;
+  document.getElementById(ids[1]).textContent = tgtN;
+  const diffEl = document.getElementById(ids[2]);
+  diffEl.className = 'sc-diff ' + cls;
+  diffEl.textContent = d === 0 ? '✓ Match' : (d > 0 ? '+' : '') + d;
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function switchTab(tab) {
+  _activeTab = tab;
+  _sortCol = null; _sortDir = 1; _search = '';
+  document.getElementById('fbSearch').value = '';
+  ['trips','alerts','dtcs'].forEach(t => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('on', t === tab);
+  });
+  document.getElementById('breakdownPanel').style.display = tab === 'alerts' ? '' : 'none';
+  renderTab();
+}
+
+function toggleFilter(side, el) {
+  if (side === 'src') _showSrc = !_showSrc;
+  else _showTgt = !_showTgt;
+  if (!_showSrc && !_showTgt) { _showSrc = true; _showTgt = true; } // prevent all hidden
+  document.getElementById('fSrc').classList.toggle('on', _showSrc);
+  document.getElementById('fTgt').classList.toggle('on', _showTgt);
+  applyFilters();
+}
+
+function applyFilters() {
+  _search = document.getElementById('fbSearch').value.toLowerCase().trim();
+  renderTab();
+}
+
+function renderTab() {
+  if (!_result) return;
+  const src = _result.src || {}, tgt = _result.tgt || {};
+  if (_activeTab === 'trips')  renderTrips(src.trips||[], tgt.trips||[]);
+  if (_activeTab === 'alerts') renderAlerts(src.alerts||[], tgt.alerts||[], src.alertsByType||{}, tgt.alertsByType||{});
+  if (_activeTab === 'dtcs')   renderDtcs(src.dtcsActive||[], src.dtcsInactive||[], tgt.dtcsActive||[], tgt.dtcsInactive||[]);
+}
+
+// ── Sort helper ───────────────────────────────────────────────
+function thClick(col) {
+  if (_sortCol === col) _sortDir *= -1;
+  else { _sortCol = col; _sortDir = 1; }
+  renderTab();
+}
+
+function sortRows(rows, col) {
+  if (!col) return rows;
+  return [...rows].sort((a, b) => {
+    let av = a[col], bv = b[col];
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av == null) av = -Infinity;
+    if (bv == null) bv = -Infinity;
+    return av < bv ? -_sortDir : av > bv ? _sortDir : 0;
+  });
+}
+
+function thCls(col) { return _sortCol === col ? (_sortDir === 1 ? 'asc' : 'desc') : ''; }
+
+// ── Trips ─────────────────────────────────────────────────────
+function renderTrips(srcTrips, tgtTrips) {
+  let rows = [
+    ...srcTrips.map(r => ({ ...r, _side: 'src' })),
+    ...tgtTrips.map(r => ({ ...r, _side: 'tgt' })),
+  ];
+  rows = rows.filter(r => {
+    if (!_showSrc && r._side === 'src') return false;
+    if (!_showTgt && r._side === 'tgt') return false;
+    if (_search) {
+      const hay = JSON.stringify(r).toLowerCase();
+      if (!hay.includes(_search)) return false;
+    }
+    return true;
+  });
+  rows = sortRows(rows, _sortCol || 'start_time');
+  if (!rows.length) { showEmpty(); return; }
+
+  const thead = `<tr>
+    <th onclick="thClick('_side')" class="${thCls('_side')}">Vehicle</th>
+    <th onclick="thClick('start_time')" class="${thCls('start_time')}">Start</th>
+    <th onclick="thClick('end_time')" class="${thCls('end_time')}">End</th>
+    <th onclick="thClick('distance')" class="${thCls('distance')}">Distance</th>
+    <th onclick="thClick('duration')" class="${thCls('duration')}">Duration</th>
+    <th onclick="thClick('max_speed')" class="${thCls('max_speed')}">Max Spd</th>
+    <th onclick="thClick('avg_speed')" class="${thCls('avg_speed')}">Avg Spd</th>
+    <th></th>
+  </tr>`;
+
+  const tbody = rows.map((r, i) => {
+    const startStr = r.start_time ? new Date(r.start_time).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+    const endStr   = r.end_time   ? new Date(r.end_time).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'})   : '—';
+    const dist  = r.distance != null ? (r.distance/1000).toFixed(2) + ' km' : '—';
+    const dur   = r.duration  ? fmtDurMs(r.duration * 1000) : '—';
+    const maxSpd = r.max_speed  != null ? r.max_speed  + ' km/h' : '—';
+    const avgSpd = r.avg_speed  != null ? r.avg_speed  + ' km/h' : '—';
+    return `<tr>
+      <td class="${r._side}">${r._side.toUpperCase()}</td>
+      <td class="mono" title="${r.start_time}">${startStr}</td>
+      <td class="mono" title="${r.end_time}">${endStr}</td>
+      <td>${dist}</td>
+      <td>${dur}</td>
+      <td>${maxSpd}</td>
+      <td>${avgSpd}</td>
+      <td><span class="exp-btn" onclick="toggleExp(this,${i})">{…}</span></td>
+    </tr>
+    <tr class="exp-row" id="exp-${i}" style="display:none"><td colspan="8"><pre class="exp-pre">${escHtml(JSON.stringify(r, null, 2))}</pre></td></tr>`;
+  }).join('');
+
+  setTable(thead, tbody);
+  setFtrInfo(rows.length + ' trips shown (' + srcTrips.length + ' SRC, ' + tgtTrips.length + ' TGT)');
+}
+
+// ── Alerts ────────────────────────────────────────────────────
+function renderAlerts(srcAlerts, tgtAlerts, srcByType, tgtByType) {
+  // Breakdown panel
+  const allTypes = [...new Set([...Object.keys(srcByType), ...Object.keys(tgtByType)])].sort();
+  if (allTypes.length) {
+    document.getElementById('bkdGrid').innerHTML = allTypes.map(type => {
+      const s = srcByType[type]||0, tv = tgtByType[type]||0, d = tv - s;
+      const dcls = d === 0 ? 'ok' : Math.abs(d) <= 1 ? 'warn' : 'bad';
+      return `<div class="bkd-row"><span class="bkd-type">${fmtAlertType(type)}</span>
+        <span class="bkd-src">${s}</span><span class="bkd-sep">/</span><span class="bkd-tgt">${tv}</span>
+        <span class="bkd-d ${dcls}">${d===0?'✓':(d>0?'+':'')+d}</span></div>`;
+    }).join('');
+  }
+
+  let rows = [
+    ...srcAlerts.map(r => ({ ...r, _side: 'src' })),
+    ...tgtAlerts.map(r => ({ ...r, _side: 'tgt' })),
+  ];
+  rows = rows.filter(r => {
+    if (!_showSrc && r._side === 'src') return false;
+    if (!_showTgt && r._side === 'tgt') return false;
+    if (_search) {
+      const hay = JSON.stringify(r).toLowerCase();
+      if (!hay.includes(_search)) return false;
+    }
+    return true;
+  });
+  rows = sortRows(rows, _sortCol || 'timestamp');
+  if (!rows.length && !allTypes.length) { showEmpty(); return; }
+
+  const thead = `<tr>
+    <th onclick="thClick('_side')" class="${thCls('_side')}">Vehicle</th>
+    <th onclick="thClick('alert_type')" class="${thCls('alert_type')}">Type</th>
+    <th onclick="thClick('timestamp')" class="${thCls('timestamp')}">Time</th>
+    <th onclick="thClick('severity')" class="${thCls('severity')}">Severity</th>
+    <th>Details</th>
+    <th></th>
+  </tr>`;
+
+  const tbody = rows.map((r, i) => {
+    const ts  = r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+    const typ = fmtAlertType(r.alert_type || r.type || '—');
+    const sev = r.severity || r.priority || '—';
+    const det = r.message || r.description || r.location || '';
+    return `<tr>
+      <td class="${r._side}">${r._side.toUpperCase()}</td>
+      <td>${typ}</td>
+      <td class="mono" title="${r.timestamp}">${ts}</td>
+      <td>${sev}</td>
+      <td title="${escHtml(det)}">${escHtml(det.slice(0,60))}${det.length>60?'…':''}</td>
+      <td><span class="exp-btn" onclick="toggleExp(this,${i})">{…}</span></td>
+    </tr>
+    <tr class="exp-row" id="exp-${i}" style="display:none"><td colspan="6"><pre class="exp-pre">${escHtml(JSON.stringify(r, null, 2))}</pre></td></tr>`;
+  }).join('');
+
+  setTable(thead, tbody);
+  setFtrInfo(rows.length + ' alerts shown (' + srcAlerts.length + ' SRC, ' + tgtAlerts.length + ' TGT)');
+}
+
+// ── DTCs ──────────────────────────────────────────────────────
+function renderDtcs(srcActive, srcInactive, tgtActive, tgtInactive) {
+  function buildRows(items, side, status) {
+    return items.map(r => ({ ...r, _side: side, _status: status }));
+  }
+  let rows = [
+    ...buildRows(srcActive,   'src', 'active'),
+    ...buildRows(srcInactive, 'src', 'inactive'),
+    ...buildRows(tgtActive,   'tgt', 'active'),
+    ...buildRows(tgtInactive, 'tgt', 'inactive'),
+  ];
+  rows = rows.filter(r => {
+    if (!_showSrc && r._side === 'src') return false;
+    if (!_showTgt && r._side === 'tgt') return false;
+    if (_search) {
+      const hay = JSON.stringify(r).toLowerCase();
+      if (!hay.includes(_search)) return false;
+    }
+    return true;
+  });
+  rows = sortRows(rows, _sortCol || 'timestamp');
+  if (!rows.length) { showEmpty(); return; }
+
+  const thead = `<tr>
+    <th onclick="thClick('_side')" class="${thCls('_side')}">Vehicle</th>
+    <th onclick="thClick('_status')" class="${thCls('_status')}">Status</th>
+    <th onclick="thClick('code')" class="${thCls('code')}">Code</th>
+    <th onclick="thClick('timestamp')" class="${thCls('timestamp')}">Time</th>
+    <th onclick="thClick('protocol')" class="${thCls('protocol')}">Protocol</th>
+    <th>Description</th>
+    <th></th>
+  </tr>`;
+
+  const tbody = rows.map((r, i) => {
+    const ts    = r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+    const code  = r.code || r.dtc_code || r.dtc || '—';
+    const proto = r.protocol || '—';
+    const desc  = r.description || r.desc || '';
+    const stCls = r._status === 'active' ? 'bad' : 'match';
+    return `<tr>
+      <td class="${r._side}">${r._side.toUpperCase()}</td>
+      <td class="${stCls}">${r._status}</td>
+      <td class="mono">${code}</td>
+      <td class="mono" title="${r.timestamp}">${ts}</td>
+      <td>${proto}</td>
+      <td title="${escHtml(desc)}">${escHtml(desc.slice(0,60))}${desc.length>60?'…':''}</td>
+      <td><span class="exp-btn" onclick="toggleExp(this,${i})">{…}</span></td>
+    </tr>
+    <tr class="exp-row" id="exp-${i}" style="display:none"><td colspan="7"><pre class="exp-pre">${escHtml(JSON.stringify(r, null, 2))}</pre></td></tr>`;
+  }).join('');
+
+  setTable(thead, tbody);
+  const srcTotal = srcActive.length + srcInactive.length, tgtTotal = tgtActive.length + tgtInactive.length;
+  setFtrInfo(rows.length + ' DTCs shown (' + srcTotal + ' SRC [' + srcActive.length + ' active, ' + srcInactive.length + ' inactive], ' +
+    tgtTotal + ' TGT [' + tgtActive.length + ' active, ' + tgtInactive.length + ' inactive])');
+}
+
+// ── DOM helpers ───────────────────────────────────────────────
+function setTable(thead, tbody) {
+  const wrap = document.getElementById('tblWrap');
+  wrap.innerHTML = `<table class="dtbl"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+function showEmpty() {
+  document.getElementById('tblWrap').innerHTML = `<div class="empty"><div class="empty-icon">◎</div><span>No data for this tab / filter</span></div>`;
+  setFtrInfo('0 rows');
+}
+
+function setFtrInfo(text) { document.getElementById('ftrInfo').textContent = text; }
+
+function toggleExp(btn, idx) {
+  const row = document.getElementById('exp-' + idx);
+  if (!row) return;
+  const show = row.style.display === 'none';
+  row.style.display = show ? '' : 'none';
+  btn.textContent = show ? '{✕}' : '{…}';
+}
+
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtMs(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? s : d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+}
+
+function fmtDurMs(ms) {
+  if (!ms || ms <= 0) return '—';
+  const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000), s = Math.floor((ms%60000)/1000);
+  return h > 0 ? h+'h '+m+'m' : m > 0 ? m+'m '+s+'s' : s+'s';
+}
+
+function fmtAlertType(t) {
+  if (!t) return '—';
+  return t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+// ── Re-check ─────────────────────────────────────────────────
+async function reCheck() {
+  const t = SimState.getActiveTest(), r = SimState.getRegion(SimState.getActiveRegionKey());
+  if (!t || !r || !r.userToken) return;
+  const sd = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
+  const fromMs = sd(t.from), toMs = sd(t.until);
+  if (!fromMs || !toMs) return;
+  document.getElementById('reCheckBtn').disabled = true;
+  document.getElementById('phSpinner').classList.add('on');
+  try {
+    const cfg = {
+      apiBase: r.apiBase||'', userToken: r.userToken||'', accId: r.accId||'',
+      srcImei: t.srcImei||'', tgtImei: t.tgtImei||'',
+      fromMs, toMs,
+    };
+    const raw = await window.go.main.App.ValidateSimulation(cfg);
+    _result = JSON.parse(raw);
+    localStorage.setItem('sim_val_result', raw);
+    applyResult();
+    renderTab();
+  } catch(e) {
+    document.getElementById('errBanner').style.display = '';
+    document.getElementById('errBanner').textContent = 'Re-check failed: ' + String(e);
+  } finally {
+    document.getElementById('reCheckBtn').disabled = false;
+    document.getElementById('phSpinner').classList.remove('on');
+  }
+}
+
+// ── Export ────────────────────────────────────────────────────
+async function exportData(fmt) {
+  if (!_result) return;
+  const src = _result.src||{}, tgt = _result.tgt||{};
+  let rows = [], headers = [];
+  if (_activeTab === 'trips') {
+    rows = [
+      ...(src.trips||[]).map(r=>({_side:'SRC',...r})),
+      ...(tgt.trips||[]).map(r=>({_side:'TGT',...r})),
+    ];
+    headers = ['_side','start_time','end_time','distance','duration','max_speed','avg_speed','id'];
+  } else if (_activeTab === 'alerts') {
+    rows = [
+      ...(src.alerts||[]).map(r=>({_side:'SRC',...r})),
+      ...(tgt.alerts||[]).map(r=>({_side:'TGT',...r})),
+    ];
+    headers = ['_side','alert_type','timestamp','severity','message','id'];
+  } else {
+    rows = [
+      ...(src.dtcsActive||[]).map(r=>({_side:'SRC',_status:'active',...r})),
+      ...(src.dtcsInactive||[]).map(r=>({_side:'SRC',_status:'inactive',...r})),
+      ...(tgt.dtcsActive||[]).map(r=>({_side:'TGT',_status:'active',...r})),
+      ...(tgt.dtcsInactive||[]).map(r=>({_side:'TGT',_status:'inactive',...r})),
+    ];
+    headers = ['_side','_status','code','timestamp','protocol','description'];
+  }
+  let content = '', ext = fmt;
+  if (fmt === 'json') {
+    content = JSON.stringify(rows, null, 2);
+  } else {
+    const keys = headers.length ? headers : (rows[0] ? Object.keys(rows[0]) : []);
+    const esc = v => { const s = v==null?'':String(v); return s.includes(',')||s.includes('"')||s.includes('\n') ? '"'+s.replace(/"/g,'""')+'"' : s; };
+    content = keys.join(',') + '\n' + rows.map(r => keys.map(k => esc(r[k])).join(',')).join('\n');
+  }
+  try {
+    const t = SimState.getActiveTest();
+    const name = (t ? t.name.replace(/[^a-z0-9]+/gi,'-') : 'validate') + '-' + _activeTab + '.' + ext;
+    await window.go.main.App.SaveFile(content, name);
+  } catch(e) { alert('Export failed: ' + e); }
+}
+
+// ── Init ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  SimNav.inject('run'); // highlight "Run" nav item since this is a run sub-page
+  SimState.applyTheme();
+  loadResult();
+  if (!_result) {
+    document.getElementById('phSub').textContent = 'No data — run a Check from the Validate tab first';
+  }
+  renderTab();
+});
+</script>
+</body>
+</html>

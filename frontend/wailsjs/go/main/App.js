@@ -142,6 +142,10 @@ export function LogsGetPage(arg1, arg2) {
   return window['go']['main']['App']['LogsGetPage'](arg1, arg2);
 }
 
+export function LookupVehicleId(arg1, arg2, arg3) {
+  return window['go']['main']['App']['LookupVehicleId'](arg1, arg2, arg3);
+}
+
 export function MCAggregate(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['MCAggregate'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -376,4 +380,8 @@ export function UtilParseCert(arg1) {
 
 export function UtilYAMLToJSON(arg1) {
   return window['go']['main']['App']['UtilYAMLToJSON'](arg1);
+}
+
+export function ValidateSimulation(arg1) {
+  return window['go']['main']['App']['ValidateSimulation'](arg1);
 }

@@ -607,6 +607,30 @@ export namespace simulator {
 	        this.mqttUsername = source["mqttUsername"];
 	    }
 	}
+	export class ValidateConfig {
+	    apiBase: string;
+	    userToken: string;
+	    accId: string;
+	    srcImei: string;
+	    tgtImei: string;
+	    fromMs: number;
+	    toMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ValidateConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.apiBase = source["apiBase"];
+	        this.userToken = source["userToken"];
+	        this.accId = source["accId"];
+	        this.srcImei = source["srcImei"];
+	        this.tgtImei = source["tgtImei"];
+	        this.fromMs = source["fromMs"];
+	        this.toMs = source["toMs"];
+	    }
+	}
 
 }
 

@@ -76,6 +76,8 @@ export function LogsGetMeta():Promise<{[key: string]: any}>;
 
 export function LogsGetPage(arg1:number,arg2:number):Promise<{[key: string]: any}>;
 
+export function LookupVehicleId(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function MCAggregate(arg1:string,arg2:string,arg3:string,arg4:string,arg5:number):Promise<mongoclient.FindResult>;
 
 export function MCClearQueryHistory(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -193,3 +195,5 @@ export function UtilOpenTextFile(arg1:string):Promise<string>;
 export function UtilParseCert(arg1:string):Promise<utilities.CertInfo>;
 
 export function UtilYAMLToJSON(arg1:string):Promise<string>;
+
+export function ValidateSimulation(arg1:simulator.ValidateConfig):Promise<string>;

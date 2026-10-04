@@ -108,6 +108,25 @@ func (a *App) ResumeSimulation() {
 	a.sim.Resume()
 }
 
+// ValidateSimulation fetches trips, alerts, and DTCs for both src and tgt vehicles
+// in the test's time range and returns a JSON string with the comparison result.
+func (a *App) ValidateSimulation(cfg simulator.ValidateConfig) string {
+	result := simulator.RunValidation(cfg)
+	b, _ := json.Marshal(result)
+	return string(b)
+}
+
+// LookupVehicleId resolves a device IMEI to its vehicleId and accId via the API.
+func (a *App) LookupVehicleId(apiBase, userToken, imei string) string {
+	d, err := simulator.LookupDevice(apiBase, userToken, imei)
+	if err != nil {
+		b, _ := json.Marshal(map[string]string{"error": err.Error()})
+		return string(b)
+	}
+	b, _ := json.Marshal(map[string]string{"vehicleId": d.VehicleId, "accId": d.AccId})
+	return string(b)
+}
+
 // TestMQTT tests an MQTT connection with the given region config.
 func (a *App) TestMQTT(cfg simulator.RegionConfig) map[string]interface{} {
 	ok, msg := simulator.TestMQTTConnection(cfg)

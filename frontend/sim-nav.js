@@ -95,6 +95,7 @@ select.inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,
 .badge-simulate{background:rgba(167,139,250,.12);color:#a78bfa}
 .badge-pipeline{background:rgba(251,146,60,.12);color:#fb923c}
 .badge-fetch{background:rgba(129,140,248,.12);color:#818cf8}
+.badge-validate{background:rgba(52,211,153,.12);color:#34d399}
 .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .dot-done{background:#34d399}
 .dot-stopped{background:#fbbf24}

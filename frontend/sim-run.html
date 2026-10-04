@@ -119,6 +119,7 @@
 .logs{width:320px;min-width:320px;background:var(--bg1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
 .log-hdr{padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .log-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t1)}
+.log-count{font-size:8px;color:var(--t2);background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;white-space:nowrap;margin-right:auto}
 .pills{display:flex;gap:3px}
 .pill{padding:2px 5px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1)}
 .pill.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
@@ -193,6 +194,71 @@ select.lf-inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,2
 .fetch-chip.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
 .fetch-chip.fmt.on{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
 .fetch-dl-sep{width:1px;height:16px;background:var(--border);margin:0 2px}
+/* ── Right-panel tabs (LOGS / VALIDATE) ── */
+.rp-tabs{display:flex;gap:2px;flex-shrink:0}
+.rp-tab{padding:2px 8px;border-radius:3px;font-size:8px;font-weight:800;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t2);letter-spacing:.06em;text-transform:uppercase;transition:all .12s}
+.rp-tab.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.log-hdr-right{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
+/* ── Validate panel ── */
+.val-panel{flex:1;overflow-y:auto;display:flex;flex-direction:column;padding:10px;gap:8px}
+.val-panel::-webkit-scrollbar{width:3px}.val-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.val-cfg-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;flex-wrap:wrap}
+.val-cfg-item{font-size:8px;color:var(--t2);display:flex;align-items:center;gap:3px}
+.val-cfg-item .vcv{color:var(--t0);font-family:monospace;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.val-cfg-item .vcv.miss{color:var(--red)}
+.val-check-row{display:flex;align-items:center;gap:8px}
+.val-btn{padding:5px 14px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;background:var(--blue);color:#000;border:none;transition:filter .12s;white-space:nowrap}
+.val-btn:hover{filter:brightness(1.15)}.val-btn:disabled{background:var(--bg2);color:var(--t2);cursor:not-allowed}
+.val-last{font-size:8px;color:var(--t2);flex:1;text-align:right}
+.val-spinner{display:none;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.val-spinner.on{display:block}
+.val-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.vc{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 9px}
+.vc.match{border-color:rgba(52,211,153,.35)}.vc.diff{border-color:rgba(251,191,36,.35)}.vc.miss{border-color:rgba(248,113,113,.35)}
+.vc-title{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:4px}
+.vc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.vc-lbl{font-size:8px;color:var(--t2)}.vc-num{font-size:14px;font-weight:800;font-family:monospace;line-height:1;color:var(--t0)}
+.vc-diff{font-size:9px;font-weight:700;margin-top:2px}
+.vc-diff.ok{color:var(--green)}.vc-diff.warn{color:var(--yellow)}.vc-diff.bad{color:var(--red)}
+/* Alert type breakdown table */
+.val-section{border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.val-sec-hdr{display:flex;align-items:center;gap:6px;padding:6px 9px;background:var(--bg2);cursor:pointer;user-select:none}
+.val-sec-hdr:hover{background:var(--bg3)}
+.val-sec-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--t0);flex:1}
+.val-sec-counts{font-size:8px;color:var(--t1);font-family:monospace}
+.val-sec-ch{font-size:9px;color:var(--t2);transition:transform .2s}.val-sec-hdr.open .val-sec-ch{transform:rotate(90deg)}
+.val-sec-body{display:none;overflow-x:auto}.val-sec-body.open{display:block}
+.val-tbl{width:100%;border-collapse:collapse;font-size:9px}
+.val-tbl th{padding:4px 8px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);background:var(--bg1);border-bottom:1px solid var(--border);white-space:nowrap}
+.val-tbl td{padding:4px 8px;border-bottom:1px solid rgba(45,42,64,.4);color:var(--t1);vertical-align:top;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.val-tbl tr:last-child td{border-bottom:none}
+.val-tbl tr:hover td{background:var(--bg2);color:var(--t0)}
+.val-tbl td.num{font-family:monospace;color:var(--t0)}.val-tbl td.ok{color:var(--green)}.val-tbl td.warn{color:var(--yellow)}.val-tbl td.bad{color:var(--red)}
+.val-more{padding:5px 8px;font-size:8px;color:var(--t2);text-align:center;border-top:1px solid var(--border);background:var(--bg1)}
+.val-open-full{display:block;margin:4px 0 0;padding:5px 8px;font-size:9px;font-weight:700;color:var(--blue);text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:5px;cursor:pointer;text-decoration:none}
+.val-open-full:hover{background:var(--bg3)}
+.val-error{padding:8px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:5px;font-size:9px;color:var(--red)}
+/* ── Validate dashboard ── */
+.vd-nav{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;flex-shrink:0}
+.vd-nav-btn{width:18px;height:18px;border-radius:3px;border:1px solid var(--border);background:var(--bg1);color:var(--t1);cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1}
+.vd-nav-btn:hover{background:var(--bg3);color:var(--t0)}
+.vd-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t0);flex:1;text-align:center}
+.vd-dots{display:flex;gap:4px;align-items:center}
+.vd-dot{width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:background .15s}
+.vd-dot.on{background:var(--blue)}
+.vd-panel{display:none;flex-direction:column;gap:5px}
+.vd-panel.on{display:flex}
+.vd-cmp{width:100%;border-collapse:collapse;font-size:9px}
+.vd-cmp th{padding:3px 6px;text-align:right;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);border-bottom:1px solid var(--border);white-space:nowrap}
+.vd-cmp th:first-child{text-align:left;padding-left:4px}
+.vd-cmp td{padding:4px 6px;text-align:right;font-family:monospace;color:var(--t0);border-top:1px solid rgba(45,42,64,.4)}
+.vd-cmp td:first-child{text-align:left;font-family:var(--font-ui);font-size:9px;color:var(--t1);padding-left:4px;font-weight:600;white-space:nowrap}
+.vd-cmp td.ok{color:var(--green)}.vd-cmp td.warn{color:var(--yellow)}.vd-cmp td.bad{color:var(--red)}.vd-cmp td.mut{color:var(--t2)}
+.vd-cmp tr:hover td{background:rgba(45,42,64,.3)}
+.vd-sub-hdr{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:4px 4px 3px;border-bottom:1px solid var(--border);margin-top:2px}
+.vd-legend{display:flex;gap:10px;padding:0 2px 1px}
+.vd-leg-item{display:flex;align-items:center;gap:3px;font-size:8px;color:var(--t1)}
+.vd-leg-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 /* ── Responsive layout ── */
 @media (max-width:1000px){
   .sb{width:200px;min-width:180px}
@@ -399,23 +465,107 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
   <div class="elapsed-bar" id="elapsed"></div>
 </div>
 
-<!-- Log panel -->
+<!-- Right panel: LOGS + VALIDATE tabs -->
 <div class="logs">
   <div class="log-hdr">
-    <span class="log-title">Live Logs</span>
-    <div class="pills">
-      <span class="pill on" id="pAll" onclick="filt('all',this)">ALL</span>
-      <span class="pill" id="pInfo" onclick="filt('info',this)">INFO</span>
-      <span class="pill" id="pWarn" onclick="filt('warn',this)">WARN</span>
-      <span class="pill" id="pErr" onclick="filt('err',this)">ERR</span>
+    <div class="rp-tabs">
+      <span class="rp-tab on" id="rpTabLogs" onclick="switchRpTab('logs')">LOGS</span>
+      <span class="rp-tab" id="rpTabVal" onclick="switchRpTab('validate')">VALIDATE</span>
     </div>
-    <span class="clr" onclick="clearLog()">✕</span>
+    <div class="log-hdr-right" id="logHdrRight">
+      <span class="log-count" id="logCount" title="Entries shown / max before auto-trim">0</span>
+      <div class="pills">
+        <span class="pill on" id="pAll" onclick="filt('all',this)">ALL</span>
+        <span class="pill" id="pInfo" onclick="filt('info',this)">INFO</span>
+        <span class="pill" id="pWarn" onclick="filt('warn',this)">WARN</span>
+        <span class="pill" id="pErr" onclick="filt('err',this)">ERR</span>
+      </div>
+      <span class="clr" onclick="clearLog()" title="Clear all logs">✕</span>
+    </div>
   </div>
-  <div class="log-body" id="logBody"></div>
-  <div class="log-ftr">
-    <button class="xbtn" onclick="xport('txt')">↓ .txt</button>
-    <button class="xbtn" onclick="xport('json')">↓ .json</button>
-    <button class="xbtn" onclick="xport('csv')">↓ .csv</button>
+  <!-- LOGS panel -->
+  <div id="logsPanel" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+    <div class="log-body" id="logBody"></div>
+    <div class="log-ftr">
+      <button class="xbtn" onclick="xport('txt')">↓ .txt</button>
+      <button class="xbtn" onclick="xport('json')">↓ .json</button>
+      <button class="xbtn" onclick="xport('csv')">↓ .csv</button>
+    </div>
+  </div>
+  <!-- VALIDATE panel -->
+  <div class="val-panel" id="valPanel" style="display:none">
+    <!-- Config status -->
+    <div class="val-cfg-row" id="valCfgRow"></div>
+    <!-- Check button -->
+    <div class="val-check-row">
+      <div class="val-spinner" id="valSpinner"></div>
+      <button class="val-btn" id="valBtn" onclick="runValidation()">▶ Check</button>
+      <span class="val-last" id="valLastChecked"></span>
+    </div>
+    <!-- Error banner -->
+    <div class="val-error" id="valError" style="display:none"></div>
+    <!-- Dashboard -->
+    <div id="valDash" style="display:none;flex-direction:column;gap:5px">
+      <!-- Nav bar -->
+      <div class="vd-nav">
+        <button class="vd-nav-btn" onclick="valNavStep(-1)">◀</button>
+        <span class="vd-title" id="vdTitle">Summary</span>
+        <div class="vd-dots">
+          <span class="vd-dot on" onclick="valNavGo(0)" title="Summary"></span>
+          <span class="vd-dot" onclick="valNavGo(1)" title="Alerts"></span>
+          <span class="vd-dot" onclick="valNavGo(2)" title="DTCs"></span>
+        </div>
+        <button class="vd-nav-btn" onclick="valNavStep(1)">▶</button>
+      </div>
+      <!-- Panel 0: Summary -->
+      <div class="vd-panel on" id="vdPanel0">
+        <div class="vd-legend">
+          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--blue)"></div>SRC</div>
+          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--purple)"></div>TGT</div>
+        </div>
+        <table class="vd-cmp">
+          <thead><tr><th></th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th><th>Δ</th></tr></thead>
+          <tbody id="vdSummaryBody"></tbody>
+        </table>
+      </div>
+      <!-- Panel 1: Alert Types -->
+      <div class="vd-panel" id="vdPanel1">
+        <div class="vd-legend">
+          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--blue)"></div>SRC</div>
+          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--purple)"></div>TGT</div>
+        </div>
+        <table class="vd-cmp">
+          <thead><tr><th>Alert Type</th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th><th>Δ</th></tr></thead>
+          <tbody id="vdAlertBody"></tbody>
+        </table>
+      </div>
+      <!-- Panel 2: DTCs -->
+      <div class="vd-panel" id="vdPanel2">
+        <div class="vd-sub-hdr" style="color:var(--red)">● Active DTCs</div>
+        <table class="vd-cmp">
+          <thead><tr><th>Code</th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th></tr></thead>
+          <tbody id="vdDtcActiveBody"></tbody>
+        </table>
+        <div class="vd-sub-hdr" style="color:var(--yellow)">○ Inactive DTCs</div>
+        <table class="vd-cmp">
+          <thead><tr><th>Code</th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th></tr></thead>
+          <tbody id="vdDtcInactiveBody"></tbody>
+        </table>
+      </div>
+      <!-- Actions -->
+      <a class="val-open-full" id="valFullLink" onclick="openFullValidate()">↗ Full Detail View</a>
+    </div>
+    <!-- API log -->
+    <div class="val-section" id="valLogSec" style="display:none;margin-top:2px">
+      <div class="val-sec-hdr" onclick="toggleValSec('log')">
+        <span class="val-sec-title">API Log</span>
+        <span class="val-sec-counts" id="valLogCount"></span>
+        <span class="val-sec-ch" id="valLogCh">▶</span>
+      </div>
+      <div class="val-sec-body" id="valLogBody" style="display:none;padding:6px 8px">
+        <pre id="valLogPre" style="margin:0;font-size:9px;color:var(--t1);white-space:pre-wrap;word-break:break-all;max-height:220px;overflow-y:auto;line-height:1.5"></pre>
+      </div>
+    </div>
   </div>
 </div>
 </div><!-- end .main -->
@@ -815,8 +965,26 @@ async function loadResumeState() {
 function togCs(h) { h.classList.toggle('open'); h.nextElementSibling.classList.toggle('open'); }
 
 function adaptForMode(mode) {
-  const isMD = mode === 'mqtt-pub';
-  const isFetch = mode === 'fetch';
+  const isMD       = mode === 'mqtt-pub';
+  const isFetch    = mode === 'fetch';
+  const isValidate = mode === 'validate';
+
+  // In validate-only mode: hide the whole pipeline area, auto-switch to VALIDATE tab
+  const pipe = document.querySelector('.pipe');
+  if (pipe) pipe.style.display = isValidate ? 'none' : '';
+  const btnGo   = g('btnGo'),   btnStop  = g('btnStop'),  btnPause = g('btnPause');
+  if (isValidate) {
+    if (btnGo)    { btnGo.style.display   = 'none'; }
+    if (btnStop)  { btnStop.style.display  = 'none'; }
+    if (btnPause) { btnPause.style.display = 'none'; }
+    switchRpTab('validate');
+    return;
+  } else {
+    if (btnGo)    { btnGo.style.display   = ''; }
+    if (btnStop)  { btnStop.style.display  = ''; }
+    if (btnPause) { btnPause.style.display = ''; }
+  }
+
   // Batch step + its arrow: hidden in mqtt-pub
   const cBatch = g('cBatch');
   if (cBatch) {
@@ -932,10 +1100,22 @@ function colorJson(obj){
     return`<span class="json-num">${m}</span>`;
   });
 }
-function addLog(ts,tag,cls,msg,ty,rawData){const e={ts,tag,cls,msg,ty,rawData};logs.push(e);renderEntry(e)}
+function _logLimit(){return Math.max(100, (SimState.getGlobal().maxLogEntries)||1000)}
+function _updateLogCount(){const el=g('logCount');if(el)el.textContent=logs.length+' / '+_logLimit()}
+function addLog(ts,tag,cls,msg,ty,rawData){
+  const e={ts,tag,cls,msg,ty,rawData};logs.push(e);renderEntry(e);
+  const limit=_logLimit();
+  if(logs.length>limit){
+    const excess=logs.length-limit;
+    logs.splice(0,excess);
+    const b=g('logBody');
+    for(let i=0;i<excess;i++){if(b.firstChild)b.removeChild(b.firstChild);}
+  }
+  _updateLogCount();
+}
 function renderEntry(e){if(af!=='all'&&e.ty!==af)return;const d=document.createElement('div');d.className='le';d.dataset.ty=e.ty;const mc2=e.ty==='ok'?'ok':e.ty==='warn'?'warn':e.ty==='err'?'err':e.ty==='ph'?'ph':'';const hasP=e.rawData&&e.rawData.payload;d.innerHTML=`<span class="lts">${e.ts}</span><span class="ltg ${e.cls}">[${e.tag}]</span><span class="lm ${mc2}">${e.msg}</span>${hasP?'<span class="le-exp">{…}</span>':''}`;if(hasP){const pre=document.createElement('pre');pre.className='le-payload';pre.style.display='none';try{pre.textContent=JSON.stringify(JSON.parse(e.rawData.payload));}catch(_){pre.textContent=e.rawData.payload;}const btn=d.querySelector('.le-exp');btn.addEventListener('click',function(ev){ev.stopPropagation();const show=pre.style.display==='none';pre.style.display=show?'block':'none';this.textContent=show?'{✕}':'{…}';});d.appendChild(pre);}const b=g('logBody');b.appendChild(d);if(b.scrollHeight-b.scrollTop-b.clientHeight<60)b.scrollTop=b.scrollHeight}
-function clearLog(){logs=[];g('logBody').innerHTML=''}
-function filt(type,el){af=type;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on','g','y','r'));el.classList.add('on');if(type==='warn')el.classList.add('y');if(type==='err')el.classList.add('r');g('logBody').innerHTML='';logs.forEach(e=>renderEntry(e))}
+function clearLog(){logs=[];g('logBody').innerHTML='';_updateLogCount()}
+function filt(type,el){af=type;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on','g','y','r'));el.classList.add('on');if(type==='warn')el.classList.add('y');if(type==='err')el.classList.add('r');g('logBody').innerHTML='';logs.forEach(e=>renderEntry(e));_updateLogCount()}
 function xport(fmt){let content,mime,ext;const now=new Date().toISOString().replace(/[:.]/g,'-');if(fmt==='txt'){content=logs.map(e=>`${e.ts.padEnd(8)}  [${e.tag.padEnd(12)}]  ${e.msg}`).join('\n');mime='text/plain';ext='txt';}else if(fmt==='json'){content=JSON.stringify(logs.map(e=>{const o={ts:e.ts,tag:e.tag,type:e.ty,msg:e.msg};if(e.rawData&&e.rawData.payload){try{o.payload=JSON.parse(e.rawData.payload);}catch(_){o.payload=e.rawData.payload;}}return o;}),null,2);mime='application/json';ext='json';}else{content='ts,tag,type,msg\n'+logs.map(e=>`"${e.ts}","${e.tag}","${e.ty}","${e.msg.replace(/"/g,'""')}"`).join('\n');mime='text/csv';ext='csv';}const blob=new Blob([content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`run-logs-${now}.${ext}`;a.click();URL.revokeObjectURL(a.href)}
 
 // ── Save run to history ────────────────────────────────────────
@@ -1383,6 +1563,192 @@ async function downloadFetchedData() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↓ Download'; }
   }
+}
+
+// ── Right-panel tab switcher ─────────────────────────────────
+let _rpTab = 'logs';
+function switchRpTab(tab) {
+  _rpTab = tab;
+  g('rpTabLogs').classList.toggle('on', tab === 'logs');
+  g('rpTabVal').classList.toggle('on', tab === 'validate');
+  g('logHdrRight').style.display = tab === 'logs' ? '' : 'none';
+  g('logsPanel').style.display   = tab === 'logs' ? 'flex' : 'none';
+  g('valPanel').style.display    = tab === 'validate' ? 'flex' : 'none';
+  if (tab === 'validate') _refreshValCfgRow();
+}
+
+// ── Validation ───────────────────────────────────────────────
+let _valResult = null;
+
+function _refreshValCfgRow() {
+  const t = activeTest, r = activeRegion;
+  if (!t || !r) { g('valCfgRow').innerHTML = '<span style="font-size:9px;color:var(--t2)">No test selected</span>'; return; }
+  const row = g('valCfgRow');
+  const warn = !r.userToken
+    ? `<span class="val-cfg-item" style="color:var(--red)">⚠ User Token missing — <a href="sim-settings.html" style="color:var(--blue)">Settings</a></span>`
+    : '';
+  const srcOk = t.srcImei ? `<span style="color:var(--green)">✓</span>` : `<span style="color:var(--red)">✕</span>`;
+  const tgtOk = t.tgtImei ? `<span style="color:var(--green)">✓</span>` : `<span style="color:var(--red)">✕</span>`;
+  row.innerHTML =
+    `<span class="val-cfg-item">SRC ${srcOk} <span class="vcv">${t.srcImei||'— not set'}</span></span>` +
+    `<span class="val-cfg-item">TGT ${tgtOk} <span class="vcv">${t.tgtImei||'— not set'}</span></span>` +
+    `<span class="val-cfg-item" style="color:var(--t2);font-size:8px">vehicle_id &amp; acc_id resolved per-request</span>` +
+    warn;
+}
+
+async function runValidation() {
+  const t = activeTest, r = activeRegion;
+  if (!t || !r) return;
+  if (!r.userToken) {
+    g('valError').style.display = '';
+    g('valError').textContent = 'User Token is required. Set it in Settings → ' + (r.label||'Region') + '.';
+    return;
+  }
+  const sd = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
+  const fromMs = sd(t.from), toMs = sd(t.until);
+  if (!fromMs || !toMs) {
+    g('valError').style.display = '';
+    g('valError').textContent = 'Test "From" and "Until" dates are required.';
+    return;
+  }
+  g('valError').style.display = 'none';
+  g('valBtn').disabled = true;
+  g('valSpinner').classList.add('on');
+  g('valLastChecked').textContent = 'Checking…';
+  g('valDash').style.display = 'none';
+  g('valLogSec').style.display = 'none';
+  g('valLogPre').textContent = '';
+  try {
+    const cfg = {
+      apiBase:   r.apiBase || '',
+      userToken: r.userToken || '',
+      accId:     r.accId || '',
+      srcImei:   t.srcImei || '',
+      tgtImei:   t.tgtImei || '',
+      fromMs, toMs,
+    };
+    const raw = await window.go.main.App.ValidateSimulation(cfg);
+    _valResult = JSON.parse(raw);
+    // Always show API log if present
+    if (_valResult.logs && _valResult.logs.length) {
+      g('valLogPre').textContent = _valResult.logs.join('\n');
+      g('valLogCount').textContent = _valResult.logs.length + ' lines';
+      g('valLogSec').style.display = '';
+    }
+    if (_valResult.error) {
+      g('valError').style.display = '';
+      g('valError').textContent = _valResult.error;
+    } else {
+      renderValResult(_valResult);
+    }
+    const t2 = new Date(_valResult.checkedAt);
+    g('valLastChecked').textContent = 'Checked: ' + t2.toLocaleTimeString();
+    // Persist for full-view page
+    try { localStorage.setItem('sim_val_result', raw); } catch(e) {}
+  } catch(e) {
+    g('valError').style.display = '';
+    g('valError').textContent = 'Request failed: ' + String(e);
+    g('valLastChecked').textContent = '';
+  } finally {
+    g('valBtn').disabled = false;
+    g('valSpinner').classList.remove('on');
+  }
+}
+
+function _valDiff(src, tgt) {
+  const d = tgt - src;
+  if (d === 0) return { cls:'ok', text:'✓ Match' };
+  return { cls: Math.abs(d) <= 2 ? 'warn' : 'bad', text: (d > 0 ? '+' : '') + d };
+}
+
+function renderValResult(res) {
+  const s = res.src, t = res.tgt;
+
+  function diffCell(a, b) {
+    const d = b - a;
+    const cls = d === 0 ? 'ok' : d > 0 ? 'warn' : 'bad';
+    return `<td class="${cls}">${d > 0 ? '+' : ''}${d}</td>`;
+  }
+
+  // Panel 0: Summary
+  g('vdSummaryBody').innerHTML = `
+    <tr><td>Trips</td><td>${s.tripCount}</td><td>${t.tripCount}</td>${diffCell(s.tripCount,t.tripCount)}</tr>
+    <tr><td>Alerts</td><td>${s.alertCount}</td><td>${t.alertCount}</td>${diffCell(s.alertCount,t.alertCount)}</tr>
+    <tr><td>DTC Active</td><td>${s.dtcActiveCount||0}</td><td>${t.dtcActiveCount||0}</td>${diffCell(s.dtcActiveCount||0,t.dtcActiveCount||0)}</tr>
+    <tr><td>DTC Inactive</td><td>${s.dtcInactiveCount||0}</td><td>${t.dtcInactiveCount||0}</td>${diffCell(s.dtcInactiveCount||0,t.dtcInactiveCount||0)}</tr>
+  `;
+
+  // Panel 1: Alert Types
+  const allTypes = [...new Set([...Object.keys(s.alertsByType||{}), ...Object.keys(t.alertsByType||{})])];
+  allTypes.sort((a,b) => {
+    const da = Math.abs((s.alertsByType[a]||0)-(t.alertsByType[a]||0));
+    const db = Math.abs((s.alertsByType[b]||0)-(t.alertsByType[b]||0));
+    return db - da;
+  });
+  const alertRows = allTypes.map(type => {
+    const sc = s.alertsByType[type]||0, tc = t.alertsByType[type]||0;
+    const d = tc - sc;
+    const cls = d === 0 ? 'ok' : 'warn';
+    return `<tr><td title="${type}">${_fmtAlertType(type)}</td><td>${sc}</td><td>${tc}</td><td class="${cls}">${d>0?'+':''}${d}</td></tr>`;
+  });
+  g('vdAlertBody').innerHTML = allTypes.length
+    ? alertRows.join('')
+    : '<tr><td colspan="4" class="mut" style="text-align:center;padding:8px">No alerts</td></tr>';
+
+  // Panel 2: DTCs
+  function renderDtcTable(srcList, tgtList, tbodyId) {
+    const srcCodes = new Set((srcList||[]).map(d=>d.type||d.code||'?'));
+    const tgtCodes = new Set((tgtList||[]).map(d=>d.type||d.code||'?'));
+    const all = [...new Set([...srcCodes,...tgtCodes])].sort();
+    const tb = g(tbodyId);
+    if (!all.length) { tb.innerHTML='<tr><td colspan="3" class="mut" style="text-align:center;padding:6px">None</td></tr>'; return; }
+    tb.innerHTML = all.map(code => {
+      const inS=srcCodes.has(code), inT=tgtCodes.has(code);
+      return `<tr><td style="font-family:monospace;font-size:9px">${code}</td><td class="${inS?'ok':'mut'}">${inS?'✓':'—'}</td><td class="${inT?'ok':'mut'}">${inT?'✓':'—'}</td></tr>`;
+    }).join('');
+  }
+  renderDtcTable(s.dtcsActive, t.dtcsActive, 'vdDtcActiveBody');
+  renderDtcTable(s.dtcsInactive, t.dtcsInactive, 'vdDtcInactiveBody');
+
+  // Show dashboard at panel 0
+  valNavGo(0);
+  g('valDash').style.display = 'flex';
+}
+
+function toggleValSec(name) {
+  const body = g('valLogBody'), ch = g('valLogCh');
+  if (!body) return;
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  if (ch) ch.textContent = open ? '▶' : '▼';
+}
+
+let _vdPanel = 0;
+const _vdPanelIds = ['vdPanel0','vdPanel1','vdPanel2'];
+const _vdTitles = ['Summary','Alerts','DTCs'];
+
+function valNavGo(idx) {
+  _vdPanelIds.forEach((id,i) => { const el=g(id); if(el) el.classList.toggle('on', i===idx); });
+  document.querySelectorAll('.vd-dot').forEach((d,i) => d.classList.toggle('on', i===idx));
+  const t=g('vdTitle'); if(t) t.textContent=_vdTitles[idx]||'';
+  _vdPanel = idx;
+}
+
+function valNavStep(dir) {
+  valNavGo((_vdPanel + dir + _vdPanelIds.length) % _vdPanelIds.length);
+}
+
+function openFullValidate() {
+  location.href = 'sim-validate.html';
+}
+
+function _fmtAlertType(t) {
+  return t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+function _fmtDurMs(ms) {
+  if (!ms || ms <= 0) return '—';
+  const h = Math.floor(ms/3600000), m = Math.floor((ms%3600000)/60000);
+  return h > 0 ? h+'h '+m+'m' : m+'m';
 }
 
 // ── Clear test state ──────────────────────────────────────────

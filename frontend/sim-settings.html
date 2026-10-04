@@ -183,7 +183,8 @@ function renderRegionForm(regionKey) {
     <div class="section-title">Credentials</div>
     <div class="form-grid">
       <div class="fg wide"><label class="lbl">API Token</label><input class="inp" type="password" id="f-apiToken" value="${r.apiToken}" placeholder="Intangles API token" oninput="patchRegion('${regionKey}','apiToken',this.value)"></div>
-      <div class="fg"><label class="lbl">User Token</label><input class="inp" type="password" id="f-userToken" value="${r.userToken}" placeholder="User-level token" oninput="patchRegion('${regionKey}','userToken',this.value)"></div>
+      <div class="fg"><label class="lbl">User Token <span style="color:var(--t2);font-size:8px">for validate / data APIs</span></label><input class="inp" type="password" id="f-userToken" value="${r.userToken}" placeholder="Intangles-User-Token header value" oninput="patchRegion('${regionKey}','userToken',this.value)"></div>
+      <div class="fg"><label class="lbl">Account ID <span style="color:var(--t2);font-size:8px">acc_id query param</span></label><input class="inp" id="f-accId" value="${r.accId||''}" placeholder="e.g. 1606685851746566144" oninput="patchRegion('${regionKey}','accId',this.value)"></div>
       <div class="fg"><label class="lbl">Session Token</label>
         <div class="inp-row">
           <input class="inp" id="f-sessionToken" value="${r.sessionToken}" placeholder="Session token" oninput="patchRegion('${regionKey}','sessionToken',this.value)">
@@ -331,6 +332,7 @@ function renderGlobalForm() {
       <div class="fg"><label class="lbl">API Page Size</label><input class="inp" type="number" id="g-apiPageSize" value="${g.apiPageSize}" min="1" oninput="patchGlobal('apiPageSize',+this.value)"></div>
       <div class="fg"><label class="lbl">API Request Delay (ms)</label><input class="inp" type="number" id="g-apiRequestDelay" value="${g.apiRequestDelay}" min="0" oninput="patchGlobal('apiRequestDelay',+this.value)"></div>
       <div class="fg"><label class="lbl">Output Directory</label><input class="inp" id="g-outputDir" value="${g.outputDir}" oninput="patchGlobal('outputDir',this.value)"></div>
+      <div class="fg"><label class="lbl">Max Log Entries</label><input class="inp" type="number" id="g-maxLogEntries" value="${g.maxLogEntries||1000}" min="100" max="50000" step="100" oninput="patchGlobal('maxLogEntries',+this.value)" title="Auto-trims oldest logs when this limit is reached. Default: 1000."></div>
     </div>
 
     <div class="section-title">Timing</div>
@@ -377,6 +379,8 @@ function renderTestForm(testId) {
       <div class="fg"><label class="lbl">Region</label><select class="inp" id="t-region" onchange="patchTest(${testId},'regionKey',this.value);renderSidebarTests()">${regionOptions}</select></div>
       <div class="fg"><label class="lbl">Source IMEI <span class="badge badge-eu">data source</span></label><input class="inp" id="t-srcImei" value="${t.srcImei}" oninput="patchTest(${testId},'srcImei',this.value)"></div>
       <div class="fg"><label class="lbl">Target IMEI <span class="badge badge-done">MQTT + upload</span></label><input class="inp" id="t-tgtImei" value="${t.tgtImei}" oninput="patchTest(${testId},'tgtImei',this.value)"></div>
+      <div class="fg"><label class="lbl">Src Vehicle ID <span style="color:var(--t2);font-size:8px">auto-lookup if blank</span></label><div class="inp-row"><input class="inp" id="t-srcVehicleId" value="${t.srcVehicleId||''}" placeholder="Leave blank to auto-resolve" oninput="patchTest(${testId},'srcVehicleId',this.value)"><button class="ibtn" id="lookup-src-${testId}" onclick="lookupVehicleId(${testId},'src')">Lookup</button></div></div>
+      <div class="fg"><label class="lbl">Tgt Vehicle ID <span style="color:var(--t2);font-size:8px">auto-lookup if blank</span></label><div class="inp-row"><input class="inp" id="t-tgtVehicleId" value="${t.tgtVehicleId||''}" placeholder="Leave blank to auto-resolve" oninput="patchTest(${testId},'tgtVehicleId',this.value)"><button class="ibtn" id="lookup-tgt-${testId}" onclick="lookupVehicleId(${testId},'tgt')">Lookup</button></div></div>
       <div class="fg"><label class="lbl">From</label><input class="inp" type="datetime-local" id="t-from" value="${t.from}" oninput="patchTest(${testId},'from',this.value)"></div>
       <div class="fg"><label class="lbl">Until</label><input class="inp" type="datetime-local" id="t-until" value="${t.until}" oninput="patchTest(${testId},'until',this.value)"></div>
       <div class="fg"><label class="lbl">History End</label>
@@ -390,6 +394,7 @@ function renderTestForm(testId) {
           <label class="ri"><input type="radio" name="t-mode" value="simulate"${t.mode==='simulate'?' checked':''} onchange="patchTest(${testId},'mode','simulate')"> Full Simulate (MQTT + Upload)</label>
           <label class="ri"><input type="radio" name="t-mode" value="pipeline"${t.mode==='pipeline'?' checked':''} onchange="patchTest(${testId},'mode','pipeline')"> Pipeline Only (RabbitMQ)</label>
           <label class="ri"><input type="radio" name="t-mode" value="fetch"${t.mode==='fetch'?' checked':''} onchange="patchTest(${testId},'mode','fetch')"> Fetch &amp; Store Only</label>
+          <label class="ri"><input type="radio" name="t-mode" value="validate"${t.mode==='validate'?' checked':''} onchange="patchTest(${testId},'mode','validate')"> Validate Only (API check, no sim)</label>
         </div>
       </div>
     </div>
@@ -447,6 +452,39 @@ function deleteTest(id) {
 function runThisTest(id) {
   SimState.setActiveTest(id);
   location.href = 'sim-run.html';
+}
+
+async function lookupVehicleId(testId, side) {
+  const t = SimState.getTest(testId);
+  if (!t) return;
+  const r = SimState.getRegion(t.regionKey);
+  if (!r || !r.apiBase || !r.userToken) {
+    alert('Set API Base and User Token in the region settings first.');
+    return;
+  }
+  const imei = side === 'src' ? t.srcImei : t.tgtImei;
+  if (!imei) { alert('Set the ' + side + ' IMEI first.'); return; }
+  const btnId = `lookup-${side}-${testId}`;
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const raw = await window.go.main.App.LookupVehicleId(r.apiBase, r.userToken, imei);
+    const res = JSON.parse(raw);
+    if (res.error) { alert('Lookup failed: ' + res.error); return; }
+    const vidField = side === 'src' ? 'srcVehicleId' : 'tgtVehicleId';
+    SimState.saveTest({ id: testId, [vidField]: res.vehicleId });
+    const inp = document.getElementById('t-' + side + 'VehicleId');
+    if (inp) inp.value = res.vehicleId;
+    // Also save accId to region if we got it back and region doesn't have one yet
+    if (res.accId && !r.accId) {
+      SimState.setRegion(t.regionKey, { accId: res.accId });
+      const accInp = document.getElementById('f-accId');
+      if (accInp) accInp.value = res.accId;
+    }
+    flashSaved();
+  } catch(e) { alert('Error: ' + e); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Lookup'; }
+  }
 }
 
 // ── Appearance ─────────────────────────────────────────────────
