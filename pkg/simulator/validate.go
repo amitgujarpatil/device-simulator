@@ -222,7 +222,7 @@ func fetchAllAlerts(apiBase, userToken, accId, vehicleId string, fromMs, toMs in
 	psize := 100
 	for pnum := 1; ; pnum++ {
 		path := fmt.Sprintf(
-			"/alertlog/logsV2/%d/%d?psize=%d&pnum=%d&types=%s&vehicle_id=%s&acc_id=%s&lang=en&sort=timestamp%%20desc",
+			"/alertlog/logsV2/%d/%d?psize=%d&pnum=%d&types=%s&vehicles=%s&acc_id=%s&lang=en&sort=timestamp%%20desc&no_total=true",
 			fromMs, toMs, psize, pnum, url.QueryEscape(allTypes), vehicleId, accId,
 		)
 		res, err := valAPIGet(apiBase, path, userToken, lg)
