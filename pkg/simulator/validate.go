@@ -17,6 +17,8 @@ const (
 )
 
 // ValidateConfig carries the credentials and time-range for a validation run.
+// ToMs is the raw end timestamp (used for trips).
+// ToMsEod is end-of-day snapped (used for alerts and DTCs to match web UI behaviour).
 type ValidateConfig struct {
 	ApiBase   string `json:"apiBase"`
 	UserToken string `json:"userToken"`
@@ -25,6 +27,7 @@ type ValidateConfig struct {
 	TgtImei   string `json:"tgtImei"`
 	FromMs    int64  `json:"fromMs"`
 	ToMs      int64  `json:"toMs"`
+	ToMsEod   int64  `json:"toMsEod"`
 }
 
 // VehicleValidation holds the fetched data for a single vehicle.
@@ -192,7 +195,7 @@ func fetchAllTrips(apiBase, userToken, accId, vehicleId string, fromMs, toMs int
 	psize := 50
 	for pnum := 1; ; pnum++ {
 		path := fmt.Sprintf(
-			"/trip/%s/getLastTripsV2?start=%d&end=%d&psize=%d&pnum=%d&duration=0&acc_id=%s&lang=en",
+			"/trip/%s/getLastTripsV2?start=%d&end=%d&psize=%d&pnum=%d&duration=600000&acc_id=%s&lang=en",
 			vehicleId, fromMs, toMs, psize, pnum, accId,
 		)
 		res, err := valAPIGet(apiBase, path, userToken, lg)
@@ -287,9 +290,10 @@ func fetchAllDtcs(apiBase, userToken, accId, vehicleId, dtcSt string, fromMs, to
 	return all, nil
 }
 
-func validateVehicle(apiBase, userToken, accId, vehicleId, imei string, fromMs, toMs int64, lg *valLogger) VehicleValidation {
+func validateVehicle(apiBase, userToken, accId, vehicleId, imei string, fromMs, toMs, toMsEod int64, lg *valLogger) VehicleValidation {
 	v := VehicleValidation{VehicleId: vehicleId, Imei: imei, AlertsByType: map[string]int{}}
 
+	// Trips use raw toMs (midnight boundary, not end-of-day snapped)
 	trips, err := fetchAllTrips(apiBase, userToken, accId, vehicleId, fromMs, toMs, lg)
 	if err != nil {
 		lg.add("  ✗ trips error: %v", err)
@@ -299,7 +303,8 @@ func validateVehicle(apiBase, userToken, accId, vehicleId, imei string, fromMs, 
 		v.TripCount = len(trips)
 	}
 
-	alerts, byType, err := fetchAllAlerts(apiBase, userToken, accId, vehicleId, fromMs, toMs, lg)
+	// Alerts and DTCs use toMsEod (end-of-day snapped) to match web UI inclusive date range
+	alerts, byType, err := fetchAllAlerts(apiBase, userToken, accId, vehicleId, fromMs, toMsEod, lg)
 	if err != nil {
 		lg.add("  ✗ alerts error: %v", err)
 		v.Errors = append(v.Errors, "alerts: "+err.Error())
@@ -309,7 +314,7 @@ func validateVehicle(apiBase, userToken, accId, vehicleId, imei string, fromMs, 
 		v.AlertsByType = byType
 	}
 
-	dtcsActive, err := fetchAllDtcs(apiBase, userToken, accId, vehicleId, "active", fromMs, toMs, lg)
+	dtcsActive, err := fetchAllDtcs(apiBase, userToken, accId, vehicleId, "active", fromMs, toMsEod, lg)
 	if err != nil {
 		lg.add("  ✗ dtcs(active) error: %v", err)
 		v.Errors = append(v.Errors, "dtcs(active): "+err.Error())
@@ -318,10 +323,11 @@ func validateVehicle(apiBase, userToken, accId, vehicleId, imei string, fromMs, 
 		v.DtcActiveCount = len(dtcsActive)
 	}
 
-	dtcsInactive, err := fetchAllDtcs(apiBase, userToken, accId, vehicleId, "inactive", fromMs, toMs, lg)
+	// "logged" status returns DTC codes that were recorded but are not currently active
+	dtcsInactive, err := fetchAllDtcs(apiBase, userToken, accId, vehicleId, "logged", fromMs, toMsEod, lg)
 	if err != nil {
-		lg.add("  ✗ dtcs(inactive) error: %v", err)
-		v.Errors = append(v.Errors, "dtcs(inactive): "+err.Error())
+		lg.add("  ✗ dtcs(logged) error: %v", err)
+		v.Errors = append(v.Errors, "dtcs(logged): "+err.Error())
 	} else {
 		v.DtcsInactive = dtcsInactive
 		v.DtcInactiveCount = len(dtcsInactive)
@@ -336,7 +342,7 @@ func RunValidation(cfg ValidateConfig) ValidateResult {
 	lg := &valLogger{}
 	result := ValidateResult{CheckedAt: time.Now().UTC().Format(time.RFC3339)}
 
-	lg.add("RunValidation start  src=%s  tgt=%s  from=%d  to=%d", cfg.SrcImei, cfg.TgtImei, cfg.FromMs, cfg.ToMs)
+	lg.add("RunValidation start  src=%s  tgt=%s  from=%d  to=%d  toEod=%d", cfg.SrcImei, cfg.TgtImei, cfg.FromMs, cfg.ToMs, cfg.ToMsEod)
 
 	type deviceResolve struct {
 		side string
@@ -392,12 +398,12 @@ func RunValidation(cfg ValidateConfig) ValidateResult {
 	go func() {
 		defer wg.Done()
 		lg.add("[src] fetching data  vehicleId=%s  accId=%s", srcLookup.VehicleId, srcLookup.AccId)
-		srcVal = validateVehicle(cfg.ApiBase, cfg.UserToken, srcLookup.AccId, srcLookup.VehicleId, cfg.SrcImei, cfg.FromMs, cfg.ToMs, lg)
+		srcVal = validateVehicle(cfg.ApiBase, cfg.UserToken, srcLookup.AccId, srcLookup.VehicleId, cfg.SrcImei, cfg.FromMs, cfg.ToMs, cfg.ToMsEod, lg)
 	}()
 	go func() {
 		defer wg.Done()
 		lg.add("[tgt] fetching data  vehicleId=%s  accId=%s", tgtLookup.VehicleId, tgtLookup.AccId)
-		tgtVal = validateVehicle(cfg.ApiBase, cfg.UserToken, tgtLookup.AccId, tgtLookup.VehicleId, cfg.TgtImei, cfg.FromMs, cfg.ToMs, lg)
+		tgtVal = validateVehicle(cfg.ApiBase, cfg.UserToken, tgtLookup.AccId, tgtLookup.VehicleId, cfg.TgtImei, cfg.FromMs, cfg.ToMs, cfg.ToMsEod, lg)
 	}()
 	wg.Wait()
 

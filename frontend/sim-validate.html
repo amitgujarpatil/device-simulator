@@ -507,7 +507,7 @@ async function reCheck() {
   if (!t || !r || !r.userToken) return;
   const sd = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
   const _snapEod = ms => { const d = new Date(ms); return (d.getHours()||d.getMinutes()||d.getSeconds()) ? ms : ms + 86399999; };
-  const fromMs = sd(t.from), toMs = _snapEod(sd(t.until));
+  const fromMs = sd(t.from), toMs = sd(t.until), toMsEod = _snapEod(toMs);
   if (!fromMs || !toMs) return;
   document.getElementById('reCheckBtn').disabled = true;
   document.getElementById('phSpinner').classList.add('on');
@@ -515,7 +515,7 @@ async function reCheck() {
     const cfg = {
       apiBase: r.apiBase||'', userToken: r.userToken||'', accId: r.accId||'',
       srcImei: t.srcImei||'', tgtImei: t.tgtImei||'',
-      fromMs, toMs,
+      fromMs, toMs, toMsEod,
     };
     const raw = await window.go.main.App.ValidateSimulation(cfg);
     _result = JSON.parse(raw);

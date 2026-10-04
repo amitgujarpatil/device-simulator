@@ -615,6 +615,7 @@ export namespace simulator {
 	    tgtImei: string;
 	    fromMs: number;
 	    toMs: number;
+	    toMsEod: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ValidateConfig(source);
@@ -629,6 +630,7 @@ export namespace simulator {
 	        this.tgtImei = source["tgtImei"];
 	        this.fromMs = source["fromMs"];
 	        this.toMs = source["toMs"];
+	        this.toMsEod = source["toMsEod"];
 	    }
 	}
 
