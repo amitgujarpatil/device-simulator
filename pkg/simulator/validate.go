@@ -233,13 +233,25 @@ func fetchAllAlerts(apiBase, userToken, accId, vehicleId string, fromMs, toMs in
 		for _, it := range items {
 			if m, ok := it.(map[string]any); ok {
 				all = append(all, m)
-				if t, ok := m["alert_type"].(string); ok {
+				// API returns "type" field; fall back to "alert_type" for safety
+				t, _ := m["type"].(string)
+				if t == "" {
+					t, _ = m["alert_type"].(string)
+				}
+				if t != "" {
 					byType[t]++
 				}
 			}
 		}
 		lg.add("  alerts page %d → %d items (total so far: %d)", pnum, len(items), len(all))
-		if len(items) < psize {
+		// Use isLastPage from paging object when present; fall back to count < psize
+		isLast := len(items) < psize
+		if pg, ok := res["paging"].(map[string]any); ok {
+			if v, ok := pg["isLastPage"].(bool); ok {
+				isLast = v
+			}
+		}
+		if isLast {
 			break
 		}
 	}
