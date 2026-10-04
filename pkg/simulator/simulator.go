@@ -361,10 +361,13 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 	var liveObdPackets []map[string]interface{}
 	var batchFiles []string
 
-	// SkipFetch: only activate when Phase 1 was previously completed — livePkts
-	// cache is only useful if batch files were already uploaded.
+	// When Phase 1 is already complete, always use the cached live-packets file so
+	// Phase 2 resume offsets (LiveGpsOffset/LiveObdOffset) remain valid — they
+	// reference positions in the ORIGINAL fetch order.  Re-fetching fresh data
+	// would produce a different packet list, making saved offsets stale.
+	// Users who want a true fresh run must call ClearTestState first.
 	skipFetchDone := false
-	if cfg.SkipFetch && cfg.Mode == "simulate" && runState.Phase1Complete {
+	if cfg.Mode == "simulate" && runState.Phase1Complete {
 		if data, err2 := os.ReadFile(livePktsPath); err2 == nil {
 			var cached []livePacket
 			if json.Unmarshal(data, &cached) == nil && len(cached) > 0 {
@@ -372,7 +375,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 				skipFetchDone = true
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "FETCH", Cls: "fe",
-					Msg:  fmt.Sprintf("Loaded %d cached live packets — skipping API fetch", len(livePkts)),
+					Msg:  fmt.Sprintf("Phase 1 complete — resuming with %d cached live packets", len(livePkts)),
 					Ty:   "ok", Step: "fetch:done",
 					Data: map[string]interface{}{"packets": len(livePkts), "cached": true},
 				})
@@ -381,7 +384,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 		if !skipFetchDone {
 			emit(SimEvent{
 				Elapsed: elap(), Tag: "FETCH", Cls: "warn",
-				Msg: "Skip-fetch: cache not found — fetching from API", Ty: "warn",
+				Msg: "Phase 1 complete but live-packets cache missing — re-fetching from API", Ty: "warn",
 			})
 		}
 	}
