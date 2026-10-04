@@ -1644,7 +1644,9 @@ async function runValidation() {
     return;
   }
   const sd = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
-  const fromMs = sd(t.from), toMs = sd(t.until);
+  // Snap "until" to end-of-day when time is midnight — matches web UI which queries through 23:59:59
+  const _snapEod = ms => { const d = new Date(ms); return (d.getHours()||d.getMinutes()||d.getSeconds()) ? ms : ms + 86399999; };
+  const fromMs = sd(t.from), toMs = _snapEod(sd(t.until));
   if (!fromMs || !toMs) {
     g('valError').style.display = '';
     g('valError').textContent = 'Test "From" and "Until" dates are required.';

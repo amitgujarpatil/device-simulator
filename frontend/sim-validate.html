@@ -506,7 +506,8 @@ async function reCheck() {
   const t = SimState.getActiveTest(), r = SimState.getRegion(SimState.getActiveRegionKey());
   if (!t || !r || !r.userToken) return;
   const sd = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
-  const fromMs = sd(t.from), toMs = sd(t.until);
+  const _snapEod = ms => { const d = new Date(ms); return (d.getHours()||d.getMinutes()||d.getSeconds()) ? ms : ms + 86399999; };
+  const fromMs = sd(t.from), toMs = _snapEod(sd(t.until));
   if (!fromMs || !toMs) return;
   document.getElementById('reCheckBtn').disabled = true;
   document.getElementById('phSpinner').classList.add('on');
