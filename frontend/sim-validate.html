@@ -73,12 +73,19 @@ table.dtbl td.match{color:var(--green)}.dtbl td.diff{color:var(--yellow)}.dtbl t
 .empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;flex:1;color:var(--t2);font-size:11px;padding:40px}
 .empty-icon{font-size:28px;opacity:.3}
 .err-banner{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:5px;padding:8px 12px;font-size:10px;color:var(--red);margin:10px 14px}
-/* ── Alert type breakdown section ── */
-.breakdown{padding:12px 14px;border-bottom:1px solid var(--border);background:var(--bg0)}
-.breakdown-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:8px}
-.bkd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px}
-.bkd-row{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;font-size:9px}
-.bkd-type{flex:1;color:var(--t1)}.bkd-src{color:#818cf8;font-family:monospace;min-width:24px;text-align:right}.bkd-tgt{color:var(--green);font-family:monospace;min-width:24px;text-align:right}.bkd-sep{color:var(--t2)}.bkd-d{font-family:monospace;min-width:24px;text-align:right}
+/* ── Alert type filter chips ── */
+.type-filter{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg0)}
+.tf-hdr{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.tf-title{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2)}
+.tf-all{padding:2px 10px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t2);transition:all .12s}
+.tf-all.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.tf-all:hover{color:var(--t0)}
+.bkd-grid{display:flex;flex-wrap:wrap;gap:4px}
+.bkd-row{display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;font-size:9px;cursor:pointer;transition:all .12s;user-select:none}
+.bkd-row:hover{background:var(--bg2);border-color:var(--t2)}
+.bkd-row.sel{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.5)}
+.bkd-type{color:var(--t1);font-weight:600}.bkd-row.sel .bkd-type{color:var(--yellow)}
+.bkd-src{color:#818cf8;font-family:monospace}.bkd-tgt{color:var(--green);font-family:monospace}.bkd-sep{color:var(--border);font-size:8px}.bkd-d{font-family:monospace;min-width:20px;text-align:right}
 .bkd-d.ok{color:var(--green)}.bkd-d.warn{color:var(--yellow)}.bkd-d.bad{color:var(--red)}
 </style>
 </head>
@@ -145,9 +152,12 @@ table.dtbl td.match{color:var(--green)}.dtbl td.diff{color:var(--yellow)}.dtbl t
   <div class="sp"></div>
 </div>
 
-<!-- Breakdown (alerts tab only) -->
-<div class="breakdown" id="breakdownPanel" style="display:none">
-  <div class="breakdown-title">Per-Type Breakdown</div>
+<!-- Alert type filters (alerts tab only) -->
+<div class="type-filter" id="breakdownPanel" style="display:none">
+  <div class="tf-hdr">
+    <span class="tf-title">Filter by Type</span>
+    <span class="tf-all" id="tfAll" onclick="clearTypeFilter()">All</span>
+  </div>
   <div class="bkd-grid" id="bkdGrid"></div>
 </div>
 
@@ -174,6 +184,7 @@ let _activeTab = 'trips';
 let _showSrc = true, _showTgt = true;
 let _sortCol = null, _sortDir = 1;
 let _search = '';
+let _activeTypes = null; // null = all; Set = only these alert types
 
 // ── Load saved result ─────────────────────────────────────────
 function loadResult() {
@@ -238,11 +249,29 @@ function renderSummaryCard(title, id, srcN, tgtN) {
 function switchTab(tab) {
   _activeTab = tab;
   _sortCol = null; _sortDir = 1; _search = '';
+  _activeTypes = null;
   document.getElementById('fbSearch').value = '';
   ['trips','alerts','dtcs'].forEach(t => {
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('on', t === tab);
   });
   document.getElementById('breakdownPanel').style.display = tab === 'alerts' ? '' : 'none';
+  renderTab();
+}
+
+function toggleTypeFilter(type) {
+  if (_activeTypes === null) {
+    _activeTypes = new Set([type]);
+  } else if (_activeTypes.has(type)) {
+    _activeTypes.delete(type);
+    if (_activeTypes.size === 0) _activeTypes = null;
+  } else {
+    _activeTypes.add(type);
+  }
+  renderTab();
+}
+
+function clearTypeFilter() {
+  _activeTypes = null;
   renderTab();
 }
 
@@ -290,6 +319,22 @@ function sortRows(rows, col) {
 function thCls(col) { return _sortCol === col ? (_sortDir === 1 ? 'asc' : 'desc') : ''; }
 
 // ── Trips ─────────────────────────────────────────────────────
+function tripDistKm(r) {
+  // distance is typically in metres; odo_distance / distance_km may be in km
+  const m = r.distance || r.odo_distance_m || r.distance_m;
+  if (m != null && m > 0) return (m / 1000).toFixed(2) + ' km';
+  const km = r.distance_km || r.odo_distance || r.total_distance;
+  if (km != null && km > 0) return Number(km).toFixed(2) + ' km';
+  return '—';
+}
+function tripDurMs(r) {
+  if (r.duration_ms != null && r.duration_ms > 0) return r.duration_ms;
+  // duration is typically in seconds
+  if (r.duration != null && r.duration > 0) return r.duration * 1000;
+  if (r.trip_duration != null && r.trip_duration > 0) return r.trip_duration * 1000;
+  return 0;
+}
+
 function renderTrips(srcTrips, tgtTrips) {
   let rows = [
     ...srcTrips.map(r => ({ ...r, _side: 'src' })),
@@ -311,8 +356,10 @@ function renderTrips(srcTrips, tgtTrips) {
     <th onclick="thClick('_side')" class="${thCls('_side')}">Vehicle</th>
     <th onclick="thClick('start_time')" class="${thCls('start_time')}">Start</th>
     <th onclick="thClick('end_time')" class="${thCls('end_time')}">End</th>
-    <th onclick="thClick('distance')" class="${thCls('distance')}">Distance</th>
     <th onclick="thClick('duration')" class="${thCls('duration')}">Duration</th>
+    <th onclick="thClick('gps_count')" class="${thCls('gps_count')}">GPS</th>
+    <th onclick="thClick('distance')" class="${thCls('distance')}">ODO Dist</th>
+    <th onclick="thClick('fuel_consumed')" class="${thCls('fuel_consumed')}">Fuel</th>
     <th onclick="thClick('max_speed')" class="${thCls('max_speed')}">Max Spd</th>
     <th onclick="thClick('avg_speed')" class="${thCls('avg_speed')}">Avg Spd</th>
     <th></th>
@@ -320,22 +367,29 @@ function renderTrips(srcTrips, tgtTrips) {
 
   const tbody = rows.map((r, i) => {
     const startStr = r.start_time ? new Date(r.start_time).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
-    const endStr   = r.end_time   ? new Date(r.end_time).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'})   : '—';
-    const dist  = r.distance != null ? (r.distance/1000).toFixed(2) + ' km' : '—';
-    const dur   = r.duration  ? fmtDurMs(r.duration * 1000) : '—';
-    const maxSpd = r.max_speed  != null ? r.max_speed  + ' km/h' : '—';
-    const avgSpd = r.avg_speed  != null ? r.avg_speed  + ' km/h' : '—';
+    const endStr   = r.end_time   ? new Date(r.end_time).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
+    const durMs = tripDurMs(r);
+    const dur  = durMs > 0 ? fmtDurMs(durMs) : '—';
+    const gps  = r.gps_count ?? r.gps_points ?? r.total_gps ?? r.point_count ?? null;
+    const gpsStr = gps != null ? String(gps) : '—';
+    const dist = tripDistKm(r);
+    const fuelRaw = r.fuel_consumed ?? r.fuel ?? r.total_fuel ?? r.fuel_used ?? null;
+    const fuel = fuelRaw != null ? Number(fuelRaw).toFixed(2) + ' L' : '—';
+    const maxSpd = r.max_speed != null ? r.max_speed + ' km/h' : '—';
+    const avgSpd = r.avg_speed != null ? r.avg_speed + ' km/h' : '—';
     return `<tr>
       <td class="${r._side}">${r._side.toUpperCase()}</td>
       <td class="mono" title="${r.start_time}">${startStr}</td>
       <td class="mono" title="${r.end_time}">${endStr}</td>
-      <td>${dist}</td>
       <td>${dur}</td>
+      <td>${gpsStr}</td>
+      <td>${dist}</td>
+      <td>${fuel}</td>
       <td>${maxSpd}</td>
       <td>${avgSpd}</td>
       <td><span class="exp-btn" onclick="toggleExp(this,${i})">{…}</span></td>
     </tr>
-    <tr class="exp-row" id="exp-${i}" style="display:none"><td colspan="8"><pre class="exp-pre">${escHtml(JSON.stringify(r, null, 2))}</pre></td></tr>`;
+    <tr class="exp-row" id="exp-${i}" style="display:none"><td colspan="10"><pre class="exp-pre">${escHtml(JSON.stringify(r, null, 2))}</pre></td></tr>`;
   }).join('');
 
   setTable(thead, tbody);
@@ -344,14 +398,19 @@ function renderTrips(srcTrips, tgtTrips) {
 
 // ── Alerts ────────────────────────────────────────────────────
 function renderAlerts(srcAlerts, tgtAlerts, srcByType, tgtByType) {
-  // Breakdown panel
   const allTypes = [...new Set([...Object.keys(srcByType), ...Object.keys(tgtByType)])].sort();
+
+  // Build type filter chips
+  const isAll = _activeTypes === null;
+  document.getElementById('tfAll').classList.toggle('on', isAll);
   if (allTypes.length) {
     document.getElementById('bkdGrid').innerHTML = allTypes.map(type => {
       const s = srcByType[type]||0, tv = tgtByType[type]||0, d = tv - s;
       const dcls = d === 0 ? 'ok' : Math.abs(d) <= 1 ? 'warn' : 'bad';
-      return `<div class="bkd-row"><span class="bkd-type">${fmtAlertType(type)}</span>
-        <span class="bkd-src">${s}</span><span class="bkd-sep">/</span><span class="bkd-tgt">${tv}</span>
+      const sel = isAll || (_activeTypes && _activeTypes.has(type));
+      return `<div class="bkd-row${sel?' sel':''}" onclick="toggleTypeFilter('${type}')">
+        <span class="bkd-type">${fmtAlertType(type)}</span>
+        <span class="bkd-src">${s}</span><span class="bkd-sep">·</span><span class="bkd-tgt">${tv}</span>
         <span class="bkd-d ${dcls}">${d===0?'✓':(d>0?'+':'')+d}</span></div>`;
     }).join('');
   }
@@ -363,6 +422,8 @@ function renderAlerts(srcAlerts, tgtAlerts, srcByType, tgtByType) {
   rows = rows.filter(r => {
     if (!_showSrc && r._side === 'src') return false;
     if (!_showTgt && r._side === 'tgt') return false;
+    const rtype = r.type || r.alert_type || '';
+    if (_activeTypes && !_activeTypes.has(rtype)) return false;
     if (_search) {
       const hay = JSON.stringify(r).toLowerCase();
       if (!hay.includes(_search)) return false;
@@ -374,27 +435,35 @@ function renderAlerts(srcAlerts, tgtAlerts, srcByType, tgtByType) {
 
   const thead = `<tr>
     <th onclick="thClick('_side')" class="${thCls('_side')}">Vehicle</th>
-    <th onclick="thClick('alert_type')" class="${thCls('alert_type')}">Type</th>
+    <th onclick="thClick('type')" class="${thCls('type')}">Type</th>
     <th onclick="thClick('timestamp')" class="${thCls('timestamp')}">Time</th>
+    <th onclick="thClick('duration')" class="${thCls('duration')}">Duration</th>
+    <th onclick="thClick('max_speed')" class="${thCls('max_speed')}">Max Spd</th>
+    <th onclick="thClick('avg_speed')" class="${thCls('avg_speed')}">Avg Spd</th>
     <th onclick="thClick('severity')" class="${thCls('severity')}">Severity</th>
-    <th>Details</th>
     <th></th>
   </tr>`;
 
   const tbody = rows.map((r, i) => {
     const ts  = r.timestamp ? new Date(r.timestamp).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—';
-    const typ = fmtAlertType(r.alert_type || r.type || '—');
-    const sev = r.severity || r.priority || '—';
-    const det = r.message || r.description || r.location || '';
+    const typ = fmtAlertType(r.type || r.alert_type || '—');
+    const durMs = (r.duration_ms != null && r.duration_ms > 0) ? r.duration_ms
+                : (r.duration != null && r.duration > 0) ? r.duration * 1000 : 0;
+    const dur = durMs > 0 ? fmtDurMs(durMs) : '—';
+    const maxSpd = r.max_speed != null ? r.max_speed + ' km/h' : (r.speed != null ? r.speed + ' km/h' : '—');
+    const avgSpd = r.avg_speed != null ? r.avg_speed + ' km/h' : '—';
+    const sev = r.severity ?? r.priority ?? '—';
     return `<tr>
       <td class="${r._side}">${r._side.toUpperCase()}</td>
       <td>${typ}</td>
       <td class="mono" title="${r.timestamp}">${ts}</td>
+      <td>${dur}</td>
+      <td>${maxSpd}</td>
+      <td>${avgSpd}</td>
       <td>${sev}</td>
-      <td title="${escHtml(det)}">${escHtml(det.slice(0,60))}${det.length>60?'…':''}</td>
       <td><span class="exp-btn" onclick="toggleExp(this,${i})">{…}</span></td>
     </tr>
-    <tr class="exp-row" id="exp-${i}" style="display:none"><td colspan="6"><pre class="exp-pre">${escHtml(JSON.stringify(r, null, 2))}</pre></td></tr>`;
+    <tr class="exp-row" id="exp-${i}" style="display:none"><td colspan="8"><pre class="exp-pre">${escHtml(JSON.stringify(r, null, 2))}</pre></td></tr>`;
   }).join('');
 
   setTable(thead, tbody);
@@ -541,13 +610,13 @@ async function exportData(fmt) {
       ...(src.trips||[]).map(r=>({_side:'SRC',...r})),
       ...(tgt.trips||[]).map(r=>({_side:'TGT',...r})),
     ];
-    headers = ['_side','start_time','end_time','distance','duration','max_speed','avg_speed','id'];
+    headers = ['_side','start_time','end_time','duration','gps_count','distance','fuel_consumed','max_speed','avg_speed','id'];
   } else if (_activeTab === 'alerts') {
     rows = [
       ...(src.alerts||[]).map(r=>({_side:'SRC',...r})),
       ...(tgt.alerts||[]).map(r=>({_side:'TGT',...r})),
     ];
-    headers = ['_side','alert_type','timestamp','severity','message','id'];
+    headers = ['_side','type','timestamp','duration','max_speed','avg_speed','severity','message','id'];
   } else {
     rows = [
       ...(src.dtcsActive||[]).map(r=>({_side:'SRC',_status:'active',...r})),
