@@ -576,7 +576,7 @@ function renderAppearanceForm() {
       </div>
       <div class="fg wide"><label class="lbl">Font Size</label>
         <div class="sl-row">
-          <input type="range" class="sl" min="10" max="16" step="1" value="${curFs}" oninput="applyAppFontSize(+this.value);this.nextElementSibling.textContent=this.value+'px'">
+          <input type="range" class="sl" min="10" max="100" step="1" value="${curFs}" oninput="applyAppFontSize(+this.value);this.nextElementSibling.textContent=this.value+'px'">
           <span class="slv">${curFs}px</span>
         </div>
       </div>

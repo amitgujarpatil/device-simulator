@@ -8,10 +8,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
 func uploadFile(filePath string, cfg Config) error {
+	if cfg.UploadURL != "" && !strings.HasPrefix(cfg.UploadURL, "http://") && !strings.HasPrefix(cfg.UploadURL, "https://") {
+		cfg.UploadURL = "https://" + cfg.UploadURL
+	}
 	f, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("open file: %w", err)

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -110,6 +111,9 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 		srcBase := cfg.SrcAPIBase
 		if srcBase == "" {
 			srcBase = cfg.APIBase
+		}
+		if srcBase != "" && !strings.HasPrefix(srcBase, "http://") && !strings.HasPrefix(srcBase, "https://") {
+			srcBase = "https://" + srcBase
 		}
 		srcToken := cfg.SrcAPIToken
 		if srcToken == "" {
