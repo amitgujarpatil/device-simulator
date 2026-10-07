@@ -43,6 +43,9 @@ type Config struct {
 	Mode               string `json:"mode"`
 	EnrichL1           bool   `json:"enrichL1"`
 	SkipFetch          bool   `json:"skipFetch"`
+	// Cross-region fetch: when set, source data is fetched from this API instead of APIBase/APIToken.
+	SrcAPIBase  string `json:"srcApiBase"`
+	SrcAPIToken string `json:"srcApiToken"`
 }
 
 // RegionConfig is used for TestMQTT.

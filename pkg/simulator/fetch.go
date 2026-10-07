@@ -55,6 +55,21 @@ func convertToL1Packet(pkt map[string]interface{}) map[string]interface{} {
 	return out
 }
 
+// toNormalPacket strips the "l" (L1) field from a packet so Phase 2 always
+// publishes GPS as normal packets even if the source data contained l:"1".
+func toNormalPacket(pkt map[string]interface{}) map[string]interface{} {
+	if _, hasL := pkt["l"]; !hasL {
+		return pkt
+	}
+	out := make(map[string]interface{}, len(pkt))
+	for k, v := range pkt {
+		if k != "l" {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT time.Time) ([]Packet, int, error) {
 	psize := cfg.APIPageSize
 	if psize <= 0 {
@@ -92,8 +107,16 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 		}
 		page++
 
+		srcBase := cfg.SrcAPIBase
+		if srcBase == "" {
+			srcBase = cfg.APIBase
+		}
+		srcToken := cfg.SrcAPIToken
+		if srcToken == "" {
+			srcToken = cfg.APIToken
+		}
 		url := fmt.Sprintf("%s/idevice/logsV2/%s?psize=%d&token=%s&from=%d&until=%d",
-			cfg.APIBase, cfg.SrcIMEI, psize, cfg.APIToken, cfg.FromMS, cfg.UntilMS)
+			srcBase, cfg.SrcIMEI, psize, srcToken, cfg.FromMS, cfg.UntilMS)
 		if lastKey != nil {
 			if t, ok := lastKey["t"]; ok {
 				var lastT int64

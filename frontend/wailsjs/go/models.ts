@@ -538,6 +538,8 @@ export namespace simulator {
 	    mode: string;
 	    enrichL1: boolean;
 	    skipFetch: boolean;
+	    srcApiBase: string;
+	    srcApiToken: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -583,6 +585,8 @@ export namespace simulator {
 	        this.mode = source["mode"];
 	        this.enrichL1 = source["enrichL1"];
 	        this.skipFetch = source["skipFetch"];
+	        this.srcApiBase = source["srcApiBase"];
+	        this.srcApiToken = source["srcApiToken"];
 	    }
 	}
 	export class RegionConfig {
@@ -611,6 +615,8 @@ export namespace simulator {
 	    apiBase: string;
 	    userToken: string;
 	    accId: string;
+	    srcApiBase: string;
+	    srcUserToken: string;
 	    srcImei: string;
 	    tgtImei: string;
 	    fromMs: number;
@@ -626,6 +632,8 @@ export namespace simulator {
 	        this.apiBase = source["apiBase"];
 	        this.userToken = source["userToken"];
 	        this.accId = source["accId"];
+	        this.srcApiBase = source["srcApiBase"];
+	        this.srcUserToken = source["srcUserToken"];
 	        this.srcImei = source["srcImei"];
 	        this.tgtImei = source["tgtImei"];
 	        this.fromMs = source["fromMs"];

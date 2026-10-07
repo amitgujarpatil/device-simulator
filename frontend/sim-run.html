@@ -336,6 +336,7 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
   <div class="hdr-sep"></div>
   <span style="font-size:9px;color:var(--t2);letter-spacing:.06em;text-transform:uppercase">Region</span>
   <select id="hdrRegion" class="inp" style="width:130px;font-size:11px" onchange="onHdrRegionChange(this.value)"></select>
+  <div id="hdrCross" style="display:none;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);cursor:pointer" onclick="focusDeviceSection()" title="Cross-region active — click to edit"></div>
   <div class="sp"></div>
   <div class="tg-wrap"><span>DRY RUN</span><div class="tg" id="dryTg" onclick="this.classList.toggle('on');dry=this.classList.contains('on')"></div></div>
   <div class="hdr-sep"></div>
@@ -663,12 +664,17 @@ function renderTestList() {
   g('testList').innerHTML = tests.map(t => {
     const r = SimState.getRegion(t.regionKey) || {};
     const isOn = activeTest && t.id === activeTest.id;
+    const srcKey = t.srcRegionKey || t.regionKey;
+    const isCross = srcKey && srcKey !== t.regionKey;
+    const regionBadge = isCross
+      ? `<span class="${SimNav.regionBadgeClass(srcKey)}">${SimNav.regionShort(srcKey)}</span><span style="color:var(--t2);font-size:8px">→</span><span class="${SimNav.regionBadgeClass(t.regionKey)}">${SimNav.regionShort(t.regionKey)}</span>`
+      : `<span class="${SimNav.regionBadgeClass(t.regionKey)}">${SimNav.regionShort(t.regionKey)}</span>`;
     return `<div class="ti${isOn?' on':''}" onclick="selectTest(${t.id})">
       <div class="ti-accent" style="background:${r.color||'var(--t2)'}"></div>
       <div class="ti-body">
         <div class="ti-name">${t.name}</div>
         <div class="ti-meta">
-          <span class="${SimNav.regionBadgeClass(t.regionKey)}">${SimNav.regionShort(t.regionKey)}</span>
+          ${regionBadge}
           <span class="badge badge-${t.mode||'simulate'}">${t.mode||'simulate'}</span>
         </div>
       </div>
@@ -713,7 +719,7 @@ function updGlobalMs(key, secVal) {
 function clampInterval(ms) { return Math.min(Math.max(ms, 100), 60000); }
 function fmtInterval(ms) { return ms >= 1000 ? (ms/1000).toFixed(1)+'s' : ms+'ms'; }
 function _p2NiText(gl) {
-  const mode = (gl||SimState.getGlobal()).normalStreamMode || 'independent';
+  const mode = (gl||SimState.getGlobal()).normalStreamMode || 'natural';
   if (mode === 'natural') {
     const ni = (gl||SimState.getGlobal()).naturalOrderIntervalMs || 500;
     return 'Natural Order · ' + fmtInterval(ni) + '/pkt';
@@ -729,6 +735,8 @@ function patchActiveTest(key, val) {
   SimState.saveTest(activeTest);
   updateWindowDurations();
   if (key === 'mode') { renderCfgSummary(); adaptForMode(val); }
+  if (key === 'regionKey') { activeRegion = SimState.getRegion(val) || activeRegion; SimState.setActiveRegionKey(val); SimNav._refreshRegion(); renderCfgSummary(); renderTestList(); }
+  if (key === 'srcRegionKey') { renderCfgSummary(); renderTestList(); }
 }
 
 function updateWindowDurations() {
@@ -744,6 +752,8 @@ function updateWindowDurations() {
 function renderCfgSummary() {
   if (!activeTest || !activeRegion) { g('cfgSum').innerHTML=''; return; }
   const t = activeTest, r = activeRegion;
+  const srcRegion = SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r;
+  const crossRegion = (t.srcRegionKey && t.srcRegionKey !== (t.regionKey || SimState.getActiveRegionKey()));
   const masked = v => v ? '••••••••' : '(not set)';
   const lf = (lbl,val,hi,isMasked) =>
     `<div class="locked-field"><span class="lf-lbl">${lbl}</span><span class="lf-val${hi?' hi':''}${isMasked?' hidden':''}">${isMasked?masked(val):val||'—'}</span></div>`;
@@ -785,11 +795,14 @@ function renderCfgSummary() {
   const isMqttDirect = (t.mode || 'simulate') === 'mqtt-pub';
   const isFetch = (t.mode || 'simulate') === 'fetch';
 
+  const _regionOpts = Object.entries(SimState.getRegions()).map(([k, v]) => [k, `${v.label} — ${v.sub}`]);
   g('cfgSum').innerHTML = `
     <div class="cs-sec">
       <div class="cs-hdr open" onclick="togCs(this)"><span>⊙</span>Device<span class="ch">›</span></div>
       <div class="cs-body open">
+        ${lfSel('Src Region', 'srcRegionKey', t.srcRegionKey || SimState.getActiveRegionKey(), _regionOpts)}
         ${lfIn('Src IMEI', 'srcImei', t.srcImei)}
+        ${lfSel('Tgt Region', 'regionKey', t.regionKey || SimState.getActiveRegionKey(), _regionOpts)}
         ${lfIn('Tgt IMEI', 'tgtImei', t.tgtImei)}
         ${lfSel('Switch', 'mode', t.mode||'simulate', [['simulate','Simulate'],['pipeline','Pipeline'],['fetch','Fetch only'],['mqtt-pub','MQTT Direct']])}
         ${lfTg('Connection', 'usePlainMqtt', !!t.usePlainMqtt, 'Secure (TLS)', 'Plain (TCP)')}
@@ -809,6 +822,13 @@ function renderCfgSummary() {
         ${mqttFallbackNote}
       </div>
     </div>` : ''}
+    <div class="cs-sec">
+      <div class="cs-hdr${crossRegion?' open':''}" onclick="togCs(this)"><span>⬇</span>Fetch${crossRegion?' <span style="font-size:8px;color:var(--green);font-weight:700">CROSS</span>':''}<span class="ch">›</span></div>
+      <div class="cs-body${crossRegion?' open':''}">
+        ${lf('API Base', srcRegion.apiBase)}
+        ${lf('API Token', srcRegion.apiToken, false, true)}
+      </div>
+    </div>
     ${!isMqttDirect && !isFetch ? `<div class="cs-sec">
       <div class="cs-hdr" onclick="togCs(this)"><span>↑</span>Upload<span class="ch">›</span></div>
       <div class="cs-body">
@@ -846,8 +866,8 @@ function renderCfgSummary() {
         ${tRow('Batch Upload',   'batchUploadDelayMs', 30000, 600000, 10000, gl.batchUploadDelayMs||120000)}
         ${tRow('GPS L1 Interval','gpsL1IntervalMs',      100,  60000,   100, gl.gpsL1IntervalMs||10000)}
         ${tRow('OBD Accum',      'obdAccumIntervalMs',  1000, 600000,  1000, gl.obdAccumIntervalMs||120000)}
-        <div class="ct-row"><span class="ct-lbl">Stream Mode</span><div class="ct-inp-wrap" style="flex:1"><select class="ct-inp" style="height:22px;font-size:11px;padding:0 4px" onchange="updGlobal('normalStreamMode',this.value,null);renderConfig()"><option value="independent" ${(gl.normalStreamMode||'independent')==='independent'?'selected':''}>Independent (GPS+OBD separate timers)</option><option value="natural" ${gl.normalStreamMode==='natural'?'selected':''}>Natural Order (time-sorted, one delay)</option></select></div></div>
-        ${(gl.normalStreamMode||'independent')==='independent' ? `
+        <div class="ct-row"><span class="ct-lbl">Stream Mode</span><div class="ct-inp-wrap" style="flex:1"><select class="ct-inp" style="height:22px;font-size:11px;padding:0 4px" onchange="updGlobal('normalStreamMode',this.value,null);renderConfig()"><option value="natural" ${(gl.normalStreamMode||'natural')==='natural'?'selected':''}>Natural Order (time-sorted, one delay)</option><option value="independent" ${gl.normalStreamMode==='independent'?'selected':''}>Independent (GPS+OBD separate timers)</option></select></div></div>
+        ${gl.normalStreamMode==='independent' ? `
         ${tRow('Normal GPS',     'normalGpsIntervalMs', 100, 300000,  100, gl.normalGpsIntervalMs||60000)}
         ${tRow('Normal OBD',     'normalObdIntervalMs', 100, 300000,  100, gl.normalObdIntervalMs||60000)}
         ` : `
@@ -872,6 +892,32 @@ function renderCfgSummary() {
   `;
   initDatePickers();
   loadResumeState();
+  _refreshCrossRegionIndicator();
+}
+
+function _refreshCrossRegionIndicator() {
+  const el = g('hdrCross');
+  if (!el) return;
+  const t = activeTest;
+  if (!t) { el.style.display = 'none'; return; }
+  const srcKey = t.srcRegionKey || SimState.getActiveRegionKey();
+  const tgtKey = t.regionKey || SimState.getActiveRegionKey();
+  if (!srcKey || !tgtKey || srcKey === tgtKey) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML =
+    `<span class="${SimNav.regionBadgeClass(srcKey)}" style="font-size:9px">${SimNav.regionShort(srcKey)}</span>` +
+    `<span style="color:var(--t2);font-size:9px;line-height:1">→</span>` +
+    `<span class="${SimNav.regionBadgeClass(tgtKey)}" style="font-size:9px">${SimNav.regionShort(tgtKey)}</span>`;
+}
+
+function focusDeviceSection() {
+  const sum = g('cfgSum');
+  if (!sum) return;
+  sum.scrollTop = 0;
+  const devHdr = sum.querySelector('.cs-hdr');
+  if (devHdr && !devHdr.classList.contains('open')) devHdr.click();
+  sum.style.outline = '1px solid var(--blue)';
+  setTimeout(() => { sum.style.outline = ''; }, 800);
 }
 
 async function loadResumeState() {
@@ -1171,6 +1217,7 @@ function waitForRuntime(timeoutMs) {
 function buildSimConfig() {
   const t = activeTest || {};
   const r = activeRegion || {};
+  const srcR = SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r;
   const g2 = SimState.getGlobal();
   const toMs = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
   const isMqttPub = (t.mode || 'simulate') === 'mqtt-pub';
@@ -1195,6 +1242,8 @@ function buildSimConfig() {
     historyEndMs: toMs(t.histEnd),
     apiBase:      r.apiBase || '',
     apiToken:     r.apiToken || '',
+    srcApiBase:   srcR.apiBase || '',
+    srcApiToken:  srcR.apiToken || '',
     userToken:    r.userToken || '',
     sessionToken: r.sessionToken || '',
     uploadUrl:    r.uploadUrl || '',
@@ -1219,7 +1268,7 @@ function buildSimConfig() {
     normalModeIntervalMs: g2.normalGpsIntervalMs || g2.normalModeIntervalMs || 60000,
     normalGpsIntervalMs:  g2.normalGpsIntervalMs || 60000,
     normalObdIntervalMs:  g2.normalObdIntervalMs || 60000,
-    normalStreamMode:     g2.normalStreamMode || 'independent',
+    normalStreamMode:     g2.normalStreamMode || 'natural',
     naturalOrderIntervalMs: g2.naturalOrderIntervalMs || 500,
     skipFetch: !!g2._skipFetch,
     apiPageSize:   g2.apiPageSize || 800,
@@ -1623,24 +1672,39 @@ function _refreshValCfgRow() {
   const t = activeTest, r = activeRegion;
   if (!t || !r) { g('valCfgRow').innerHTML = '<span style="font-size:9px;color:var(--t2)">No test selected</span>'; return; }
   const row = g('valCfgRow');
-  const warn = !r.userToken
-    ? `<span class="val-cfg-item" style="color:var(--red)">⚠ User Token missing — <a href="sim-settings.html" style="color:var(--blue)">Settings</a></span>`
+  const srcR = SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r;
+  const isCross = srcR !== r;
+  const warnTgt = !r.userToken
+    ? `<span class="val-cfg-item" style="color:var(--red)">⚠ TGT User Token missing — <a href="sim-settings.html" style="color:var(--blue)">Settings</a></span>`
+    : '';
+  const warnSrc = isCross && !srcR.userToken
+    ? `<span class="val-cfg-item" style="color:var(--red)">⚠ SRC User Token missing (${srcR.label||'SRC region'}) — <a href="sim-settings.html" style="color:var(--blue)">Settings</a></span>`
     : '';
   const srcOk = t.srcImei ? `<span style="color:var(--green)">✓</span>` : `<span style="color:var(--red)">✕</span>`;
   const tgtOk = t.tgtImei ? `<span style="color:var(--green)">✓</span>` : `<span style="color:var(--red)">✕</span>`;
+  const crossNote = isCross
+    ? `<span class="val-cfg-item" style="color:var(--green);font-size:8px">CROSS: ${srcR.label||srcR.key} → ${r.label||r.key}</span>`
+    : '';
   row.innerHTML =
     `<span class="val-cfg-item">SRC ${srcOk} <span class="vcv">${t.srcImei||'— not set'}</span></span>` +
     `<span class="val-cfg-item">TGT ${tgtOk} <span class="vcv">${t.tgtImei||'— not set'}</span></span>` +
+    crossNote +
     `<span class="val-cfg-item" style="color:var(--t2);font-size:8px">vehicle_id &amp; acc_id resolved per-request</span>` +
-    warn;
+    warnTgt + warnSrc;
 }
 
 async function runValidation() {
   const t = activeTest, r = activeRegion;
   if (!t || !r) return;
+  const srcR = SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r;
   if (!r.userToken) {
     g('valError').style.display = '';
-    g('valError').textContent = 'User Token is required. Set it in Settings → ' + (r.label||'Region') + '.';
+    g('valError').textContent = 'TGT User Token is required. Set it in Settings → ' + (r.label||'Region') + '.';
+    return;
+  }
+  if (srcR !== r && !srcR.userToken) {
+    g('valError').style.display = '';
+    g('valError').textContent = 'SRC User Token is required for cross-region validation. Set it in Settings → ' + (srcR.label||'SRC Region') + '.';
     return;
   }
   const sd = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
@@ -1661,11 +1725,13 @@ async function runValidation() {
   g('valLogPre').textContent = '';
   try {
     const cfg = {
-      apiBase:   r.apiBase || '',
-      userToken: r.userToken || '',
-      accId:     r.accId || '',
-      srcImei:   t.srcImei || '',
-      tgtImei:   t.tgtImei || '',
+      apiBase:      r.apiBase || '',
+      userToken:    r.userToken || '',
+      accId:        r.accId || '',
+      srcApiBase:   srcR.apiBase || '',
+      srcUserToken: srcR.userToken || '',
+      srcImei:      t.srcImei || '',
+      tgtImei:      t.tgtImei || '',
       fromMs, toMs, toMsEod,
     };
     const raw = await window.go.main.App.ValidateSimulation(cfg);

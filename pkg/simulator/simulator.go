@@ -1212,7 +1212,11 @@ func runNaturalOrderStream(ctx context.Context, cfg Config, livePkts []livePacke
 			return nil
 		}
 		lp := livePkts[i]
-		data, _ := json.Marshal(lp.Packet)
+		pkt := lp.Packet
+		if lp.Type == "gps" {
+			pkt = toNormalPacket(pkt) // strip l:"1" — Phase 2 always sends normal GPS
+		}
+		data, _ := json.Marshal(pkt)
 
 		pktTag := "P2/GPS"
 		pktCls := "mq"
@@ -1419,7 +1423,8 @@ func runPhase2(ctx context.Context, cfg Config, obdDbPath string, livePkts []liv
 				return
 			}
 			lp := gpsQueue[i]
-			data, _ := json.Marshal(lp.Packet)
+			pkt := toNormalPacket(lp.Packet)
+			data, _ := json.Marshal(pkt)
 			gpsSentA.Add(1)
 			gs := int(gpsSentA.Load())
 			os2 := int(obdSentA.Load())

@@ -19,15 +19,19 @@ const (
 // ValidateConfig carries the credentials and time-range for a validation run.
 // ToMs is the raw end timestamp (used for trips).
 // ToMsEod is end-of-day snapped (used for alerts and DTCs to match web UI behaviour).
+// SrcApiBase/SrcUserToken are optional — when set, SRC IMEI is looked up and
+// fetched from the SRC region's API instead of the TGT region's API.
 type ValidateConfig struct {
-	ApiBase   string `json:"apiBase"`
-	UserToken string `json:"userToken"`
-	AccId     string `json:"accId"`
-	SrcImei   string `json:"srcImei"`
-	TgtImei   string `json:"tgtImei"`
-	FromMs    int64  `json:"fromMs"`
-	ToMs      int64  `json:"toMs"`
-	ToMsEod   int64  `json:"toMsEod"`
+	ApiBase      string `json:"apiBase"`
+	UserToken    string `json:"userToken"`
+	AccId        string `json:"accId"`
+	SrcApiBase   string `json:"srcApiBase"`
+	SrcUserToken string `json:"srcUserToken"`
+	SrcImei      string `json:"srcImei"`
+	TgtImei      string `json:"tgtImei"`
+	FromMs       int64  `json:"fromMs"`
+	ToMs         int64  `json:"toMs"`
+	ToMsEod      int64  `json:"toMsEod"`
 }
 
 // VehicleValidation holds the fetched data for a single vehicle.
@@ -338,11 +342,24 @@ func validateVehicle(apiBase, userToken, accId, vehicleId, imei string, fromMs, 
 
 // RunValidation always looks up both IMEIs fresh, then fetches trips/alerts/DTCs
 // for each device using its own accId. Nothing is cached.
+// When SrcApiBase/SrcUserToken are set, SRC data is fetched from the SRC region's API;
+// otherwise both sides fall back to ApiBase/UserToken (same-region mode).
 func RunValidation(cfg ValidateConfig) ValidateResult {
 	lg := &valLogger{}
 	result := ValidateResult{CheckedAt: time.Now().UTC().Format(time.RFC3339)}
 
-	lg.add("RunValidation start  src=%s  tgt=%s  from=%d  to=%d  toEod=%d", cfg.SrcImei, cfg.TgtImei, cfg.FromMs, cfg.ToMs, cfg.ToMsEod)
+	srcApiBase := cfg.SrcApiBase
+	if srcApiBase == "" {
+		srcApiBase = cfg.ApiBase
+	}
+	srcUserToken := cfg.SrcUserToken
+	if srcUserToken == "" {
+		srcUserToken = cfg.UserToken
+	}
+
+	crossRegion := srcApiBase != cfg.ApiBase
+	lg.add("RunValidation start  src=%s  tgt=%s  from=%d  to=%d  toEod=%d  crossRegion=%v",
+		cfg.SrcImei, cfg.TgtImei, cfg.FromMs, cfg.ToMs, cfg.ToMsEod, crossRegion)
 
 	type deviceResolve struct {
 		side string
@@ -354,7 +371,7 @@ func RunValidation(cfg ValidateConfig) ValidateResult {
 	ch := make(chan deviceResolve, 2)
 
 	go func() {
-		d, err := lookupDevice(cfg.ApiBase, cfg.UserToken, cfg.SrcImei, lg)
+		d, err := lookupDevice(srcApiBase, srcUserToken, cfg.SrcImei, lg)
 		ch <- deviceResolve{"src", cfg.SrcImei, d, err}
 	}()
 	go func() {
@@ -398,7 +415,7 @@ func RunValidation(cfg ValidateConfig) ValidateResult {
 	go func() {
 		defer wg.Done()
 		lg.add("[src] fetching data  vehicleId=%s  accId=%s", srcLookup.VehicleId, srcLookup.AccId)
-		srcVal = validateVehicle(cfg.ApiBase, cfg.UserToken, srcLookup.AccId, srcLookup.VehicleId, cfg.SrcImei, cfg.FromMs, cfg.ToMs, cfg.ToMsEod, lg)
+		srcVal = validateVehicle(srcApiBase, srcUserToken, srcLookup.AccId, srcLookup.VehicleId, cfg.SrcImei, cfg.FromMs, cfg.ToMs, cfg.ToMsEod, lg)
 	}()
 	go func() {
 		defer wg.Done()

@@ -13,12 +13,13 @@ const REGION_SEED = {
 const GLOBAL_SEED = {
   batchSize:30, apiPageSize:1000, apiRequestDelay:300, outputDir:'', maxLogEntries:1000,
   batchUploadDelayMs:120000, gpsL1IntervalMs:10000, obdAccumIntervalMs:120000, normalModeIntervalMs:60000,
+  normalStreamMode:'natural', naturalOrderIntervalMs:500,
 };
 
 const TEST_SEED = [
-  { id:1, name:'EU-Test-1',   regionKey:'eu-north',  srcImei:'869305070942563', tgtImei:'869305073861125', srcVehicleId:'', tgtVehicleId:'', from:'2026-09-14T07:30', until:'2026-09-15T07:30', histEnd:'2026-09-14T19:30', mode:'simulate', createdAt:'2026-09-14T06:00:00Z' },
-  { id:2, name:'EU-Test-2',   regionKey:'eu-north',  srcImei:'869305070942563', tgtImei:'869305073861126', srcVehicleId:'', tgtVehicleId:'', from:'2026-09-13T07:30', until:'2026-09-14T07:30', histEnd:'2026-09-13T19:30', mode:'simulate', createdAt:'2026-09-13T06:00:00Z' },
-  { id:3, name:'Pipeline-AP', regionKey:'ap-south',  srcImei:'869305070942563', tgtImei:'869305073861127', srcVehicleId:'', tgtVehicleId:'', from:'2026-09-12T00:00', until:'2026-09-13T00:00', histEnd:'2026-09-12T12:00', mode:'pipeline', createdAt:'2026-09-12T06:00:00Z' },
+  { id:1, name:'EU-Test-1',   srcRegionKey:'eu-north', regionKey:'eu-north',  srcImei:'869305070942563', tgtImei:'869305073861125', srcVehicleId:'', tgtVehicleId:'', from:'2026-09-14T07:30', until:'2026-09-15T07:30', histEnd:'2026-09-14T19:30', mode:'simulate', createdAt:'2026-09-14T06:00:00Z' },
+  { id:2, name:'EU-Test-2',   srcRegionKey:'eu-north', regionKey:'eu-north',  srcImei:'869305070942563', tgtImei:'869305073861126', srcVehicleId:'', tgtVehicleId:'', from:'2026-09-13T07:30', until:'2026-09-14T07:30', histEnd:'2026-09-13T19:30', mode:'simulate', createdAt:'2026-09-13T06:00:00Z' },
+  { id:3, name:'Pipeline-AP', srcRegionKey:'ap-south', regionKey:'ap-south',  srcImei:'869305070942563', tgtImei:'869305073861127', srcVehicleId:'', tgtVehicleId:'', from:'2026-09-12T00:00', until:'2026-09-13T00:00', histEnd:'2026-09-12T12:00', mode:'pipeline', createdAt:'2026-09-12T06:00:00Z' },
 ];
 
 const RUN_SEED = [
@@ -58,8 +59,14 @@ let _s = (() => {
         if (!p.hasOwnProperty('activeRegionKey')) p.activeRegionKey = null;
         // migrate: ensure accId exists on all regions
         for (const k of Object.keys(p.regions)) { if (!p.regions[k].hasOwnProperty('accId')) p.regions[k].accId = ''; }
-        // migrate: ensure vehicleId fields exist on all tests
-        if (p.tests) p.tests.forEach(t => { if (!t.hasOwnProperty('srcVehicleId')) t.srcVehicleId=''; if (!t.hasOwnProperty('tgtVehicleId')) t.tgtVehicleId=''; });
+        // migrate: ensure vehicleId and srcRegionKey fields exist on all tests
+        if (p.tests) p.tests.forEach(t => {
+          if (!t.hasOwnProperty('srcVehicleId')) t.srcVehicleId = '';
+          if (!t.hasOwnProperty('tgtVehicleId')) t.tgtVehicleId = '';
+          if (!t.hasOwnProperty('srcRegionKey')) t.srcRegionKey = t.regionKey || '';
+        });
+        // migrate: default normalStreamMode to 'natural' for existing states
+        if (!p.global.hasOwnProperty('normalStreamMode')) p.global.normalStreamMode = 'natural';
         if (!p.hasOwnProperty('setupComplete')) p.setupComplete = false;
         if (!p.theme) p.theme = { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'' };
         if (!p.theme.fontFamily) p.theme.fontFamily = '';
