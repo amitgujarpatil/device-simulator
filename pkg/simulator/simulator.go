@@ -452,16 +452,24 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 
 		historyEndMS := cfg.HistoryEndMS
 		if historyEndMS == 0 {
-			historyEndMS = cfg.FromMS + 12*3600*1000
+			defaultHours := cfg.HistEndDefaultHours
+			if defaultHours <= 0 {
+				defaultHours = 12
+			}
+			historyEndMS = cfg.FromMS + int64(defaultHours)*3600*1000
 			// Cap the auto-computed default so it never swallows the entire fetch window.
-			// If the time range is shorter than 12 h (common for tracker/GPS-only devices),
-			// historyEndMS would exceed untilMs and leave liveGpsPackets empty.
-			// Clamp to 75 % of the range so there is always a live window.
+			// If the time range is shorter than the default window (common for tracker/GPS-only
+			// devices), historyEndMS would exceed untilMs and leave liveGpsPackets empty.
+			// Clamp to histEndAutoRatioPct% of the range so there is always a live window.
 			if cfg.UntilMS > 0 && cfg.UntilMS > cfg.FromMS && historyEndMS >= cfg.UntilMS {
-				historyEndMS = cfg.FromMS + (cfg.UntilMS-cfg.FromMS)*3/4
+				ratioPct := cfg.HistEndAutoRatioPct
+				if ratioPct <= 0 || ratioPct >= 100 {
+					ratioPct = 75
+				}
+				historyEndMS = cfg.FromMS + (cfg.UntilMS-cfg.FromMS)*int64(ratioPct)/100
 				emit(SimEvent{
 					Elapsed: elap(), Tag: "SPLIT", Cls: "warn",
-					Msg: fmt.Sprintf("histEnd default (from+12h) exceeds until — clamped to 75%% of range (%s)", time.UnixMilli(historyEndMS).UTC().Format("2006-01-02 15:04:05")),
+					Msg: fmt.Sprintf("histEnd default (from+%dh) exceeds until — clamped to %d%% of range (%s)", defaultHours, ratioPct, time.UnixMilli(historyEndMS).UTC().Format("2006-01-02 15:04:05")),
 					Ty: "warn",
 				})
 			}

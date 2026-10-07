@@ -14,6 +14,7 @@ const GLOBAL_SEED = {
   batchSize:30, apiPageSize:1000, apiRequestDelay:300, outputDir:'', maxLogEntries:1000,
   batchUploadDelayMs:120000, gpsL1IntervalMs:10000, obdAccumIntervalMs:120000, normalModeIntervalMs:60000,
   normalStreamMode:'natural', naturalOrderIntervalMs:500,
+  histEndDefaultHours:12, histEndAutoRatioPct:75,
 };
 
 const TEST_SEED = [

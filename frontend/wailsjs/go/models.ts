@@ -538,6 +538,8 @@ export namespace simulator {
 	    mode: string;
 	    enrichL1: boolean;
 	    skipFetch: boolean;
+	    histEndDefaultHours: number;
+	    histEndAutoRatioPct: number;
 	    srcApiBase: string;
 	    srcApiToken: string;
 	
@@ -585,6 +587,8 @@ export namespace simulator {
 	        this.mode = source["mode"];
 	        this.enrichL1 = source["enrichL1"];
 	        this.skipFetch = source["skipFetch"];
+	        this.histEndDefaultHours = source["histEndDefaultHours"];
+	        this.histEndAutoRatioPct = source["histEndAutoRatioPct"];
 	        this.srcApiBase = source["srcApiBase"];
 	        this.srcApiToken = source["srcApiToken"];
 	    }

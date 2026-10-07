@@ -43,6 +43,9 @@ type Config struct {
 	Mode               string `json:"mode"`
 	EnrichL1           bool   `json:"enrichL1"`
 	SkipFetch          bool   `json:"skipFetch"`
+	// HistEnd auto-split controls (used when HistoryEndMS == 0)
+	HistEndDefaultHours int `json:"histEndDefaultHours"` // hours after FromMS; default 12
+	HistEndAutoRatioPct int `json:"histEndAutoRatioPct"` // % of range when default overruns until; default 75
 	// Cross-region fetch: when set, source data is fetched from this API instead of APIBase/APIToken.
 	SrcAPIBase  string `json:"srcApiBase"`
 	SrcAPIToken string `json:"srcApiToken"`
