@@ -1,0 +1,116 @@
+The India mock account is created and set up: intangles-switch-test-abc-express (1608875049844998144), stage poc, region india, type direct. All 9 tracker vehicles were created and each one read back matching its source.
+
+What was set up
+
+┌───────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│   Step    │                                                                               Result                                                                                │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Account   │ Direct, prepaid, key_account, zone north, fleet size 9. Created as direct rather than ABC's indirect because the mock has no parent account.                        │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ UI config │ 16 of 16 settings copied and matching.                                                                                                                              │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Geofences │ 10 created (9 hubs), map index rebuilt, read back 10.                                                                                                               │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Vehicles  │ 9 of 9 created. Each is a tracker/tracker device attached as ["tracker"] with obd_attached false, carrying the source's spec, protocol and tags.                    │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Alerts    │ Speeding 80, idling 300 s within 35 m, idling start, DEF low, continuous driving 4.5 h with a 30 min rest. No recipients added. Geofence entry/exit alerts were     │
+│           │ added on the 10 new geofences when they were created.                                                                                                               │
+└───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Mapping
+
+┌─────────────────┬──────────────┬─────────────────┬─────────────┬─────────────────────┐
+│   Source IMEI   │ Source plate │    Mock IMEI    │ Mock plate  │   Mock vehicle id   │
+├─────────────────┼──────────────┼─────────────────┼─────────────┼─────────────────────┤
+│ 865006041464109 │ HR58D5877    │ 865006048863584 │ MK58D5877   │ 1608875612498296832 │
+├─────────────────┼──────────────┼─────────────────┼─────────────┼─────────────────────┤
+│ 869501069872775 │ RJ14GN0450   │ 869501061233711 │ MK14GN0450  │ 1608875658375593984 │
+├─────────────────┼──────────────┼─────────────────┼─────────────┼─────────────────────┤
+│ 869501069866173 │ HR58D3102    │ 869501065726645 │ MK58D3102   │ 1608875677
+
+
+
+1608875049844998144.
+ intangles-switch-test-abc-express 
+
+
+I found 92 tracker-only devices in India that are moving now, across 69 accounts. All have an active subscription, are enabled, and sent a location within the last 5 minutes. They're capped at 2 per account and each was confirmed with the device lookup.
+
+Narrowing down the 551 vehicles that were moving and not OBD:
+
+┌──────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────┐
+│                      Check                       │                        Vehicles left                         │
+├──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Moving with obd=false                            │ 551                                                          │
+├──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ obd_attached false                               │ 548                                                          │
+├──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Subscription active                              │ 346 (dropped: 139 due, 31 overdue, 32 suspended, 1 inactive) │
+├──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Enabled, location ≤ 5 min old                    │ 245                                                          │
+├──────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ Device type confirmed tracker, max 2 per account │ 92                                                           │
+└──────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────┘
+
+By device model: 50 are Mahindra LMM 4G (TVS / Mahindra dealer accounts), 30 TERNTREK, and 12 from the EDGE family. If you're avoiding the Mahindra LMM path, 42 non-LMM devices remain; the freshest of those:
+
+┌─────────────────┬────────────┬────────────────────────────────────┬───────────────┬─────────┐
+│      IMEI       │   Plate    │              Account               │     Model     │  Speed  │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 869501069784418 │ JK21C0264  │ Oakland Bottlers                   │ TERNTREK      │ 30 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 869501069872775 │ RJ14GN0450 │ ABC Express                        │ TERNTREK      │ 46 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 860560068939745 │ GJ27X8845  │ Avinash Cargo 1                    │ TERNTREK      │ 42 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 860560068895608 │ TS07UC0706 │ OTL                                │ TERNTREK      │ 37 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 860560068880311 │ HR55T5325  │ ABC Express                        │ TERNTREK      │ 38 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 860560068939786 │ TS10UC7317 │ Dr. Shroff's Charity Eye Hospital  │ TERNTREK      │ 27 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 861551049834625 │ MH43Y1613  │ Gurjant Roadlines                  │ EDGE PRIME V3 │ 16 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 869501069781786 │ GJ16AU1287 │ New Gurpal Gas & Chemical Carriers │ TERNTREK      │ 44 km/h │
+├─────────────────┼────────────┼────────────────────────────────────┼───────────────┼─────────┤
+│ 860560068895459 │ GJ12AZ9235 │ Rishi Kiran Roadlines              │ TERNTREK      │ 25 km/h │
+└─────────────────┴────────────┴────────────────────────────────────┴───────────────┴─────────┘
+
+Things to know:
+- 11 of the 92 are OBD-model hardware set up as trackers (device type: tracker, base_type: obd). The rest are tracker hardware. They're marked in the files if you want only tracker hardware.
+- This is a snapshot. Moving status decays fast (in an earlier run only about a third were still moving an hour later), so rerun the script right before you use the list.
+
+The files are in ~/Intangles/be/scripts/prod-data-discovery/tracker-only/:
+- tracker-only-moving-india-202610070855.csv
+- tracker-only-moving-india-202610070855.json
+- find-tracker-only.js — rerun with INTANGLES_TOKEN=… CAP=2 node find-tracker-only.js
+
+The India mock account is created and set up: intangles-switch-test-abc-express (1608875049844998144), stage poc, region india, type direct. All 9 tracker vehicles were created and each one read back matching its source.
+
+What was set up
+
+┌───────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│   Step    │                                                                               Result                                                                                │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Account   │ Direct, prepaid, key_account, zone north, fleet size 9. Created as direct rather than ABC's indirect because the mock has no parent account.                        │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ UI config │ 16 of 16 settings copied and matching.                                                                                                                              │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Geofences │ 10 created (9 hubs), map index rebuilt, read back 10.                                                                                                               │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Vehicles  │ 9 of 9 created. Each is a tracker/tracker device attached as ["tracker"] with obd_attached false, carrying the source's spec, protocol and tags.                    │
+├───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Alerts    │ Speeding 80, idling 300 s within 35 m, idling start, DEF low, continuous driving 4.5 h with a 30 min rest. No recipients added. Geofence entry/exit alerts were     │
+│           │ added on the 10 new geofences when they were created.                                                                                                               │
+└───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+Mapping
+
+┌─────────────────┬──────────────┬─────────────────┬─────────────┬─────────────────────┐
+│   Source IMEI   │ Source plate │    Mock IMEI    │ Mock plate  │   Mock vehicle id   │
+├─────────────────┼──────────────┼─────────────────┼─────────────┼─────────────────────┤
+│ 865006041464109 │ HR58D5877    │ 865006048863584 │ MK58D5877   │ 1608875612498296832 │
+├─────────────────┼──────────────┼─────────────────┼─────────────┼─────────────────────┤
+│ 869501069872775 │ RJ14GN0450   │ 869501061233711 │ MK14GN0450  │ 1608875658375593984 │
+├─────────────────┼──────────────┼─────────────────┼─────────────┼─────────────────────┤
+│ 869501069866173 │ HR58D3102    │ 869501065726645 │ MK58D3102   │ 1608875677
