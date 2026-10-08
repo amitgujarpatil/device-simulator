@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="mongo">
 <head>
 <script src="/wails/ipc.js"></script>
 <script src="/wails/runtime.js"></script>
@@ -41,7 +41,7 @@
 
 .mg-coll-row{display:flex;align-items:center;height:22px;padding:0 4px 0 30px;cursor:pointer;border-radius:4px;margin:0 3px;gap:4px}
 .mg-coll-row:hover{background:var(--bg2)}
-.mg-coll-row.active{background:rgba(167,139,250,.12)}
+.mg-coll-row.active{background:rgba(46,196,182,.12)}
 .mg-coll-row.active .mg-coll-name{color:var(--blue);font-weight:600}
 .mg-coll-name{flex:1;font-size:10px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .mg-coll-cnt{font-size:8px;color:var(--t2);background:var(--bg3);padding:1px 4px;border-radius:6px;flex-shrink:0}
@@ -54,14 +54,14 @@
 .mg-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 
 /* Toolbar */
-.mg-toolbar{height:36px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:0 10px;flex-shrink:0;--wails-draggable:drag}
+.mg-toolbar{height:40px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;padding:0 10px;flex-shrink:0;--wails-draggable:drag}
 .mg-breadcrumb{flex:1;font-size:10px;color:var(--t2);display:flex;align-items:center;gap:3px;overflow:hidden;white-space:nowrap;min-width:0}
 .mg-breadcrumb .bc-sep{color:var(--border);flex-shrink:0}
 .mg-breadcrumb .bc-part{color:var(--t1);overflow:hidden;text-overflow:ellipsis}
 .mg-breadcrumb .bc-part.last{color:var(--t0);font-weight:600}
 .mg-tbtn{height:24px;padding:0 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--t1);font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:3px;white-space:nowrap;transition:all .12s;--wails-draggable:no-drag}
 .mg-tbtn:hover{background:var(--bg3);color:var(--t0)}
-.mg-tbtn.primary{background:var(--blue);border-color:var(--blue);color:#09080e}
+.mg-tbtn.primary{background:var(--blue);border-color:var(--blue);color:#06201D}
 .mg-tbtn.primary:hover{filter:brightness(1.1)}
 
 /* Tabs */
@@ -83,7 +83,7 @@
 .mg-qinp.w-xl{width:180px}
 .mg-qinp.w-m{width:110px}
 .mg-qinp.w-s{width:58px}
-select.mg-qinp{cursor:pointer;-webkit-appearance:none;padding:0 18px 0 6px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238878b8'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center}
+select.mg-qinp{cursor:pointer;-webkit-appearance:none;padding:0 18px 0 6px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238A939E'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center}
 .mg-qbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0;margin:0 2px}
 
 /* Docs area */
@@ -163,7 +163,7 @@ select.mg-qinp{cursor:pointer;-webkit-appearance:none;padding:0 18px 0 6px;backg
 .mg-idx-name{font-weight:600;color:var(--t0);min-width:120px;flex-shrink:0}
 .mg-idx-keys{font-family:var(--font-mono);color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mg-idx-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;background:var(--bg3);border:1px solid var(--border);color:var(--t2);flex-shrink:0}
-.mg-idx-badge.u{background:rgba(167,139,250,.12);color:var(--blue);border-color:var(--blue)}
+.mg-idx-badge.u{background:rgba(46,196,182,.12);color:var(--blue);border-color:var(--blue)}
 
 /* ── Schema tab ────────────────────────────────────────────────────── */
 #tabSchema{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}

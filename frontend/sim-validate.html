@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="validate">
 <head>
 <script src="/wails/ipc.js"></script>
 <script src="/wails/runtime.js"></script>
@@ -10,7 +10,7 @@
 <style>
 .app-wrap{flex-direction:column!important}
 /* ── Header bar ── */
-.page-hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 14px;height:44px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.page-hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 14px;height:52px;display:flex;align-items:center;gap:10px;flex-shrink:0}
 .ph-title{font-size:12px;font-weight:700;color:var(--t0)}.ph-title span{color:var(--blue)}
 .ph-sub{font-size:10px;color:var(--t2);font-family:monospace}
 .sp{flex:1}
@@ -39,7 +39,7 @@
 .filter-bar{display:flex;align-items:center;gap:6px;padding:7px 14px;border-bottom:1px solid var(--border);background:var(--bg1);flex-shrink:0;flex-wrap:wrap}
 .fb-lbl{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em}
 .chip{padding:2px 8px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s}
-.chip.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.chip.on{background:rgba(46,196,182,.13);border-color:var(--blue);color:var(--blue)}
 .chip.src.on{background:rgba(129,140,248,.13);border-color:#818cf8;color:#818cf8}
 .chip.tgt.on{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
 .chip.type.on{background:rgba(251,191,36,.12);border-color:var(--yellow);color:var(--yellow)}
@@ -78,7 +78,7 @@ table.dtbl td.match{color:var(--green)}.dtbl td.diff{color:var(--yellow)}.dtbl t
 .tf-hdr{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .tf-title{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2)}
 .tf-all{padding:2px 10px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t2);transition:all .12s}
-.tf-all.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.tf-all.on{background:rgba(46,196,182,.13);border-color:var(--blue);color:var(--blue)}
 .tf-all:hover{color:var(--t0)}
 .bkd-grid{display:flex;flex-wrap:wrap;gap:4px}
 .bkd-row{display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--bg1);border:1px solid var(--border);border-radius:4px;font-size:9px;cursor:pointer;transition:all .12s;user-select:none}
@@ -94,6 +94,7 @@ table.dtbl td.match{color:var(--green)}.dtbl td.diff{color:var(--yellow)}.dtbl t
 <!-- Wails injects sim-nav.js side-nav here -->
 
 <div class="page-hdr">
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="2,8 6,12 13,4"/></svg>
   <div>
     <div class="ph-title">Sim <span>Validate</span></div>
     <div class="ph-sub" id="phSub">Loading…</div>
