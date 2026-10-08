@@ -309,6 +309,7 @@ function setFPDate(id, value) {
 // ── Init ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   SimNav.inject('logs');
+  SimNav.initImeiPicker('ctrlImei', null);
   initDatePickers();
   prefillFromState();
 });

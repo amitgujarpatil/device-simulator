@@ -318,6 +318,10 @@ export function SaveRunLogs(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveRunLogs'](arg1, arg2, arg3);
 }
 
+export function SearchDevices(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SearchDevices'](arg1, arg2, arg3);
+}
+
 export function SelectOutputDir() {
   return window['go']['main']['App']['SelectOutputDir']();
 }
@@ -328,6 +332,14 @@ export function StartSimulation(arg1) {
 
 export function StopSimulation() {
   return window['go']['main']['App']['StopSimulation']();
+}
+
+export function SwitchAPIGet(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SwitchAPIGet'](arg1, arg2, arg3);
+}
+
+export function SwitchAPIPost(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SwitchAPIPost'](arg1, arg2, arg3, arg4);
 }
 
 export function TestMQTT(arg1) {

@@ -1,0 +1,576 @@
+[
+  {
+    "original_imei": "866308064393788",
+    "original_plate": "AY75PXJ",
+    "test_imei": "866308061027751",
+    "test_plate": "MK75PXJ",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688411794538496",
+    "test_vid": "1606688412650176512",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064409881",
+    "original_plate": "BD24MXW",
+    "test_imei": "866308061764833",
+    "test_plate": "MK24MXW",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1525103768251662336",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688545651556352",
+    "test_vid": "1606688547622879232",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064409816",
+    "original_plate": "AY76RDZ",
+    "test_imei": "866308064768088",
+    "test_plate": "MK76RDZ",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [],
+    "test_dev_id": "1606688560214179840",
+    "test_vid": "1606688561451499520",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": []
+  },
+  {
+    "original_imei": "866308064408024",
+    "original_plate": "AY26PNO",
+    "test_imei": "866308065502064",
+    "test_plate": "MK26PNO",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688570976763904",
+    "test_vid": "1606688571882733568",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": []
+  },
+  {
+    "original_imei": "866308064409402",
+    "original_plate": "AY75PXH",
+    "test_imei": "866308060185709",
+    "test_plate": "MK75PXH",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688583068942336",
+    "test_vid": "1606688583924580352",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064390602",
+    "original_plate": "AY74ULE",
+    "test_imei": "866308060277944",
+    "test_plate": "MK74ULE",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472202160736305152",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688592770367488",
+    "test_vid": "1606688593688920064",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064386378",
+    "original_plate": "AY74ULC",
+    "test_imei": "866308068006683",
+    "test_plate": "MK74ULC",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1525121191004602368",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688602912194560",
+    "test_vid": "1606688604023685120",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064409972",
+    "original_plate": "AY25TXE",
+    "test_imei": "866308069347805",
+    "test_plate": "MK25TXE",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688613939019776",
+    "test_vid": "1606688614790463488",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064408636",
+    "original_plate": "AY74ULD",
+    "test_imei": "866308068410778",
+    "test_plate": "MK74ULD",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688623627862016",
+    "test_vid": "1606688625196531712",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064407984",
+    "original_plate": "BF72VNY",
+    "test_imei": "866308064943145",
+    "test_plate": "MK72VNY",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "613725184867704832",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688633924878336",
+    "test_vid": "1606688634893762560",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064409774",
+    "original_plate": "AY25TXF",
+    "test_imei": "866308069713956",
+    "test_plate": "MK25TXF",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1525121191004602368",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688644972675072",
+    "test_vid": "1606688646134497280",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064409824",
+    "original_plate": "AY25TVW",
+    "test_imei": "866308065261646",
+    "test_plate": "MK25TVW",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1539973394777243648",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688656775446528",
+    "test_vid": "1606688657714970624",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064410152",
+    "original_plate": "BF72VNX",
+    "test_imei": "866308068278555",
+    "test_plate": "MK72VNX",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "613725184867704832",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688668330754048",
+    "test_vid": "1606688669215752192",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064407851",
+    "original_plate": "AY26PNU",
+    "test_imei": "866308067533331",
+    "test_plate": "MK26PNU",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688678816514048",
+    "test_vid": "1606688680083193856",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064408339",
+    "original_plate": "AY26PNN",
+    "test_imei": "866308065444242",
+    "test_plate": "MK26PNN",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1550120491463737344",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688689830756352",
+    "test_vid": "1606688690749308928",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064407430",
+    "original_plate": "AY26PNK",
+    "test_imei": "866308068402494",
+    "test_plate": "MK26PNK",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1550120491463737344",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688699821588480",
+    "test_vid": "1606688700824027136",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064408198",
+    "original_plate": "AY25TXG",
+    "test_imei": "866308061728770",
+    "test_plate": "MK25TXG",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688711309787136",
+    "test_vid": "1606688712182202368",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064409527",
+    "original_plate": "AY75PXL",
+    "test_imei": "866308067689166",
+    "test_plate": "MK75PXL",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688722353389568",
+    "test_vid": "1606688723355828224",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064411366",
+    "original_plate": "AY26PNJ",
+    "test_imei": "866308060028024",
+    "test_plate": "MK26PNJ",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1550120491463737344",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688735712247808",
+    "test_vid": "1606688736601440256",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064406895",
+    "original_plate": "AY21UPZ",
+    "test_imei": "866308060226958",
+    "test_plate": "MK21UPZ",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472202160736305152",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688744969076736",
+    "test_vid": "1606688745875046400",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308064408685",
+    "original_plate": "AY24UFM",
+    "test_imei": "866308063595201",
+    "test_plate": "MK24UFM",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472202160736305152",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688755475808256",
+    "test_vid": "1606688756310474752",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "867624068927424",
+    "original_plate": "AY26PNZ",
+    "test_imei": "867624069096401",
+    "test_plate": "MK26PNZ",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472202160736305152",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688765848322048",
+    "test_vid": "1606688766817206272",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "869305070952026",
+    "original_plate": "AY74ULB",
+    "test_imei": "869305078631705",
+    "test_plate": "MK74ULB",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688775734296576",
+    "test_vid": "1606688776652849152",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "869305070947083",
+    "original_plate": "AY74ULA",
+    "test_imei": "869305074205843",
+    "test_plate": "MK74ULA",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688786157142016",
+    "test_vid": "1606688787029557248",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "869305070946820",
+    "original_plate": "AY75PXK",
+    "test_imei": "869305075126600",
+    "test_plate": "MK75PXK",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1472193057976745984",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688796336717824",
+    "test_vid": "1606688797305602048",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "869305070258697",
+    "original_plate": "AY26PNL",
+    "test_imei": "869305070848521",
+    "test_plate": "MK26PNL",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1525121191004602368",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688807086718976",
+    "test_vid": "1606688808286289920",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "869305070951051",
+    "original_plate": "AY26PNE",
+    "test_imei": "869305074633291",
+    "test_plate": "MK26PNE",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1550120491463737344",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688820500103168",
+    "test_vid": "1606688821326381056",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "869305070951416",
+    "original_plate": "AY26PNX",
+    "test_imei": "869305072039590",
+    "test_plate": "MK26PNX",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1550146930837815296",
+    "source_groups": [
+      "1517313291393695744"
+    ],
+    "test_dev_id": "1606688831061360640",
+    "test_vid": "1606688831984107520",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  },
+  {
+    "original_imei": "866308062720016",
+    "original_plate": "AY26PNF",
+    "test_imei": "866308060737830",
+    "test_plate": "MK26PNF",
+    "source_account_id": "1482046680973967360",
+    "target_account_id": "1606685851746566144",
+    "spec_id": "1550120491463737344",
+    "source_groups": [
+      "1517313472109477888"
+    ],
+    "test_dev_id": "1606688840691482624",
+    "test_vid": "1606688841521954816",
+    "spec_resp": "{\"code\":\"200\"}",
+    "attach_resp": "{\"code\":\"200\"}",
+    "base_resp": "{\"code\":200}",
+    "diffs": [
+      "missing tags vehicle_verified"
+    ]
+  }
+]

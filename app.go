@@ -127,6 +127,20 @@ func (a *App) LookupVehicleId(apiBase, userToken, imei string) string {
 	return string(b)
 }
 
+// SearchDevices searches for devices matching query via the Intangles idevice API.
+func (a *App) SearchDevices(apiBase, userToken, query string) string {
+	results, err := simulator.SearchDevices(apiBase, userToken, query)
+	if err != nil {
+		b, _ := json.Marshal(map[string]string{"error": err.Error()})
+		return string(b)
+	}
+	if results == nil {
+		results = []simulator.SearchDeviceResult{}
+	}
+	b, _ := json.Marshal(map[string]any{"devices": results})
+	return string(b)
+}
+
 // TestMQTT tests an MQTT connection with the given region config.
 func (a *App) TestMQTT(cfg simulator.RegionConfig) map[string]interface{} {
 	ok, msg := simulator.TestMQTTConnection(cfg)
@@ -1415,4 +1429,51 @@ func (a *App) LogsGetMeta() map[string]interface{} {
 		"imei":    sess.imei,
 		"dbPath":  sess.dbPath,
 	}
+}
+
+// ── Switch Mock Account proxy ───────────────────────────────────────────────
+
+// SwitchAPIGet proxies a GET request to the Intangles API, bypassing CORS.
+func (a *App) SwitchAPIGet(apiBase, userToken, path string) string {
+	req, err := http.NewRequest("GET", apiBase+path, nil)
+	if err != nil {
+		b, _ := json.Marshal(map[string]string{"error": err.Error()})
+		return string(b)
+	}
+	req.Header.Set("Intangles-User-Token", userToken)
+	req.Header.Set("Intangles-Client", "intangles_app")
+	req.Header.Set("Intangles-Session-Type", "web")
+	req.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		b, _ := json.Marshal(map[string]string{"error": err.Error()})
+		return string(b)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return string(body)
+}
+
+// SwitchAPIPost proxies a POST request to the Intangles API, bypassing CORS.
+func (a *App) SwitchAPIPost(apiBase, userToken, path, jsonBody string) string {
+	req, err := http.NewRequest("POST", apiBase+path, strings.NewReader(jsonBody))
+	if err != nil {
+		b, _ := json.Marshal(map[string]string{"error": err.Error()})
+		return string(b)
+	}
+	req.Header.Set("Intangles-User-Token", userToken)
+	req.Header.Set("Intangles-Client", "intangles_app")
+	req.Header.Set("Intangles-Session-Type", "web")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		b, _ := json.Marshal(map[string]string{"error": err.Error()})
+		return string(b)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return string(body)
 }

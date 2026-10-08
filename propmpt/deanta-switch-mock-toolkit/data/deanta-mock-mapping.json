@@ -1,0 +1,1644 @@
+[
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064393788",
+    "original_plate": "AY75PXJ",
+    "original_vid": "1497657977409110016",
+    "original_dev_id": "1283450329186172931",
+    "test_imei": "866308061027751",
+    "test_plate": "MK75PXJ",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRAEL3700L551680",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064409881",
+    "original_plate": "BD24MXW",
+    "original_vid": "1535689965755695104",
+    "original_dev_id": "1283450329190367237",
+    "test_imei": "866308061764833",
+    "test_plate": "MK24MXW",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1525103768251662336",
+      "spec_name": "iveco Daily 70c21 Van F1c 210hp Euro6",
+      "protocol": "AUTO, ISO 15765-4",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "AUTO, ISO 15765-4",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "vehicle_verified",
+        "good_odometer"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064409816",
+    "original_plate": "AY76RDZ",
+    "original_vid": "1548727367717879808",
+    "original_dev_id": "1283450329194561537",
+    "test_imei": "866308064768088",
+    "test_plate": "MK76RDZ",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": null,
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": [
+        "obd"
+      ],
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "fuel_level_enabled",
+        "adblue_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "cota_on_latest",
+        "device_testing"
+      ],
+      "groups": [],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRAEL3790L559083",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064408024",
+    "original_plate": "AY26PNO",
+    "original_vid": "1548727255516053504",
+    "original_dev_id": "1283450329190367235",
+    "test_imei": "866308065502064",
+    "test_plate": "MK26PNO",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": [
+        "obd"
+      ],
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "good_odometer"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "cota_on_latest",
+        "device_testing"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064409402",
+    "original_plate": "AY75PXH",
+    "original_vid": "1497648638841585664",
+    "original_dev_id": "1283450329202950150",
+    "test_imei": "866308060185709",
+    "test_plate": "MK75PXH",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRAEL3700L551622",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064390602",
+    "original_plate": "AY74ULE",
+    "original_vid": "1535690443373674496",
+    "original_dev_id": "1283450329207144451",
+    "test_imei": "866308060277944",
+    "test_plate": "MK74ULE",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472202160736305152",
+      "spec_name": "daf XF 450 FAX Truck paccar MX 11 450Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064386378",
+    "original_plate": "AY74ULC",
+    "original_vid": "1535690224808493056",
+    "original_dev_id": "1283450329202950152",
+    "test_imei": "866308068006683",
+    "test_plate": "MK74ULC",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1525121191004602368",
+      "spec_name": "daf Xf 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064409972",
+    "original_plate": "AY25TXE",
+    "original_vid": "1500871076480024576",
+    "original_dev_id": "1283450329211338752",
+    "test_imei": "866308069347805",
+    "test_plate": "MK25TXE",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "adblue_enabled",
+        "fuel_level_enabled",
+        "vehicle_verified",
+        "good_odometer"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRAEL3700L549483",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064408636",
+    "original_plate": "AY74ULD",
+    "original_vid": "1500887594831970304",
+    "original_dev_id": "1283450329207144455",
+    "test_imei": "866308068410778",
+    "test_plate": "MK74ULD",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": "truck",
+      "tags": [
+        "for_deployment",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064407984",
+    "original_plate": "BF72VNY",
+    "original_vid": "1535689449919217664",
+    "original_dev_id": "1283450329211338754",
+    "test_imei": "866308064943145",
+    "test_plate": "MK72VNY",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "613725184867704832",
+      "spec_name": "iveco Daily 70c18 van F1C 180hp euro6",
+      "protocol": "AUTO, ISO 15765-4",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "AUTO, ISO 15765-4",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "odo_fuel_issue",
+        "vehicle_verified",
+        "good_odometer"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064409774",
+    "original_plate": "AY25TXF",
+    "original_vid": "1500891326235803648",
+    "original_dev_id": "1283450329215533064",
+    "test_imei": "866308069713956",
+    "test_plate": "MK25TXF",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1525121191004602368",
+      "spec_name": "daf Xf 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "adblue_enabled",
+        "good_odometer",
+        "fuel_level_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064409824",
+    "original_plate": "AY25TVW",
+    "original_vid": "1500891591005437952",
+    "original_dev_id": "1283450329202950146",
+    "test_imei": "866308065261646",
+    "test_plate": "MK25TVW",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1539973394777243648",
+      "spec_name": "daf XF 480 Tractor Trailer Paccar Mx 13 480hp Euro6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064410152",
+    "original_plate": "BF72VNX",
+    "original_vid": "1535689122524430336",
+    "original_dev_id": "1283450329219727363",
+    "test_imei": "866308068278555",
+    "test_plate": "MK72VNX",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "613725184867704832",
+      "spec_name": "iveco Daily 70c18 van F1C 180hp euro6",
+      "protocol": "AUTO, ISO 15765-4",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "AUTO, ISO 15765-4",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "odo_fuel_issue",
+        "vehicle_verified",
+        "good_odometer"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "for_deployment"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064407851",
+    "original_plate": "AY26PNU",
+    "original_vid": "1548727312537616384",
+    "original_dev_id": "1283450329223921665",
+    "test_imei": "866308067533331",
+    "test_plate": "MK26PNU",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": [
+        "obd"
+      ],
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "cota_on_latest",
+        "device_testing"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064408339",
+    "original_plate": "AY26PNN",
+    "original_vid": "1558283181730299904",
+    "original_dev_id": "1283450329219727365",
+    "test_imei": "866308065444242",
+    "test_plate": "MK26PNN",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1550120491463737344",
+      "spec_name": "daf XG 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": [
+        "obd"
+      ],
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": "truck",
+      "tags": [
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRTGF5360G589268",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064407430",
+    "original_plate": "AY26PNK",
+    "original_vid": "1548726968294309888",
+    "original_dev_id": "1283450329223921671",
+    "test_imei": "866308068402494",
+    "test_plate": "MK26PNK",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1550120491463737344",
+      "spec_name": "daf XG 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "good_odometer",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRTGF5340G589258",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064408198",
+    "original_plate": "AY25TXG",
+    "original_vid": "1500891517517037568",
+    "original_dev_id": "1283450329228115970",
+    "test_imei": "866308061728770",
+    "test_plate": "MK25TXG",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "good_odometer",
+        "adblue_enabled",
+        "fuel_level_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064409527",
+    "original_plate": "AY75PXL",
+    "original_vid": "1500891453226745856",
+    "original_dev_id": "1283450329232310275",
+    "test_imei": "866308067689166",
+    "test_plate": "MK75PXL",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064411366",
+    "original_plate": "AY26PNJ",
+    "original_vid": "1548726889533669376",
+    "original_dev_id": "1283450329244893188",
+    "test_imei": "866308060028024",
+    "test_plate": "MK26PNJ",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1550120491463737344",
+      "spec_name": "daf XG 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064406895",
+    "original_plate": "AY21UPZ",
+    "original_vid": "1528073237664104448",
+    "original_dev_id": "1283450329211338758",
+    "test_imei": "866308060226958",
+    "test_plate": "MK21UPZ",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472202160736305152",
+      "spec_name": "daf XF 450 FAX Truck paccar MX 11 450Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": "truck",
+      "tags": [
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRASH4100G348407",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308064408685",
+    "original_plate": "AY24UFM",
+    "original_vid": "1500891862225911808",
+    "original_dev_id": "1283450329211338756",
+    "test_imei": "866308063595201",
+    "test_plate": "MK24UFM",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472202160736305152",
+      "spec_name": "daf XF 450 FAX Truck paccar MX 11 450Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "867624068927424",
+    "original_plate": "AY26PNZ",
+    "original_vid": "1548727203389243392",
+    "original_dev_id": "1289602253677658113",
+    "test_imei": "867624069096401",
+    "test_plate": "MK26PNZ",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472202160736305152",
+      "spec_name": "daf XF 450 FAX Truck paccar MX 11 450Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": [
+        "obd"
+      ],
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "revised_hw_configuration",
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRACF5150G589111",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "869305070952026",
+    "original_plate": "AY74ULB",
+    "original_vid": "1500891256782323712",
+    "original_dev_id": "1291350556517859337",
+    "test_imei": "869305078631705",
+    "test_plate": "MK74ULB",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "869305070947083",
+    "original_plate": "AY74ULA",
+    "original_vid": "1500887953801478144",
+    "original_dev_id": "1291350556534636557",
+    "test_imei": "869305074205843",
+    "test_plate": "MK74ULA",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "adblue_enabled",
+        "good_odometer",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "869305070946820",
+    "original_plate": "AY75PXK",
+    "original_vid": "1500891390618370048",
+    "original_dev_id": "1291350556547219467",
+    "test_imei": "869305075126600",
+    "test_plate": "MK75PXK",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1472193057976745984",
+      "spec_name": "daf XB 260 FA Truck Paccar PX 7 260Hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": "euro6",
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified",
+        "fuel_level_enabled"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "869305070258697",
+    "original_plate": "AY26PNL",
+    "original_vid": "1548727072803782656",
+    "original_dev_id": "1291350556555608067",
+    "test_imei": "869305070848521",
+    "test_plate": "MK26PNL",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1525121191004602368",
+      "spec_name": "daf Xf 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "good_odometer",
+        "fuel_level_enabled",
+        "for_deployment",
+        "adblue_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRTGF5360G589108",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "869305070951051",
+    "original_plate": "AY26PNE",
+    "original_vid": "1548488718938013696",
+    "original_dev_id": "1291350556563996684",
+    "test_imei": "869305074633291",
+    "test_plate": "MK26PNE",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1550120491463737344",
+      "spec_name": "daf XG 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "fuel_level_enabled",
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRTGF5340G589101",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "869305070951416",
+    "original_plate": "AY26PNX",
+    "original_vid": "1548727140986388480",
+    "original_dev_id": "1291350556584968203",
+    "test_imei": "869305072039590",
+    "test_plate": "MK26PNX",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1550146930837815296",
+      "spec_name": "daf XB 210 Truck PACCAR PX 5 210HP Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": [
+        "obd"
+      ],
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "good_odometer",
+        "fuel_level_enabled",
+        "adblue_enabled",
+        "OBD_fuel_compatible",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration"
+      ],
+      "groups": [
+        "Haydock Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": "XLRAEL1510L558706",
+      "drivers": 0
+    }
+  },
+  {
+    "source_account": "Deanta",
+    "source_account_id": "1482046680973967360",
+    "original_imei": "866308062720016",
+    "original_plate": "AY26PNF",
+    "original_vid": "1548726809686704128",
+    "original_dev_id": "1291350556601745419",
+    "test_imei": "866308060737830",
+    "test_plate": "MK26PNF",
+    "test_vid": null,
+    "test_dev_id": null,
+    "target_account_id": null,
+    "reuse": {
+      "spec_id": "1550120491463737344",
+      "spec_name": "daf XG 530 Tractor Trailer Paccar Mx 13 530hp Euro 6",
+      "protocol": "SAE J1939",
+      "dev_type": "obd",
+      "base_type": "obd",
+      "communication_protocol": "SAE J1939",
+      "attached_functionality": null,
+      "device_model": "EDGE PRIME 4G",
+      "device_version": "EDGE PRIME V7.1.16",
+      "product_name": "OBD-Standard",
+      "obd_attached": true,
+      "fuel_level_enabled": true,
+      "is_electric_vehicle": false,
+      "is_multi_tank": false,
+      "emmission_standard": null,
+      "vehicle_type": null,
+      "tags": [
+        "for_deployment",
+        "fuel_level_enabled",
+        "good_odometer",
+        "adblue_enabled",
+        "vehicle_verified"
+      ],
+      "device_tags": [
+        "LC86_EC25E",
+        "connect.cxn",
+        "ESIM",
+        "PWR_ON Jumper not Mounted",
+        "ebv_EP_4G_no_voltage_drop",
+        "With_2.2 nF_at_C123_C122",
+        "revised_hw_configuration",
+        "device_testing"
+      ],
+      "groups": [
+        "Lancaster Way Depot"
+      ],
+      "vehicle_alert_config_types": [],
+      "vehicle_config": {}
+    },
+    "not_reused": {
+      "vin": null,
+      "drivers": 0
+    }
+  }
+]

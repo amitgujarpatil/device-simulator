@@ -67,6 +67,7 @@ html[data-page="settings"] input[id^="t-tgtImei"]{font-family:var(--font-mono)}
 /* Sliders */
 .sl-row{display:flex;align-items:center;gap:8px}
 .sl{flex:1;accent-color:var(--blue)}
+
 .slv{font-size:10px;color:var(--blue);min-width:60px;text-align:right;font-family:var(--font-mono)}
 
 /* Radio groups */
@@ -324,11 +325,16 @@ function renderRegionForm(regionKey) {
       </div>
     </div>
   `;
+  SimNav.initImeiPicker('f-mqttTestImei', null);
 }
 
 function patchRegion(key, field, val) {
   SimState.setRegion(key, { [field]: val });
   flashSaved();
+  // Re-init MQTT IMEI picker if userToken was just set
+  if (field === 'userToken') {
+    setTimeout(() => SimNav.initImeiPicker('f-mqttTestImei', null), 50);
+  }
 }
 
 function toggleEncrypt(key, el) {
@@ -470,6 +476,8 @@ function renderTestForm(testId) {
     </div>
   `;
   initDatePickers();
+  SimNav.initImeiPicker('t-srcImei', (imei) => patchTest(testId, 'srcImei', imei));
+  SimNav.initImeiPicker('t-tgtImei', (imei) => patchTest(testId, 'tgtImei', imei));
 }
 
 function patchTest(id, field, val) {
@@ -804,6 +812,8 @@ function setIfReduceMotion(el) {
 function _applyButtonLayoutToPage(layout) {
   // Nothing needed here — layout is applied on page load from theme
 }
+
+// ── IMEI search picker ──────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', init);
 

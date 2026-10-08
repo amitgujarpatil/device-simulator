@@ -1,0 +1,78 @@
+{
+  // Second replay vehicle: fetch raw data for the SOURCE imei in each window, replay onto the MOCK imei.
+  // All times are UTC. Epoch values are milliseconds. duration_hours = (end - start) in hours.
+  // Every window is exactly 24 hours. Each window starts at least 2 hours before the first alert
+  // counted in it, so state-based alerts (idling, stoppage, fuel fill) have some lead-in data.
+  // Alert counts come from the source vehicle's alert log for 2026-09-01 .. 2026-10-01.
+  // This vehicle raised 14 alert types in that period; the 4 windows cover all 14.
+
+  "source_account": { "id": "1482046680973967360", "name": "Deanta" },
+  "mock_account": { "id": "1606685851746566144", "name": "intangles-switch-test-deanta" },
+  "api": "https://apis.intangles-aws-eu-north-1.eu.intangles.com",
+  "max_window_hours": 24,
+
+  "source": { "imei": "869305070947083", "plate": "AY74ULA", "vehicle_id": "1500887953801478144" },
+  "mock": { "imei": "869305074205843", "plate": "MK74ULA", "vehicle_id": "1606688787029557248" },
+
+  "windows": [
+    {
+      // Fuel low level (twice) and harsh acceleration.
+      "id": "ula-1",
+      "start": "2026-09-01T22:00:00Z",
+      "end": "2026-09-02T22:00:00Z",
+      "start_ms": 1788300000000,
+      "end_ms": 1788386400000,
+      "duration_hours": 24,
+      "new_types": ["fuel_low_level", "over_acc"],
+      "alerts": { "stoppage": 18, "geofence": 11, "speeding": 5, "hard_brake": 3, "fuel_low_level": 2, "over_acc": 1, "fuel_bhara": 1, "def_bhara": 1 }
+    },
+    {
+      // The only device_offline_log this vehicle raised.
+      "id": "ula-2",
+      "start": "2026-09-07T16:00:00Z",
+      "end": "2026-09-08T16:00:00Z",
+      "start_ms": 1788796800000,
+      "end_ms": 1788883200000,
+      "duration_hours": 24,
+      "new_types": ["device_offline_log"],
+      "alerts": { "geofence": 32, "stoppage": 11, "idling_start": 3, "idling": 1, "fuel_bhara": 1, "device_offline_log": 1 }
+    },
+    {
+      // The richest single day: 10 alert types in one window. Run this one first.
+      "id": "ula-3",
+      "start": "2026-09-15T07:00:00Z",
+      "end": "2026-09-16T07:00:00Z",
+      "start_ms": 1789455600000,
+      "end_ms": 1789542000000,
+      "duration_hours": 24,
+      "new_types": ["stoppage", "geofence", "speeding", "hard_brake", "idling", "idling_start", "continuous_driving", "fuel_bhara", "def_bhara", "device_obd_data_missing"],
+      "alerts": { "geofence": 26, "stoppage": 13, "idling_start": 5, "idling": 2, "speeding": 1, "hard_brake": 1, "continuous_driving": 1, "fuel_bhara": 1, "def_bhara": 1, "device_obd_data_missing": 1 }
+    },
+    {
+      // The only device_firmware_mismatch this vehicle raised.
+      "id": "ula-4",
+      "start": "2026-09-23T19:00:00Z",
+      "end": "2026-09-24T19:00:00Z",
+      "start_ms": 1790190000000,
+      "end_ms": 1790276400000,
+      "duration_hours": 24,
+      "new_types": ["device_firmware_mismatch"],
+      "alerts": { "geofence": 17, "stoppage": 15, "idling_start": 4, "continuous_driving": 2, "idling": 1, "speeding": 1, "hard_brake": 1, "fuel_bhara": 1, "device_firmware_mismatch": 1 }
+    }
+  ],
+
+  "coverage": {
+    "types": ["stoppage", "geofence", "speeding", "hard_brake", "over_acc", "idling", "idling_start", "continuous_driving", "fuel_bhara", "def_bhara", "fuel_low_level", "device_obd_data_missing", "device_offline_log", "device_firmware_mismatch"],
+    "total_types": 14,
+    "total_windows": 4,
+    "total_hours": 96,
+    // Types seen elsewhere in the fleet that this vehicle never raised.
+    "not_covered": ["dtc", "algo_output", "def_chori", "data_loss"]
+  },
+
+  "caveats": [
+    "Each window starts with no prior trip state on the mock, so alerts that depend on earlier data can differ near the start of a window.",
+    "device_offline_log, device_obd_data_missing and device_firmware_mismatch come from gaps or device state rather than telemetry values, so they may behave differently under replay.",
+    "fuel_bhara and def_bhara compare levels across time; a window that starts mid-change may miss them."
+  ]
+}

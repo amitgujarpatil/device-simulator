@@ -181,6 +181,59 @@ func lookupDevice(apiBase, userToken, imei string, lg *valLogger) (DeviceLookup,
 	return DeviceLookup{}, fmt.Errorf("device not found for imei %s (no vid in idevices list)", imei)
 }
 
+// SearchDeviceResult is one item returned by SearchDevices.
+type SearchDeviceResult struct {
+	Imei    string `json:"imei"`
+	Tag     string `json:"tag"`
+	Plate   string `json:"plate"`
+	AccId   string `json:"accId"`
+	AccName string `json:"accName"`
+	Vid     string `json:"vid"`
+}
+
+// SearchDevices queries /idevice/listV2 and returns up to 25 matching devices.
+func SearchDevices(apiBase, userToken, query string) ([]SearchDeviceResult, error) {
+	lg := &valLogger{}
+	path := fmt.Sprintf(
+		"/idevice/listV3?psize=25&pnum=1&status=*&query=%s&showall=true&lang=en",
+		url.QueryEscape(query),
+	)
+	res, err := valAPIGet(apiBase, path, userToken, lg)
+	if err != nil {
+		return nil, err
+	}
+	result, _ := res["result"].(map[string]any)
+	if result == nil {
+		return []SearchDeviceResult{}, nil
+	}
+	idevices, _ := result["idevices"].([]any)
+	var out []SearchDeviceResult
+	for _, item := range idevices {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		imei, _ := m["imei"].(string)
+		if imei == "" {
+			continue
+		}
+		tag, _ := m["tag"].(string)
+		plate, _ := m["number_plate"].(string)
+		if plate == "" {
+			plate, _ = m["plate"].(string)
+		}
+		accName, _ := m["account_name"].(string)
+		if accName == "" {
+			accName, _ = m["acc_name"].(string)
+		}
+		out = append(out, SearchDeviceResult{
+			Imei: imei, Tag: tag, Plate: plate,
+			AccId: numToStr(m["account_id"]), AccName: accName, Vid: numToStr(m["vid"]),
+		})
+	}
+	return out, nil
+}
+
 // LookupDevice is the public API (used from app.go bridge).
 func LookupDevice(apiBase, userToken, imei string) (DeviceLookup, error) {
 	lg := &valLogger{}

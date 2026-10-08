@@ -1,0 +1,2428 @@
+<!DOCTYPE html>
+<html lang="en" data-page="switch">
+<head>
+<script src="/wails/ipc.js"></script>
+<script src="/wails/runtime.js"></script>
+<meta charset="UTF-8">
+<title>Switch Mock — Device Simulator</title>
+<script src="sim-state.js"></script>
+<script src="sim-nav.js"></script>
+<style>
+html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);color:var(--t0)}
+.app-wrap{flex-direction:row!important;height:100vh;overflow:hidden}
+
+/* ── Wizard sidebar ── */
+.sw-side{width:188px;min-width:188px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.sw-side::-webkit-scrollbar{width:3px}.sw-side::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sw-side-hdr{padding:14px 14px 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--border-subtle);--wails-draggable:drag}
+.sw-step{display:flex;align-items:center;gap:9px;padding:7px 12px;cursor:pointer;font-size:11px;color:var(--t1);border-left:3px solid transparent;transition:all .12s;user-select:none}
+.sw-step:hover{background:var(--bg2);color:var(--t0)}
+.sw-step.active{background:rgba(46,196,182,.07);color:var(--t0);border-left-color:var(--blue)}
+.sw-step.done{color:var(--green)}
+.sw-step.done .sw-dot{background:var(--green);border-color:var(--green)}
+.sw-step.err .sw-dot{background:var(--red);border-color:var(--red)}
+.sw-dot{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--border-strong);flex-shrink:0;transition:all .2s}
+.sw-step.active .sw-dot{border-color:var(--blue);background:var(--blue);box-shadow:0 0 6px rgba(46,196,182,.5)}
+.sw-step-num{font-family:var(--font-mono);font-size:9px;color:var(--t2);min-width:12px}
+
+/* ── Main content ── */
+.sw-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.sw-topbar{height:48px;background:var(--bg1);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;padding:0 20px;flex-shrink:0;--wails-draggable:drag}
+.sw-topbar-title{font-size:14px;font-weight:600;color:var(--t0)}
+.sw-topbar-sub{font-size:11px;color:var(--t2)}
+.sw-body{flex:1;overflow-y:auto;padding:20px 24px}
+.sw-body::-webkit-scrollbar{width:4px}.sw-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── Stage panels ── */
+.sw-stage{display:none}
+.sw-stage.active{display:block}
+
+/* ── Section ── */
+.sw-sec{margin-bottom:22px}
+.sw-sec-title{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:8px}
+
+/* ── Form grid ── */
+.sw-fg{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.sw-fg2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.sw-fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 18px}
+.sw-lbl{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
+.sw-inp{background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 10px;font-size:12px;color:var(--t0);font-family:var(--font-ui);width:100%;box-sizing:border-box;outline:none;transition:border-color .15s}
+.sw-inp:focus{border-color:var(--blue)}
+.sw-inp[type="password"]{font-family:var(--font-mono);letter-spacing:.1em}
+.sw-inp-hint{font-size:10px;color:var(--t2);margin-top:3px}
+.sw-row{display:flex;align-items:center;gap:10px}
+.sw-row .sw-inp{flex:1}
+
+/* ── Buttons ── */
+.sw-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:var(--font-ui)}
+.sw-btn-primary{background:var(--blue);color:#06201D}
+.sw-btn-primary:hover{filter:brightness(1.1)}
+.sw-btn-primary:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.sw-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--t1)}
+.sw-btn-ghost:hover{background:var(--bg2);color:var(--t0)}
+.sw-btn-ghost:disabled{opacity:.4;cursor:not-allowed}
+.sw-btn-danger{background:transparent;border:1px solid rgba(248,113,113,.35);color:var(--red)}
+.sw-btn-danger:hover{background:rgba(248,113,113,.08)}
+
+/* ── Summary cards ── */
+.sw-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.sw-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.sw-card-num{font-family:var(--font-mono);font-size:20px;font-weight:600;color:var(--t0)}
+.sw-card-lbl{font-size:10px;color:var(--t2);text-transform:uppercase;letter-spacing:.06em}
+.sw-card-sub{font-size:10px;color:var(--t2)}
+.sw-card-icon{width:28px;height:28px;border-radius:6px;background:var(--bg2);display:flex;align-items:center;justify-content:center;margin-bottom:6px;color:var(--blue)}
+
+/* ── Source info box ── */
+.sw-accbox{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px}
+.sw-accbox-dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 8px rgba(91,210,138,.4)}
+.sw-accbox-name{font-size:13px;font-weight:600;color:var(--t0)}
+.sw-accbox-id{font-size:10px;color:var(--t2);font-family:var(--font-mono)}
+.sw-accbox-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.sw-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:600;border:1px solid var(--border);color:var(--t1);background:var(--bg2)}
+.sw-chip-dot{width:6px;height:6px;border-radius:50%}
+
+/* ── Table ── */
+.sw-tbl-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px}
+.sw-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.sw-tbl thead{background:var(--bg2)}
+.sw-tbl th{padding:7px 10px;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.sw-tbl td{padding:7px 10px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
+.sw-tbl tr:last-child td{border-bottom:none}
+.sw-tbl tr:hover td{background:rgba(255,255,255,.02)}
+.sw-tbl-mono{font-family:var(--font-mono);font-size:10px}
+.sw-tbl-plate{font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--t0)}
+.sw-tbl-mock{color:var(--blue)}
+.sw-tbl-muted{color:var(--t2)}
+.sw-tbl input[type="checkbox"]{accent-color:var(--blue);width:13px;height:13px}
+.sw-tbl .sw-tbl-edit{background:transparent;border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:var(--font-mono);font-size:10px;color:var(--t0);width:130px;outline:none}
+.sw-tbl .sw-tbl-edit:focus{border-color:var(--blue)}
+
+/* ── Status badge ── */
+.sw-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700;letter-spacing:.04em}
+.sw-badge-ok{background:rgba(91,210,138,.12);color:var(--green);border:1px solid rgba(91,210,138,.2)}
+.sw-badge-warn{background:rgba(242,169,59,.1);color:var(--yellow);border:1px solid rgba(242,169,59,.2)}
+.sw-badge-err{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.sw-badge-pend{background:var(--bg2);color:var(--t2);border:1px solid var(--border)}
+.sw-badge-spin{width:8px;height:8px;border:1.5px solid var(--border-strong);border-top-color:var(--blue);border-radius:50%;animation:_ispin .65s linear infinite;display:inline-block}
+
+/* ── Progress bar ── */
+.sw-prog-wrap{height:3px;background:var(--bg2);border-radius:2px;overflow:hidden;margin-bottom:16px}
+.sw-prog{height:100%;background:var(--blue);border-radius:2px;transition:width .3s}
+
+/* ── Token warning ── */
+.sw-token-warn{background:rgba(242,169,59,.06);border:1px solid rgba(242,169,59,.2);border-radius:7px;padding:10px 14px;font-size:10px;color:var(--yellow);display:flex;align-items:center;gap:8px;margin-bottom:14px}
+
+/* ── Account search dropdown ── */
+.sw-acc-dd{position:fixed;background:var(--bg1);border:1px solid var(--border-strong);border-radius:7px;z-index:9999;box-shadow:0 10px 28px rgba(0,0,0,.6);max-height:220px;overflow-y:auto;display:none;font-family:var(--font-ui)}
+.sw-acc-dd.open{display:block}
+.sw-acc-dd::-webkit-scrollbar{width:3px}.sw-acc-dd::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sw-acc-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border-subtle)}
+.sw-acc-item:last-child{border-bottom:none}
+.sw-acc-item:hover,.sw-acc-item.focused{background:var(--bg2)}
+.sw-acc-name{font-size:11px;font-weight:600;color:var(--t0)}
+.sw-acc-id{font-size:9px;font-family:var(--font-mono);color:var(--t2);margin-top:2px}
+.sw-acc-msg{padding:10px 12px;font-size:10px;color:var(--t2);text-align:center}
+
+/* ── Copy-ready command block ── */
+.sw-cmd{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:var(--font-mono);font-size:11px;color:var(--blue);word-break:break-all;white-space:pre-wrap;position:relative;cursor:pointer}
+.sw-cmd:hover{border-color:var(--blue)}
+.sw-cmd-copy{position:absolute;top:6px;right:8px;font-size:9px;color:var(--t2);font-family:var(--font-ui)}
+
+/* ── Read-only field list ── */
+.sw-field-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:14px}
+.sw-field{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.sw-field-k{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.sw-field-v{font-size:11px;color:var(--t0);font-family:var(--font-mono)}
+
+/* ── Toggle ── */
+.sw-toggle-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:11px;color:var(--t1);cursor:pointer}
+.sw-toggle-row input[type="checkbox"]{accent-color:var(--blue);width:14px;height:14px}
+
+/* ── Per-vehicle step tracker ── */
+.sw-vstep-wrap{display:flex;align-items:center;gap:3px}
+.sw-vstep{width:16px;height:4px;border-radius:2px;background:var(--bg3)}
+.sw-vstep.done{background:var(--green)}
+.sw-vstep.active{background:var(--blue);animation:_vpulse 1s infinite}
+.sw-vstep.err{background:var(--red)}
+@keyframes _vpulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── Info banner ── */
+.sw-info{background:rgba(46,196,182,.05);border:1px solid rgba(46,196,182,.18);border-radius:7px;padding:10px 14px;font-size:10px;color:var(--t1);display:flex;align-items:flex-start;gap:8px;margin-bottom:14px}
+.sw-info svg{flex-shrink:0;color:var(--blue);margin-top:1px}
+
+/* ── Footer action bar ── */
+.sw-footer{border-top:1px solid var(--border-subtle);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--bg1)}
+.sw-footer-left{color:var(--t2);font-size:11px}
+
+/* ── Spinner inline ── */
+.sw-spin{display:inline-block;width:10px;height:10px;border:1.5px solid var(--border-strong);border-top-color:var(--blue);border-radius:50%;animation:_ispin .65s linear infinite}
+
+/* ── Mode toggle ── */
+.sw-mode-btn{background:var(--bg2);border:1px solid var(--border);color:var(--t1);border-radius:5px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font-ui)}
+.sw-mode-btn:hover{border-color:var(--blue);color:var(--t0)}
+.sw-mode-btn.active{background:rgba(46,196,182,.1);border-color:var(--blue);color:var(--blue)}
+
+/* ── Token status display ── */
+.sw-token-ok{font-size:11px;color:var(--green);display:flex;align-items:center;gap:5px}
+.sw-token-missing{font-size:11px;color:var(--yellow)}
+.sw-token-masked{font-family:var(--font-mono);font-size:11px;color:var(--t1);letter-spacing:.05em}
+
+/* ── Per-row mode select ── */
+.sw-row-sel{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:10px;color:var(--t0);outline:none;font-family:var(--font-ui);max-width:160px}
+.sw-row-sel:focus{border-color:var(--blue)}
+
+/* ── Existing item row ── */
+.sw-exists-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:600;background:rgba(46,196,182,.08);color:var(--blue);border:1px solid rgba(46,196,182,.2)}
+
+/* ── API log drawer ── */
+.sw-log-toggle{position:fixed;bottom:0;right:16px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;color:var(--t2);font-size:10px;font-weight:600;padding:3px 10px;cursor:pointer;border-radius:4px 4px 0 0;font-family:var(--font-ui);z-index:9998;letter-spacing:.04em}
+.sw-log-drawer{position:fixed;bottom:0;left:0;right:0;height:200px;background:var(--bg1);border-top:1px solid var(--border-strong);display:none;flex-direction:column;z-index:9999;box-shadow:0 -6px 20px rgba(0,0,0,.4)}
+.sw-log-drawer.open{display:flex}
+.sw-log-hdr{display:flex;align-items:center;gap:8px;padding:5px 14px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--t2);text-transform:uppercase;flex-shrink:0;--wails-draggable:no-drag}
+.sw-log-hdr-right{margin-left:auto;display:flex;gap:6px}
+.sw-log-hdr button{background:transparent;border:1px solid var(--border);color:var(--t2);font-size:9px;padding:2px 7px;border-radius:3px;cursor:pointer;font-family:var(--font-ui)}
+.sw-log-hdr button:hover{color:var(--t0);border-color:var(--t1)}
+.sw-log-body{flex:1;overflow-y:auto;font-family:var(--font-mono);font-size:10px}
+.sw-log-body::-webkit-scrollbar{width:3px}.sw-log-body::-webkit-scrollbar-thumb{background:var(--border)}
+.sw-log-row{display:flex;gap:6px;align-items:flex-start;padding:2px 14px;border-bottom:1px solid rgba(45,42,64,.4);min-height:18px}
+.sw-log-row:hover{background:var(--bg2)}
+.sw-log-row.err{background:rgba(248,113,113,.04)}
+.sw-log-ts{color:var(--t2);flex-shrink:0;min-width:58px}
+.sw-log-meth{font-weight:700;flex-shrink:0;min-width:34px}
+.sw-log-meth.GET{color:var(--blue)}.sw-log-meth.POST{color:var(--green)}
+.sw-log-st{flex-shrink:0;min-width:24px}
+.sw-log-st.ok{color:var(--green)}.sw-log-st.err{color:var(--red)}
+.sw-log-path{color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-log-snip{color:var(--t2);flex-shrink:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+
+<!-- Wizard sidebar -->
+<aside class="sw-side">
+  <div class="sw-side-hdr">Switch Mock</div>
+  <div id="swSteps">
+    <!-- rendered by JS -->
+  </div>
+</aside>
+
+<!-- Main content -->
+<div class="sw-main">
+  <div class="sw-topbar">
+    <div class="sw-topbar-title" id="swTopTitle">Switch Mock Account</div>
+    <div class="sw-topbar-sub" id="swTopSub">Clone a source account into a POC mock</div>
+    <button class="sw-btn sw-btn-ghost" style="font-size:10px;margin-left:auto;--wails-draggable:no-drag" onclick="clearSwState()">Clear Session</button>
+  </div>
+  <div class="sw-body" id="swBody">
+
+    <!-- ══ STAGE 0: DISCOVER ══════════════════════════════════════════════ -->
+    <div class="sw-stage active" id="sw-s0">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          API Credentials
+        </div>
+        <div class="sw-fg2">
+          <div class="sw-fg">
+            <label class="sw-lbl">Region (from Settings)</label>
+            <select class="sw-inp" id="swRegionSel" onchange="onRegionSelect(this.value)">
+              <option value="">— select region —</option>
+            </select>
+            <div class="sw-inp-hint">Regions are configured in Settings → Region.</div>
+          </div>
+          <div class="sw-fg">
+            <label class="sw-lbl">Status</label>
+            <div id="swTokenDisplay" class="sw-token-missing">Select a region above</div>
+          </div>
+        </div>
+        <div class="sw-toggle-row">
+          <input type="checkbox" id="swManualOverride" onchange="toggleManualCreds(this.checked)">
+          <label for="swManualOverride">Manual override (custom API base / token)</label>
+        </div>
+        <div id="swManualCreds" style="display:none;margin-top:8px">
+          <div class="sw-fg2">
+            <div class="sw-fg">
+              <label class="sw-lbl">API Base URL</label>
+              <input class="sw-inp" id="swApiBase" placeholder="https://apis...">
+            </div>
+            <div class="sw-fg">
+              <label class="sw-lbl">User Token</label>
+              <input class="sw-inp" id="swToken" type="password" autocomplete="off" placeholder="Paste token…">
+            </div>
+          </div>
+        </div>
+        <!-- Hidden inputs always in DOM so _tok()/_base() work even without manual mode -->
+        <input type="hidden" id="swApiBaseHidden">
+        <input type="hidden" id="swTokenHidden">
+      </div>
+
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="14" height="12" rx="2"/><line x1="6" y1="7" x2="12" y2="7"/><line x1="6" y1="10" x2="10" y2="10"/></svg>
+          Source Account
+        </div>
+        <div class="sw-fg">
+          <label class="sw-lbl">Search by name or paste account ID</label>
+          <div class="sw-row">
+            <div style="position:relative;flex:1">
+              <input class="sw-inp" id="swAccSearch" placeholder="Start typing account name…" autocomplete="off">
+              <div class="sw-acc-dd" id="swAccDd"></div>
+            </div>
+            <button class="sw-btn sw-btn-primary" id="swDiscoverBtn" onclick="doDiscover()">
+              <svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5"/><line x1="12" y1="12" x2="16" y2="16"/></svg>
+              Discover
+            </button>
+          </div>
+          <div class="sw-inp-hint" id="swAccHint" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Summary cards — shown after discover -->
+      <div id="swDiscoverResult" style="display:none">
+        <div class="sw-accbox">
+          <div class="sw-accbox-dot"></div>
+          <div>
+            <div class="sw-accbox-name" id="swSrcName">—</div>
+            <div class="sw-accbox-id" id="swSrcId">—</div>
+          </div>
+          <div class="sw-accbox-right">
+            <span class="sw-chip" id="swSrcStage"></span>
+            <span class="sw-chip" id="swSrcRegion"></span>
+          </div>
+        </div>
+        <div class="sw-cards">
+          <div class="sw-card">
+            <div class="sw-card-icon"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="14" height="10" rx="2"/><line x1="6" y1="8" x2="12" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/></svg></div>
+            <div class="sw-card-num" id="swCardVehicles">—</div>
+            <div class="sw-card-lbl">Vehicles</div>
+            <div class="sw-card-sub" id="swCardDevTypes">—</div>
+          </div>
+          <div class="sw-card">
+            <div class="sw-card-icon"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 16h16z"/><line x1="9" y1="7" x2="9" y2="11"/></svg></div>
+            <div class="sw-card-num" id="swCardAlerts">—</div>
+            <div class="sw-card-lbl">Alert Types</div>
+            <div class="sw-card-sub" id="swCardAlertsEnabled">—</div>
+          </div>
+          <div class="sw-card">
+            <div class="sw-card-icon"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="5"/><circle cx="9" cy="9" r="1.5" fill="currentColor" stroke="none"/></svg></div>
+            <div class="sw-card-num" id="swCardGeo">—</div>
+            <div class="sw-card-lbl">Geofences</div>
+            <div class="sw-card-sub" id="swCardGeoHubs">—</div>
+          </div>
+          <div class="sw-card">
+            <div class="sw-card-icon"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="14" height="8" rx="1.5"/><polyline points="6,7 6,4.5 9,2.5 12,4.5 12,7"/></svg></div>
+            <div class="sw-card-num" id="swCardGroups">—</div>
+            <div class="sw-card-lbl">Groups</div>
+            <div class="sw-card-sub" id="swCardSpecs">—</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <button class="sw-btn sw-btn-primary" onclick="goStage(1)">Continue to Map Vehicles →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 1: MAP VEHICLES ══════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s1">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="3" x2="9" y2="15"/><line x1="3" y1="9" x2="15" y2="9"/></svg>
+          Mapping Options
+        </div>
+        <div class="sw-fg3">
+          <div class="sw-fg">
+            <label class="sw-lbl">Mock Plate Prefix</label>
+            <input class="sw-inp" id="swPlatePrefix" value="MK" maxlength="4" style="width:80px">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="sw-btn sw-btn-primary" id="swGenMapBtn" onclick="generateMapping()">
+            <svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,8 9,3 14,8"/><line x1="9" y1="3" x2="9" y2="15"/></svg>
+            Generate Mapping
+          </button>
+          <button class="sw-btn sw-btn-ghost" id="swVerifyBtn" onclick="verifyAllImeis()" style="display:none">
+            <span class="sw-spin" id="swVerifySpinner" style="display:none"></span>
+            Verify IMEIs (unused check)
+          </button>
+          <span style="font-size:10px;color:var(--t2)" id="swMapSummary"></span>
+        </div>
+      </div>
+
+      <div id="swMappingTable" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="checkbox" id="swSelectAll" checked onchange="toggleSelectAll(this.checked)" style="accent-color:var(--blue)"> Select all
+          </label>
+          <span style="margin-left:auto;font-size:10px;color:var(--t2)" id="swSelCount"></span>
+        </div>
+        <div class="sw-tbl-wrap">
+          <table class="sw-tbl">
+            <thead>
+              <tr>
+                <th style="width:32px"></th>
+                <th>Source Plate</th>
+                <th>Source IMEI</th>
+                <th>Mock Plate</th>
+                <th>Mock IMEI</th>
+                <th>Spec</th>
+                <th>Type</th>
+                <th>Groups</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="swMapBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <button class="sw-btn sw-btn-ghost" onclick="goStage(0)">← Back</button>
+          <button class="sw-btn sw-btn-primary" id="swToAccBtn" onclick="goStage(2)">Continue to Target Account →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 2: TARGET ACCOUNT ═════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s2">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16V5l6-3 6 3v11"/><rect x="6.5" y="10" width="5" height="6"/></svg>
+          Target Mock Account
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:18px">
+          <button class="sw-mode-btn active" id="swModeCreateBtn" onclick="setTargetMode('create')">+ Create New</button>
+          <button class="sw-mode-btn" id="swModeExistBtn" onclick="setTargetMode('existing')">Use Existing</button>
+        </div>
+
+        <!-- ── Create New ── -->
+        <div id="swCreateModePanel">
+          <div class="sw-info" style="margin-bottom:12px">
+            <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+            Account name must end with <code style="font-family:var(--font-mono);background:var(--bg3);padding:1px 5px;border-radius:3px">_test</code> — e.g. <em>intangles-deanta_test</em>
+          </div>
+          <div class="sw-fg2">
+            <div class="sw-fg">
+              <label class="sw-lbl">Mock Account Name</label>
+              <div class="sw-row">
+                <input class="sw-inp" id="swMockName" placeholder="intangles-…_test" oninput="validateMockNameSuffix(this.value)">
+                <button class="sw-btn sw-btn-ghost" onclick="checkMockName()">Check</button>
+              </div>
+              <div class="sw-inp-hint" id="swNameHint"></div>
+            </div>
+          </div>
+          <div id="swCopiedFields" style="display:none">
+            <div class="sw-lbl" style="margin-bottom:8px">Fields copied from source</div>
+            <div class="sw-field-list" id="swFieldList"></div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+            <button class="sw-btn sw-btn-primary" id="swPlanAccBtn" onclick="planAccount()">
+              <svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg>
+              Confirm Account Plan
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Use Existing ── -->
+        <div id="swExistModePanel" style="display:none">
+          <div class="sw-info" style="margin-bottom:12px">
+            <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+            Select a POC or <code style="font-family:var(--font-mono);background:var(--bg3);padding:1px 5px;border-radius:3px">_test</code> account. Existing vehicles, geofences and groups in that account will be detected automatically.
+          </div>
+          <div class="sw-fg">
+            <label class="sw-lbl">Search existing test / POC accounts</label>
+            <div style="position:relative">
+              <input class="sw-inp" id="swExistAccSearch" placeholder="Type account name or ID…" autocomplete="off">
+              <div class="sw-acc-dd" id="swExistAccDd"></div>
+            </div>
+          </div>
+          <div id="swExistAccBox" style="display:none;margin-top:8px">
+            <div class="sw-accbox">
+              <div class="sw-accbox-dot" style="background:var(--blue);box-shadow:0 0 8px rgba(46,196,182,.4)"></div>
+              <div>
+                <div class="sw-accbox-name" id="swExistAccName">—</div>
+                <div class="sw-accbox-id" id="swExistAccIdDisp">—</div>
+              </div>
+              <div class="sw-accbox-right">
+                <span class="sw-chip" id="swExistAccStage"></span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:12px">
+            <button class="sw-btn sw-btn-primary" id="swUseExistBtn" onclick="confirmExistingAccount()" style="display:none">Use This Account →</button>
+          </div>
+        </div>
+
+        <!-- Shared: confirmed mock account box -->
+        <div id="swMockCreated" style="display:none;margin-top:14px">
+          <div class="sw-accbox">
+            <div class="sw-accbox-dot" style="background:var(--green);box-shadow:0 0 8px rgba(91,210,138,.4)"></div>
+            <div>
+              <div class="sw-accbox-name" id="swMockAccName">—</div>
+              <div class="sw-accbox-id" id="swMockAccId">—</div>
+            </div>
+            <div class="sw-accbox-right">
+              <span class="sw-chip" style="color:var(--green);border-color:rgba(91,210,138,.3)" id="swMockAccChip">POC</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(1)">← Back</button>
+        <button class="sw-btn sw-btn-primary" id="swToSeedBtn" onclick="goStage(3)" style="display:none">Continue to Seed Vehicles →</button>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 3: SEED VEHICLES ══════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s3">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="14" height="10" rx="2"/><line x1="6" y1="8" x2="12" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/></svg>
+          Seed Devices &amp; Vehicles
+        </div>
+        <div class="sw-info">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+          5 API calls per vehicle (create device → create vehicle → attach spec → attach device → set base info). Devices and vehicles cannot be deleted — always create 1 first and verify.
+        </div>
+        <div class="sw-prog-wrap" id="swSeedProgWrap" style="display:none">
+          <div class="sw-prog" id="swSeedProg" style="width:0%"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <span style="font-size:10px;color:var(--blue)" id="swSeedPlanNote">Vehicles will be seeded when you click Apply in the final step.</span>
+        </div>
+      </div>
+
+      <div class="sw-tbl-wrap" id="swSeedTableWrap" style="display:none">
+        <table class="sw-tbl">
+          <thead>
+            <tr>
+              <th>Source Plate</th>
+              <th>Source IMEI</th>
+              <th>Mock Plate</th>
+              <th>Mock IMEI</th>
+              <th>Mock Vehicle</th>
+              <th>Steps</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="swSeedBody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(2)">← Back</button>
+        <button class="sw-btn sw-btn-primary" id="swDoneBtn" onclick="goStage(4)">Continue to Geofences →</button>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 4: GEOFENCES ═════════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s4">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4.5"/><circle cx="9" cy="8" r="1.5" fill="currentColor" stroke="none"/><line x1="9" y1="12.5" x2="9" y2="16"/></svg>
+          Clone Geofences
+        </div>
+        <div class="sw-info">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+          After cloning, rebuild the spatial index or the map view stays blank. The platform auto-adds entry/exit alert configs per new geofence — source geofence alert blocks are not copied.
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="checkbox" id="swGeoSelectAll" checked onchange="geoToggleAll(this.checked)" style="accent-color:var(--blue)"> Select all
+          </label>
+          <span style="font-size:10px;color:var(--blue);margin-left:auto">Geofences will be cloned when you click Apply in the final step.</span>
+        </div>
+        <div class="sw-tbl-wrap" id="swGeoTableWrap">
+          <table class="sw-tbl">
+            <thead><tr>
+              <th style="width:32px"></th>
+              <th>Name</th>
+              <th>Shape</th>
+              <th>Hub</th>
+              <th>Mock ID</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="swGeoBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(3)">← Back</button>
+        <button class="sw-btn sw-btn-primary" id="swToGroupsBtn" onclick="goStage(5)">Continue to Groups →</button>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 5: GROUPS ════════════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s5">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="14" height="8" rx="1.5"/><polyline points="6,7 6,4.5 9,2.5 12,4.5 12,7"/></svg>
+          Recreate Vehicle Groups
+        </div>
+        <div class="sw-toggle-row" style="margin-bottom:10px">
+          <input type="checkbox" id="swIncAllVehicleGroups" onchange="initGroupsStage()">
+          <label for="swIncAllVehicleGroups">Include all_vehicles groups (e.g. Live-Tracking)</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span style="font-size:10px;color:var(--blue)">Groups will be recreated when you click Apply in the final step.</span>
+        </div>
+        <div class="sw-tbl-wrap" id="swGroupTableWrap">
+          <table class="sw-tbl">
+            <thead><tr>
+              <th>Group Name</th>
+              <th>Source Vehicles</th>
+              <th>Mock Vehicles Resolved</th>
+              <th>Mock Group ID</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="swGroupBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(4)">← Back</button>
+        <button class="sw-btn sw-btn-primary" id="swToAlertBtn" onclick="goStage(6)">Continue to Alert Config →</button>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 6: ALERT CONFIG ══════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s6">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 16h16z"/><line x1="9" y1="7" x2="9" y2="11"/><circle cx="9" cy="13.5" r=".6" fill="currentColor" stroke="none"/></svg>
+          6a — Alert Thresholds
+        </div>
+        <div class="sw-info">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+          Recipient user lists are never copied. The <strong>geofence</strong> alert type is skipped — createV2 auto-adds entry/exit config per geofence. Platform defaults (algo_output, def_chori, dtc, fuel_chori) come pre-populated and are left alone.
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <label style="font-size:11px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="checkbox" id="swAlertSelectAll" checked onchange="alertToggleAll(this.checked)" style="accent-color:var(--blue)"> Select all
+          </label>
+          <span style="font-size:10px;color:var(--blue);margin-left:auto">Alert thresholds will be copied when you click Apply in the final step.</span>
+        </div>
+        <div class="sw-tbl-wrap">
+          <table class="sw-tbl">
+            <thead><tr>
+              <th style="width:32px"></th>
+              <th>Alert Type</th>
+              <th>Enabled</th>
+              <th>Config Summary</th>
+              <th>Rest Time</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="swAlertBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 16c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          6b — Alert Recipients (optional)
+        </div>
+        <div class="sw-token-warn">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 16h16z"/><line x1="9" y1="7" x2="9" y2="11"/><circle cx="9" cy="14" r=".6" fill="currentColor" stroke="none"/></svg>
+          Adding recipients means real notifications will fire. Only add internal test users. This is separate from threshold copying.
+        </div>
+        <p style="font-size:11px;color:var(--t2);margin:0">Recipients are managed via the platform UI — navigate to the mock account's Alert Settings and add users per alert type there.</p>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(5)">← Back</button>
+        <button class="sw-btn sw-btn-primary" onclick="goStage(7)">Continue to Tracker Time →</button>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 7: TRACKER ATTACH TIME ══════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s7">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><polyline points="9,5 9,9 12,11"/></svg>
+          Tracker Attach Time
+        </div>
+        <div class="sw-info">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+          <span><strong>tracker_attach_time</strong> gates incoming packets: older packets are silently dropped. Attaching a device stamps the current time, so mock vehicles reject replayed historical data unless the attach time is back-dated. This cannot be set via HTTP — use the pod script shown below.</span>
+        </div>
+        <div class="sw-fg2" style="margin-bottom:14px">
+          <div class="sw-fg">
+            <label class="sw-lbl">Target Attach Time</label>
+            <input class="sw-inp" type="datetime-local" id="swTargetTime" value="2026-01-01T00:00" oninput="renderTrackerCmd()">
+            <div class="sw-inp-hint">Default: 2026-01-01 00:00 UTC = 1767225600000 ms. Must be 13 digits (ms, not seconds).</div>
+          </div>
+          <div class="sw-fg">
+            <label class="sw-lbl">&nbsp;</label>
+            <div style="display:flex;gap:8px">
+              <button class="sw-btn sw-btn-primary" onclick="loadTrackerTimes()">
+                <span class="sw-spin" id="swTrkSpin" style="display:none"></span>
+                Read Current Values
+              </button>
+              <button class="sw-btn sw-btn-ghost" onclick="loadTrackerTimes()">Refresh</button>
+            </div>
+          </div>
+        </div>
+        <div class="sw-tbl-wrap" id="swTrkTableWrap" style="display:none">
+          <table class="sw-tbl">
+            <thead><tr>
+              <th>Mock Plate</th>
+              <th>Mock IMEI</th>
+              <th>Current attach_time (ms)</th>
+              <th>Interpreted Date</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="swTrkBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="sw-sec">
+        <div class="sw-sec-title">Pod Script Command</div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:8px">Run inside a Backend/ or data_apis/ pod. Click to copy.</div>
+        <div class="sw-cmd" id="swTrkCmd" onclick="copyCmd(this)">
+          <span class="sw-cmd-copy">click to copy</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(6)">← Back</button>
+        <button class="sw-btn sw-btn-primary" onclick="goStage(8)">Continue to Replay & Verify →</button>
+      </div>
+    </div>
+
+    <!-- ══ STAGE 8: REPLAY & VERIFY ═══════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s8">
+      <!-- 8a: Plan -->
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,14 5.5,8 9,11.5 12.5,4.5 16,7"/></svg>
+          8a — Replay Window Planner
+        </div>
+        <div class="sw-fg3">
+          <div class="sw-fg">
+            <label class="sw-lbl">Lookback Days</label>
+            <input class="sw-inp" type="number" id="swLookback" value="30" min="1" max="365" style="width:80px">
+          </div>
+          <div class="sw-fg">
+            <label class="sw-lbl">Max Window Hrs</label>
+            <input class="sw-inp" type="number" id="swMaxWin" value="24" min="1" max="168" style="width:80px">
+          </div>
+          <div class="sw-fg">
+            <label class="sw-lbl">Lead Hours</label>
+            <input class="sw-inp" type="number" id="swLeadHrs" value="2" min="0" max="24" style="width:80px">
+          </div>
+        </div>
+        <div class="sw-fg" style="margin-bottom:12px">
+          <label class="sw-lbl">Vehicle Scope</label>
+          <select class="sw-inp" id="swReplayScopeVeh" style="width:260px">
+            <option value="all">All source vehicles</option>
+          </select>
+        </div>
+        <div class="sw-prog-wrap" id="swScanProgWrap" style="display:none">
+          <div class="sw-prog" id="swScanProg" style="width:0%"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+          <button class="sw-btn sw-btn-primary" id="swScanBtn" onclick="scanAndPlan()">
+            <span class="sw-spin" id="swScanSpin" style="display:none"></span>
+            Scan &amp; Plan
+          </button>
+          <button class="sw-btn sw-btn-ghost" id="swExportWinBtn" onclick="exportWindowPlan()" style="display:none">Export .jsonc</button>
+          <span style="font-size:10px;color:var(--t2)" id="swScanStatus"></span>
+        </div>
+        <div class="sw-tbl-wrap" id="swWinTableWrap" style="display:none">
+          <table class="sw-tbl">
+            <thead><tr>
+              <th>ID</th>
+              <th>Vehicle</th>
+              <th>Start (UTC)</th>
+              <th>End (UTC)</th>
+              <th>New Types</th>
+              <th>All Alert Counts</th>
+            </tr></thead>
+            <tbody id="swWinBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- 8b: Verify -->
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg>
+          8b — Alert Verification (post-replay)
+        </div>
+        <div class="sw-info">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+          Run this after the replay service has processed the windows. Alerts are timestamped by packet event time, so replayed September data shows September timestamps.
+        </div>
+        <div id="swVerifyPairs" style="margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="sw-btn sw-btn-primary" id="swCompareBtn" onclick="compareAlerts()">
+            <span class="sw-spin" id="swVerSpin" style="display:none"></span>
+            Compare Alerts
+          </button>
+          <span style="font-size:10px;color:var(--t2)" id="swVerStatus"></span>
+        </div>
+        <div id="swVerifyResults"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(7)">← Back</button>
+        <button class="sw-btn sw-btn-primary" onclick="goStage(9)">Continue to Review &amp; Apply →</button>
+      </div>
+    </div>
+
+
+    <!-- ══ STAGE 9: REVIEW & APPLY ═══════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s9">
+      <div class="sw-sec">
+        <div class="sw-sec-title">
+          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg>
+          Review Plan
+        </div>
+        <div id="swReviewSummary" style="margin-bottom:16px"></div>
+        <div class="sw-token-warn" id="swReviewWarn" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 16h16z"/><line x1="9" y1="7" x2="9" y2="11"/><circle cx="9" cy="14" r=".6" fill="currentColor" stroke="none"/></svg>
+          <span id="swReviewWarnText"></span>
+        </div>
+      </div>
+      <div class="sw-sec">
+        <div class="sw-sec-title">Apply Options</div>
+        <div class="sw-toggle-row"><input type="checkbox" id="swApplyCopyUI" checked><label for="swApplyCopyUI">Copy UI config from source</label></div>
+        <div class="sw-toggle-row"><input type="checkbox" id="swApplyCopyAlerts" checked><label for="swApplyCopyAlerts">Copy alert thresholds from source</label></div>
+        <div class="sw-toggle-row"><input type="checkbox" id="swApplyCloneGeo" checked><label for="swApplyCloneGeo">Clone geofences</label></div>
+        <div class="sw-toggle-row"><input type="checkbox" id="swApplyRecreateGroups" checked><label for="swApplyRecreateGroups">Recreate groups</label></div>
+        <div class="sw-toggle-row"><input type="checkbox" id="swApplyRebuildGeoIdx" checked><label for="swApplyRebuildGeoIdx">Rebuild geofence spatial index after clone</label></div>
+      </div>
+      <div class="sw-sec">
+        <div class="sw-sec-title">Execute</div>
+        <div class="sw-prog-wrap" id="swApplyProgWrap" style="display:none">
+          <div class="sw-prog" id="swApplyProg" style="width:0%"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+          <button class="sw-btn sw-btn-primary" id="swApplyBtn" onclick="applyAll()">
+            <span class="sw-spin" id="swApplySpin" style="display:none"></span>
+            Apply All
+          </button>
+          <span style="font-size:10px;color:var(--t2)" id="swApplyStatus"></span>
+        </div>
+        <div id="swApplyLog" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:none;font-family:var(--font-mono);font-size:10px;max-height:240px;overflow-y:auto"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(8)">&#x2190; Back</button>
+      </div>
+    </div>
+
+  </div><!-- sw-body -->
+</div><!-- sw-main -->
+
+<!-- ── API Log Drawer ── -->
+<button class="sw-log-toggle" id="swLogToggle" onclick="toggleLog()">API Log</button>
+<div class="sw-log-drawer" id="swLogDrawer">
+  <div class="sw-log-hdr">
+    API Log
+    <span id="swLogCount" style="font-weight:400;color:var(--t2)"></span>
+    <div class="sw-log-hdr-right">
+      <button onclick="clearLog()">Clear</button>
+      <button onclick="toggleLog()">&#x2715; Close</button>
+    </div>
+  </div>
+  <div class="sw-log-body" id="swLogBody"></div>
+</div>
+
+</div><!-- app-wrap -->
+
+<script>
+'use strict';
+
+// ── Session state (never persisted) ────────────────────────────────────────
+const S = {
+  token: '',
+  apiBase: 'https://apis.intangles-aws-eu-north-1.eu.intangles.com',
+  srcAccId: '',
+  srcAcc: null,
+  vehicles: [],
+  idevices: [],
+  geofences: [],
+  groups: [],
+  alertConfig: [],
+  uiConfig: null,
+  specs: {},
+  mapping: [],      // [{orig_imei,orig_plate,orig_vid,mock_imei,mock_plate,spec_id,spec_name,protocol,dev_type,obd_attached,groups,selected,status}]
+  mockAccId: '',
+  mockName: '',
+  seeded: [],       // rows from current session
+};
+
+// ── API Log ──────────────────────────────────────────────────────────────────
+let _logOpen = false;
+function _logApi(method, path, statusCode, snippet) {
+  const ts = new Date().toTimeString().slice(0,8);
+  const isErr = !statusCode || statusCode >= 400;
+  const body = document.getElementById('swLogBody');
+  if (!body) return;
+  const row = document.createElement('div');
+  row.className = 'sw-log-row' + (isErr ? ' err' : '');
+  row.innerHTML = `<span class="sw-log-ts">${ts}</span><span class="sw-log-meth ${method}">${method}</span><span class="sw-log-st ${isErr?'err':'ok'}">${statusCode||'ERR'}</span><span class="sw-log-path" title="${_esc(path)}">${_esc(path)}</span><span class="sw-log-snip">${_esc(snippet||'')}</span>`;
+  body.appendChild(row);
+  body.scrollTop = body.scrollHeight;
+  const cnt = document.getElementById('swLogCount');
+  if (cnt) cnt.textContent = body.children.length + ' calls';
+  if (isErr && !_logOpen) toggleLog();
+}
+function toggleLog() {
+  _logOpen = !_logOpen;
+  document.getElementById('swLogDrawer').classList.toggle('open', _logOpen);
+  document.getElementById('swLogToggle').textContent = _logOpen ? '✕ Log' : 'API Log';
+}
+function clearLog() {
+  const b = document.getElementById('swLogBody');
+  if (b) b.innerHTML = '';
+  const c = document.getElementById('swLogCount');
+  if (c) c.textContent = '';
+}
+
+// ── Stage definitions ───────────────────────────────────────────────────────
+const STAGES = [
+  { id: 0, label: 'Discover',        key: 's0' },
+  { id: 1, label: 'Map Vehicles',    key: 's1' },
+  { id: 2, label: 'Target Account',  key: 's2' },
+  { id: 3, label: 'Seed Plan',       key: 's3' },
+  { id: 4, label: 'Geofences',       key: 's4' },
+  { id: 5, label: 'Groups',          key: 's5' },
+  { id: 6, label: 'Alert Config',    key: 's6' },
+  { id: 7, label: 'Tracker Time',    key: 's7' },
+  { id: 8, label: 'Replay & Verify', key: 's8' },
+  { id: 9, label: 'Review & Apply',  key: 's9' },
+];
+let _stageStatus = [null,null,null,null,null,null,null,null,null,null]; // null | 'done' | 'err'
+let _activeStage = 0;
+
+function renderSteps() {
+  const wrap = document.getElementById('swSteps');
+  wrap.innerHTML = STAGES.map(st => {
+    const st_status = _stageStatus[st.id];
+    const cls = (_activeStage === st.id ? 'active ' : '') + (st_status || '');
+    return `<div class="sw-step ${cls}" onclick="goStage(${st.id})">
+      <div class="sw-dot"></div>
+      <span class="sw-step-num">${st.id + 1}</span>
+      <span>${st.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function goStage(id) {
+  _activeStage = id;
+  STAGES.forEach(s => {
+    const el = document.getElementById('sw-s' + s.id);
+    if (el) el.classList.toggle('active', s.id === id);
+  });
+  const st = STAGES[id];
+  document.getElementById('swTopTitle').textContent = st.label;
+  document.getElementById('swBody').scrollTop = 0;
+  renderSteps();
+  // Init hooks for stages that need it
+  if (id === 3) fetchMockVehicles();
+  if (id === 4) initGeoStage();
+  if (id === 5) initGroupsStage();
+  if (id === 6) initAlertStage();
+  if (id === 7) renderTrackerCmd();
+  if (id === 8) _buildVehicleScopeDropdown();
+  if (id === 9) buildReviewPlan();
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _tok() { return S.token || ''; }
+function _base() { return S.apiBase || ''; }
+
+// ── Region selector & credential management ──────────────────────────────────
+function initRegionSelector() {
+  const sel = document.getElementById('swRegionSel');
+  const regions = SimState.getRegions();
+  const activeKey = SimState.getActiveRegionKey();
+  while (sel.options.length > 1) sel.remove(1);
+  Object.entries(regions).forEach(([key, r]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = r.label || key;
+    sel.appendChild(opt);
+  });
+  if (activeKey && regions[activeKey]) {
+    sel.value = activeKey;
+    onRegionSelect(activeKey);
+  }
+}
+
+function onRegionSelect(key) {
+  if (!key) return;
+  const r = SimState.getRegion(key);
+  if (!r) return;
+  S.apiBase = r.apiBase || '';
+  S.token   = r.userToken || '';
+  const disp = document.getElementById('swTokenDisplay');
+  if (!S.token) {
+    disp.className = 'sw-token-missing';
+    disp.textContent = 'No token saved in region settings — enter token below';
+    // Auto-open manual override so user can paste a token
+    document.getElementById('swManualOverride').checked = true;
+    toggleManualCreds(true);
+  } else {
+    const masked = S.token.slice(0,6) + '•••••••••••' + S.token.slice(-4);
+    disp.className = 'sw-token-ok';
+    disp.innerHTML = `<svg width="10" height="10" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg> <span class="sw-token-masked">${_esc(masked)}</span> — ${_esc(r.label || key)}`;
+  }
+}
+
+function toggleManualCreds(show) {
+  document.getElementById('swManualCreds').style.display = show ? 'block' : 'none';
+  if (show) {
+    document.getElementById('swApiBase').value = S.apiBase;
+    document.getElementById('swToken').value   = S.token;
+  }
+}
+
+// ── Target account mode toggle ────────────────────────────────────────────────
+function setTargetMode(mode) {
+  document.getElementById('swModeCreateBtn').classList.toggle('active', mode === 'create');
+  document.getElementById('swModeExistBtn').classList.toggle('active', mode === 'existing');
+  document.getElementById('swCreateModePanel').style.display = mode === 'create'   ? 'block' : 'none';
+  document.getElementById('swExistModePanel').style.display  = mode === 'existing' ? 'block' : 'none';
+}
+
+function validateMockNameSuffix(name) {
+  const hint = document.getElementById('swNameHint');
+  const btn  = document.getElementById('swPlanAccBtn');
+  if (!name) { hint.textContent = ''; if (btn) btn.disabled = false; return; }
+  if (!name.endsWith('_test')) {
+    hint.textContent = '⚠ Name must end with _test';
+    hint.style.color = 'var(--red)';
+    if (btn) btn.disabled = true;
+  } else {
+    hint.textContent = '✓ Suffix OK';
+    hint.style.color = 'var(--green)';
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Existing account search (Stage 2) ────────────────────────────────────────
+let _existAccTimer = null;
+let _selectedExistAcc = null;
+
+function _existAccRepos() {
+  const inp = document.getElementById('swExistAccSearch');
+  const dd  = document.getElementById('swExistAccDd');
+  const r = inp.getBoundingClientRect();
+  dd.style.left  = r.left + 'px';
+  dd.style.width = r.width + 'px';
+  dd.style.top   = (r.bottom + 4) + 'px';
+}
+
+async function _searchExistAccounts(q) {
+  const dd = document.getElementById('swExistAccDd');
+  if (!_tok()) { _logApi('GET', '/account/listV2', 401, 'No token — exist account search blocked'); if (!_logOpen) toggleLog(); dd.innerHTML = '<div class="sw-acc-msg">No token — select a region or use manual override</div>'; dd.classList.add('open'); _existAccRepos(); return; }
+  dd.innerHTML = '<div class="sw-acc-msg">Searching…</div>';
+  dd.classList.add('open');
+  _existAccRepos();
+  const data = await _get(`/account/listV2?sort=display_name+asc&psize=30&stage=POC&query=${encodeURIComponent(q)}`);
+  if (data.error) { dd.innerHTML = `<div class="sw-acc-msg">Error: ${_esc(data.error)}</div>`; return; }
+  const accs = (data.result && data.result.accounts) || [];
+  if (!accs.length) { dd.innerHTML = '<div class="sw-acc-msg">No POC accounts found</div>'; return; }
+  dd.innerHTML = accs.map(a =>
+    `<div class="sw-acc-item" data-id="${_esc(a._id)}" data-name="${_esc(a.display_name||a.name||'')}" data-stage="${_esc(a.stage||'')}">
+      <div class="sw-acc-name">${_esc(a.display_name||a.name||'—')}</div>
+      <div class="sw-acc-id">${_esc(a._id)}</div>
+    </div>`).join('');
+  dd.querySelectorAll('.sw-acc-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      document.getElementById('swExistAccSearch').value = el.dataset.name;
+      _selectedExistAcc = { id: el.dataset.id, name: el.dataset.name, stage: el.dataset.stage };
+      dd.classList.remove('open');
+      document.getElementById('swExistAccName').textContent   = el.dataset.name || '—';
+      document.getElementById('swExistAccIdDisp').textContent = el.dataset.id;
+      document.getElementById('swExistAccStage').textContent  = el.dataset.stage || 'POC';
+      document.getElementById('swExistAccBox').style.display  = 'block';
+      document.getElementById('swUseExistBtn').style.display  = 'inline-flex';
+    });
+  });
+}
+
+function confirmExistingAccount() {
+  if (!_selectedExistAcc) return;
+  S.mockAccId = _selectedExistAcc.id;
+  S.mockName  = _selectedExistAcc.name;
+  document.getElementById('swMockAccName').textContent = S.mockName;
+  document.getElementById('swMockAccId').textContent   = S.mockAccId;
+  document.getElementById('swMockAccChip').textContent = _selectedExistAcc.stage || 'POC';
+  document.getElementById('swMockCreated').style.display = 'block';
+  document.getElementById('swToSeedBtn').style.display   = 'inline-flex';
+  _stageStatus[2] = 'done';
+  renderSteps();
+  _saveSwState();
+}
+
+async function _get(path) {
+  if (!_tok()) { _logApi('GET', path, 401, 'No token — select a region or use manual override'); return { error: 'no token' }; }
+  const raw = await window.go.main.App.SwitchAPIGet(_base(), _tok(), path);
+  try {
+    const p = JSON.parse(raw);
+    _logApi('GET', path, p.error ? 400 : 200, p.error || raw.slice(0,80));
+    return p;
+  } catch {
+    _logApi('GET', path, 0, raw.slice(0,80));
+    return { error: 'parse error: ' + raw.slice(0,200) };
+  }
+}
+async function _post(path, body) {
+  if (!_tok()) { _logApi('POST', path, 401, 'No token'); return { error: 'no token' }; }
+  const raw = await window.go.main.App.SwitchAPIPost(_base(), _tok(), path, JSON.stringify(body));
+  try {
+    const p = JSON.parse(raw);
+    _logApi('POST', path, p.error ? 400 : 200, p.error || raw.slice(0,80));
+    return p;
+  } catch {
+    _logApi('POST', path, 0, raw.slice(0,80));
+    return { error: 'parse error: ' + raw.slice(0,200) };
+  }
+}
+
+function _badge(state, text) {
+  const map = { ok:'sw-badge-ok', warn:'sw-badge-warn', err:'sw-badge-err', pend:'sw-badge-pend' };
+  return `<span class="sw-badge ${map[state]||'sw-badge-pend'}">${_esc(text)}</span>`;
+}
+
+// ── Luhn ────────────────────────────────────────────────────────────────────
+function _luhnCheck(imei14) {
+  let sum = 0;
+  for (let i = 0; i < 14; i++) {
+    let d = +imei14[i];
+    if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return (10 - (sum % 10)) % 10;
+}
+function _genImei(tac) {
+  const serial = String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
+  const base14 = tac + serial;
+  return base14 + _luhnCheck(base14);
+}
+function _luhnValid(imei) {
+  if (imei.length !== 15 || !/^\d+$/.test(imei)) return false;
+  return _luhnCheck(imei.slice(0, 14)) === +imei[14];
+}
+
+// ── Account search dropdown (Stage 0) ───────────────────────────────────────
+let _accTimer = null;
+const _accInp = () => document.getElementById('swAccSearch');
+const _accDd  = () => document.getElementById('swAccDd');
+
+function _accRepos() {
+  const r = _accInp().getBoundingClientRect();
+  const dd = _accDd();
+  dd.style.left  = r.left + 'px';
+  dd.style.width = r.width + 'px';
+  dd.style.top   = (r.bottom + 4) + 'px';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  SimNav.inject('switch');
+  renderSteps();
+  initRegionSelector();
+  _loadSwState();
+
+  // Source account search (Stage 0)
+  const inp = _accInp();
+  inp.addEventListener('input', () => {
+    clearTimeout(_accTimer);
+    const q = inp.value.trim();
+    if (q.length < 2) { _accDd().classList.remove('open'); return; }
+    _accTimer = setTimeout(() => _searchAccounts(q), 350);
+  });
+  document.addEventListener('mousedown', e => {
+    if (!inp.contains(e.target) && !_accDd().contains(e.target)) _accDd().classList.remove('open');
+    const existInp = document.getElementById('swExistAccSearch');
+    const existDd  = document.getElementById('swExistAccDd');
+    if (existInp && existDd && !existInp.contains(e.target) && !existDd.contains(e.target)) existDd.classList.remove('open');
+  });
+
+  // Manual override inputs → sync to session state
+  document.getElementById('swToken').addEventListener('input', e => { S.token = e.target.value.trim(); });
+  document.getElementById('swApiBase').addEventListener('input', e => { S.apiBase = e.target.value.trim(); });
+
+  // Existing account search (Stage 2)
+  const existInp = document.getElementById('swExistAccSearch');
+  existInp.addEventListener('input', () => {
+    clearTimeout(_existAccTimer);
+    const q = existInp.value.trim();
+    if (q.length < 2) { document.getElementById('swExistAccDd').classList.remove('open'); return; }
+    _existAccTimer = setTimeout(() => _searchExistAccounts(q), 350);
+  });
+
+  // Clear token on page hide
+  window.addEventListener('pagehide', () => { S.token = ''; document.getElementById('swToken').value = ''; });
+});
+
+async function _searchAccounts(q) {
+  if (!_tok()) { _logApi('GET', '/account/listV2', 401, 'No token — account search blocked'); if (!_logOpen) toggleLog(); _accDd().innerHTML = '<div class="sw-acc-msg">No token — select a region or use manual override</div>'; _accDd().classList.add('open'); _accRepos(); return; }
+  _accDd().innerHTML = '<div class="sw-acc-msg">Searching…</div>';
+  _accDd().classList.add('open');
+  _accRepos();
+  const data = await _get(`/account/listV2?sort=display_name+asc&psize=20&stage=LIVE,POC&query=${encodeURIComponent(q)}`);
+  if (data.error) { _accDd().innerHTML = `<div class="sw-acc-msg">Error: ${_esc(data.error)}</div>`; return; }
+  const accs = (data.result && data.result.accounts) || [];
+  if (!accs.length) { _accDd().innerHTML = `<div class="sw-acc-msg">No accounts found</div>`; return; }
+  _accDd().innerHTML = accs.map(a =>
+    `<div class="sw-acc-item" data-id="${_esc(a._id)}" data-name="${_esc(a.display_name||a.name||'')}">
+      <div class="sw-acc-name">${_esc(a.display_name||a.name||'—')}</div>
+      <div class="sw-acc-id">${_esc(a._id)}</div>
+    </div>`).join('');
+  _accDd().querySelectorAll('.sw-acc-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      _accInp().value = el.dataset.name + ' (' + el.dataset.id + ')';
+      S.srcAccId = el.dataset.id;
+      document.getElementById('swAccHint').style.display = 'none';
+      _accDd().classList.remove('open');
+    });
+  });
+}
+
+// ── STAGE 0: DISCOVER ───────────────────────────────────────────────────────
+async function doDiscover() {
+  S.token = _tok();
+  S.apiBase = _base();
+  if (!S.token) { alert('Enter a user token first.'); return; }
+
+  // If no account selected from dropdown, try treating input as a raw ID
+  if (!S.srcAccId) {
+    const v = _accInp().value.trim();
+    if (/^\d{15,20}$/.test(v)) {
+      S.srcAccId = v;
+    } else {
+      alert('Select an account from the dropdown or paste a numeric account ID.'); return;
+    }
+  }
+
+  const btn = document.getElementById('swDiscoverBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="sw-spin"></span> Discovering…';
+
+  try {
+    // Parallel first batch
+    const [accRaw, vehiclesRaw, idevicesRaw, geoRaw, groupsRaw, alertRaw, uiRaw] = await Promise.all([
+      _get(`/accountV2/${S.srcAccId}`),
+      _get(`/vehicle/getlist?psize=500&pnum=1&status=*&lastloc=false&acc_id=${S.srcAccId}`),
+      _get(`/idevice/listV2?psize=500&pnum=1&status=*&acc_id=${S.srcAccId}`),
+      _get(`/geofence/listV2?psize=2000&pnum=1&acc_id=${S.srcAccId}`),
+      _get(`/group/listV2?psize=200&pnum=1&acc_id=${S.srcAccId}`),
+      _get(`/alertconfigV2/account/${S.srcAccId}/all`),
+      _get(`/config/all/accountV2/${S.srcAccId}`),
+    ]);
+
+    if (accRaw.error) { throw new Error('Account: ' + accRaw.error); }
+
+    S.srcAcc     = accRaw.result || accRaw;
+    S.vehicles   = (vehiclesRaw.result && vehiclesRaw.result.v) || vehiclesRaw.result?.vehicles || [];
+    S.idevices   = (idevicesRaw.result && idevicesRaw.result.idevices) || [];
+    S.geofences  = (geoRaw.result && geoRaw.result.gf) || (geoRaw.result && geoRaw.result.geofences) || [];
+    S.groups     = (groupsRaw.result && groupsRaw.result.groups) || [];
+    S.alertConfig= (alertRaw.result && alertRaw.result.configs) || (alertRaw.result && alertRaw.result.alertconfigs) || [];
+    S.uiConfig   = uiRaw;
+
+    // Specs
+    const specsRaw = await _get(`/account/${S.srcAccId}/specsV2`);
+    const specList = (specsRaw.result && specsRaw.result.specs) || [];
+    S.specs = {};
+    specList.forEach(sp => { S.specs[sp._id] = sp; });
+
+    _renderDiscoverResult();
+    _stageStatus[0] = 'done';
+    renderSteps();
+    _saveSwState();
+  } catch (e) {
+    alert('Discovery failed: ' + e.message);
+    _stageStatus[0] = 'err';
+    renderSteps();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5"/><line x1="12" y1="12" x2="16" y2="16"/></svg> Discover';
+  }
+}
+
+function _renderDiscoverResult() {
+  const acc = S.srcAcc;
+  document.getElementById('swSrcName').textContent = acc.display_name || acc.name || '—';
+  document.getElementById('swSrcId').textContent   = acc._id || S.srcAccId;
+  document.getElementById('swSrcStage').textContent = acc.stage || '—';
+  document.getElementById('swSrcRegion').textContent = acc.region || '—';
+
+  const devTypes = {};
+  S.idevices.forEach(d => { devTypes[d.type || d.base_type || 'unknown'] = (devTypes[d.type || d.base_type || 'unknown'] || 0) + 1; });
+  document.getElementById('swCardVehicles').textContent = S.vehicles.length;
+  document.getElementById('swCardDevTypes').textContent = Object.entries(devTypes).map(([k,v]) => `${v} ${k}`).join(', ') || '—';
+
+  const enabledAlerts = S.alertConfig.filter(a => a.is_enabled).length;
+  document.getElementById('swCardAlerts').textContent = S.alertConfig.length;
+  document.getElementById('swCardAlertsEnabled').textContent = enabledAlerts + ' enabled';
+
+  const hubs = S.geofences.filter(g => g.is_hub).length;
+  document.getElementById('swCardGeo').textContent = S.geofences.length;
+  document.getElementById('swCardGeoHubs').textContent = hubs + ' hubs';
+
+  document.getElementById('swCardGroups').textContent = S.groups.length;
+  document.getElementById('swCardSpecs').textContent  = Object.keys(S.specs).length + ' specs';
+
+  document.getElementById('swDiscoverResult').style.display = 'block';
+}
+
+// ── STAGE 1: MAP VEHICLES ────────────────────────────────────────────────────
+function _buildImeiIndex() {
+  const set = new Set();
+  S.idevices.forEach(d => { if (d.imei) set.add(d.imei); });
+  return set;
+}
+
+function _buildPlateIndex() {
+  const set = new Set();
+  S.vehicles.forEach(v => { if (v.number_plate || v.plate) set.add((v.number_plate || v.plate).toUpperCase()); });
+  return set;
+}
+
+function generateMapping() {
+  if (!S.idevices.length) { alert('Discover a source account first.'); return; }
+  const prefix = (document.getElementById('swPlatePrefix').value || 'MK').toUpperCase();
+  const srcImeis = _buildImeiIndex();
+  const srcPlates = _buildPlateIndex();
+  const usedMockImeis = new Set();
+  const usedMockPlates = new Set(srcPlates);
+
+  // Build a map of imei → vehicle info
+  const vByImei = {};
+  S.vehicles.forEach(v => {
+    const imei = v.t_imei || v.tracker_imei;
+    if (imei) vByImei[imei] = v;
+  });
+
+  // Build a map of imei → group names
+  const imeiGroups = {};
+  S.groups.forEach(g => {
+    (g.vehicle_ids || []).forEach(vid => {
+      const veh = S.vehicles.find(v => v._id === vid);
+      if (veh) {
+        const imei = veh.t_imei || veh.tracker_imei;
+        if (imei) { imeiGroups[imei] = imeiGroups[imei] || []; imeiGroups[imei].push(g.name); }
+      }
+    });
+  });
+
+  S.mapping = [];
+  for (const dev of S.idevices) {
+    const imei = dev.imei;
+    if (!imei) continue;
+    const veh = vByImei[imei] || {};
+    const srcPlate = (veh.number_plate || veh.plate || imei.slice(-6)).toUpperCase();
+    const tac = imei.slice(0, 8);
+
+    // Generate unique mock IMEI
+    let mockImei;
+    let attempts = 0;
+    do {
+      mockImei = _genImei(tac);
+      attempts++;
+    } while ((srcImeis.has(mockImei) || usedMockImeis.has(mockImei)) && attempts < 200);
+    usedMockImeis.add(mockImei);
+
+    // Generate unique mock plate
+    let baseMock = prefix + srcPlate.slice(2);
+    let mockPlate = baseMock;
+    const suffixes = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let si = 0;
+    while (usedMockPlates.has(mockPlate) && si < suffixes.length) {
+      mockPlate = prefix.slice(0, -1) + suffixes[si] + srcPlate.slice(2);
+      si++;
+    }
+    usedMockPlates.add(mockPlate);
+
+    const specId = veh.spec_id || '';
+    const spec   = S.specs[specId];
+    S.mapping.push({
+      orig_imei:    imei,
+      orig_plate:   srcPlate,
+      orig_vid:     veh._id || '',
+      mock_imei:    mockImei,
+      mock_plate:   mockPlate,
+      spec_id:      specId,
+      spec_name:    spec ? (spec.name || spec.spec_name || specId) : specId,
+      protocol:     veh.protocol || '',
+      dev_type:     dev.type || dev.base_type || 'tracker',
+      base_type:    dev.base_type || '',
+      comm_proto:   dev.communication_protocol || '',
+      obd_attached: (dev.type || '').toLowerCase().includes('obd'),
+      tags:         veh.tags || [],
+      vehicle_type: veh.vehicle_type || '',
+      emission_std: veh.emmission_standard || '',
+      groups:       imeiGroups[imei] || [],
+      selected:     true,
+      status:       'pending',
+    });
+  }
+
+  _renderMappingTable();
+  document.getElementById('swMappingTable').style.display = 'block';
+  document.getElementById('swVerifyBtn').style.display = 'inline-flex';
+  document.getElementById('swMapSummary').textContent = `${S.mapping.length} vehicles mapped`;
+  _updateSelCount();
+  _saveSwState();
+}
+
+function _renderMappingTable() {
+  const tbody = document.getElementById('swMapBody');
+  tbody.innerHTML = S.mapping.map((row, i) =>
+    `<tr id="swMR-${i}">
+      <td><input type="checkbox" ${row.selected?'checked':''} onchange="S.mapping[${i}].selected=this.checked;_updateSelCount()"></td>
+      <td class="sw-tbl-plate">${_esc(row.orig_plate)}</td>
+      <td class="sw-tbl-mono sw-tbl-muted">${_esc(row.orig_imei)}</td>
+      <td><input class="sw-tbl-edit sw-tbl-mock" value="${_esc(row.mock_plate)}" oninput="S.mapping[${i}].mock_plate=this.value" style="color:var(--blue)"></td>
+      <td><input class="sw-tbl-edit" value="${_esc(row.mock_imei)}" oninput="S.mapping[${i}].mock_imei=this.value;_revalidateImei(${i})"></td>
+      <td class="sw-tbl-muted" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc(row.spec_name)}">${_esc(row.spec_name||'—')}</td>
+      <td class="sw-tbl-muted">${_esc(row.dev_type)}</td>
+      <td class="sw-tbl-muted" style="font-size:10px">${_esc((row.groups||[]).join(', ')||'—')}</td>
+      <td id="swMRS-${i}">${_badgeForStatus(row.status)}</td>
+    </tr>`
+  ).join('');
+}
+
+function _badgeForStatus(s) {
+  if (s === 'ok')       return _badge('ok','✓ valid');
+  if (s === 'checking') return `<span class="sw-badge sw-badge-pend"><span class="sw-badge-spin"></span></span>`;
+  if (s === 'err')      return _badge('err','collision');
+  return _badge('pend','pending');
+}
+
+function _revalidateImei(i) {
+  const row = S.mapping[i];
+  row.status = _luhnValid(row.mock_imei) ? 'pending' : 'err';
+  const cell = document.getElementById('swMRS-' + i);
+  if (cell) cell.innerHTML = row.status === 'err' ? _badge('warn','Luhn fail') : _badge('pend','pending');
+}
+
+function toggleSelectAll(checked) {
+  S.mapping.forEach(r => r.selected = checked);
+  document.querySelectorAll('#swMapBody input[type=checkbox]').forEach(cb => cb.checked = checked);
+  _updateSelCount();
+}
+function _updateSelCount() {
+  const sel = S.mapping.filter(r => r.selected).length;
+  document.getElementById('swSelCount').textContent = `${sel} / ${S.mapping.length} selected`;
+}
+
+async function verifyAllImeis() {
+  const btn = document.getElementById('swVerifyBtn');
+  const spin = document.getElementById('swVerifySpinner');
+  btn.disabled = true;
+  spin.style.display = 'inline-block';
+  const rows = S.mapping.filter(r => r.selected);
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const idx = S.mapping.indexOf(row);
+    row.status = 'checking';
+    const cell = document.getElementById('swMRS-' + idx);
+    if (cell) cell.innerHTML = _badgeForStatus('checking');
+    try {
+      const data = await _get(`/idevice/${row.mock_imei}/allinfoV2`);
+      // If tracker record comes back, IMEI is taken
+      const taken = !!(data.result && data.result.tracker && data.result.tracker.imei);
+      row.status = taken ? 'err' : 'ok';
+    } catch {
+      row.status = 'ok'; // assume ok on error
+    }
+    if (cell) cell.innerHTML = _badgeForStatus(row.status);
+  }
+  btn.disabled = false;
+  spin.style.display = 'none';
+  _stageStatus[1] = S.mapping.some(r => r.status === 'err') ? 'warn' : 'done';
+  renderSteps();
+}
+
+// ── STAGE 2: CREATE ACCOUNT ──────────────────────────────────────────────────
+function clearNameCheck() { document.getElementById('swNameHint').textContent = ''; }
+
+async function checkMockName() {
+  const name = document.getElementById('swMockName').value.trim();
+  if (!name) return;
+  const hint = document.getElementById('swNameHint');
+  hint.textContent = 'Checking…'; hint.style.color = 'var(--t2)';
+  const data = await _get(`/account/listV2?query=${encodeURIComponent(name)}&psize=5`);
+  const accs = (data.result && data.result.accounts) || [];
+  const clash = accs.find(a => (a.display_name||a.name||'').toLowerCase() === name.toLowerCase());
+  if (clash) {
+    hint.textContent = `⚠ Account "${clash.display_name||clash.name}" already exists (${clash._id})`;
+    hint.style.color = 'var(--red)';
+  } else {
+    hint.textContent = '✓ Name is available';
+    hint.style.color = 'var(--green)';
+    _populateSourceFields();
+  }
+}
+
+function _populateSourceFields() {
+  const acc = S.srcAcc;
+  if (!acc) return;
+  const COPY_FIELDS = ['type','payment_mode','region','country','timezone','currency',
+    'imperial_units','imperial_mileage','gallon_unit','intangles_level','intangles_zone','fleet_size'];
+  const list = document.getElementById('swFieldList');
+  list.innerHTML = COPY_FIELDS.filter(f => acc[f] !== undefined && acc[f] !== null)
+    .map(f => `<div class="sw-field"><div class="sw-field-k">${_esc(f)}</div><div class="sw-field-v">${_esc(String(acc[f]))}</div></div>`)
+    .join('');
+  document.getElementById('swCopiedFields').style.display = 'block';
+}
+
+function _buildCreatePayload() {
+  const acc = S.srcAcc || {};
+  const name = document.getElementById('swMockName').value.trim();
+  const COPY = ['type','payment_mode','region','country','timezone','currency',
+    'imperial_units','imperial_mileage','gallon_unit','operation_types',
+    'intangles_level','intangles_zone','fleet_size'];
+  const payload = { stage: 'poc', name, display_name: name };
+  COPY.forEach(f => { if (acc[f] !== undefined && acc[f] !== null) payload[f] = acc[f]; });
+  return payload;
+}
+
+// createAccount() is superseded by planAccount() + applyAll()/_applyCreateAccount()
+// Kept as a no-op to avoid errors from any lingering references.
+async function createAccount() { planAccount(); }
+
+async function _copyUIConfig() {
+  const ui = S.uiConfig && S.uiConfig.result && S.uiConfig.result.ui;
+  if (!ui) return;
+  const configs = Object.entries(ui)
+    .filter(([, v]) => v !== null && v !== undefined)
+    .map(([name, value]) => ({ section: 'ui', name, value }));
+  if (!configs.length) return;
+  await _post(`/config/add/accountV2/?acc_id=${S.mockAccId}`, { account_id: S.mockAccId, configs });
+}
+
+async function _copyAlertConfig() {
+  const SKIP = new Set(['geofence']);
+  const configs = S.alertConfig
+    .filter(a => !SKIP.has(a.type) && a.config)
+    .map(a => {
+      const entry = { type: a.type, is_enabled: a.is_enabled, config: a.config };
+      if (a.rest_time) entry.rest_time = a.rest_time;
+      return entry;
+    });
+  if (!configs.length) return;
+  await _post(`/alertconfig/account/addV2?acc_id=${S.mockAccId}`, { account_id: S.mockAccId, configs });
+}
+
+// ── STAGE 3: SEED VEHICLES ───────────────────────────────────────────────────
+let _seedRunning = false;
+S.mockVehicles = []; // vehicles already in mock account
+
+async function fetchMockVehicles() {
+  if (!S.mockAccId) { _initSeedTable(); return; }
+  try {
+    const d = await _get(`/vehicle/getlist?psize=500&pnum=1&status=*&lastloc=false&acc_id=${S.mockAccId}`);
+    S.mockVehicles = (d.result && (d.result.v || d.result.vehicles)) || [];
+  } catch { S.mockVehicles = []; }
+  _initSeedTable();
+}
+
+function _mockVehicleSelect(rowIdx, seededVid) {
+  const opts = ['<option value="">Create new</option>'].concat(
+    S.mockVehicles.map(v => {
+      const plate = v.number_plate || v.plate || '';
+      const imei  = v.t_imei || v.tracker_imei || '';
+      const sel   = seededVid === v._id ? ' selected' : '';
+      return `<option value="${_esc(v._id)}"${sel}>${_esc(plate)} ${imei ? '/ ' + imei : ''}</option>`;
+    })
+  ).join('');
+  return `<select class="sw-row-sel" style="max-width:160px" onchange="S.mapping.filter(r=>r.selected)[${rowIdx}].existingMockVid=this.value||''">${opts}</select>`;
+}
+
+function _initSeedTable() {
+  const selected = S.mapping.filter(r => r.selected);
+  const tbody = document.getElementById('swSeedBody');
+  tbody.innerHTML = selected.map((row, i) => {
+    const alreadyDone = S.seeded.find(s => s.orig_imei === row.orig_imei);
+    const st = alreadyDone ? 'done' : 'pend';
+    return `<tr id="swSR-${i}">
+      <td class="sw-tbl-plate">${_esc(row.orig_plate)}</td>
+      <td class="sw-tbl-mono sw-tbl-muted">${_esc(row.orig_imei)}</td>
+      <td class="sw-tbl-plate sw-tbl-mock">${_esc(row.mock_plate)}</td>
+      <td class="sw-tbl-mono" style="color:var(--blue)">${_esc(row.mock_imei)}</td>
+      <td>${alreadyDone ? _badge('ok','✓ seeded') : _mockVehicleSelect(i, row.existingMockVid||'')}</td>
+      <td><div class="sw-vstep-wrap" id="swVS-${i}">
+        ${[0,1,2,3,4].map(j => `<div class="sw-vstep" id="swVST-${i}-${j}"></div>`).join('')}
+      </div></td>
+      <td id="swSSt-${i}">${_badge(st === 'done' ? 'ok' : 'pend', st === 'done' ? '✓ done' : 'pending')}</td>
+      <td id="swSNote-${i}" style="font-size:10px;color:var(--t2);">${alreadyDone ? (alreadyDone.diffs||[]).join(', ') : ''}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('swSeedTableWrap').style.display = 'block';
+}
+
+// seedVehicles() is now handled by _applySeedVehicles() in the Apply phase.
+// Kept as stub to avoid JS errors.
+async function seedVehicles(limit) {
+  alert('Use the Review & Apply step (Stage 9) to seed vehicles.');
+}
+
+function _setStepState(idx, step, state) {
+  const el = document.getElementById(`swVST-${idx}-${step}`);
+  if (el) { el.className = 'sw-vstep ' + state; }
+}
+
+function _setVehicleStatus(idx, state, notes = []) {
+  const stEl = document.getElementById('swSSt-' + idx);
+  if (stEl) {
+    if (state === 'creating') stEl.innerHTML = `<span class="sw-badge sw-badge-pend"><span class="sw-badge-spin"></span></span>`;
+    else if (state === 'ok')  stEl.innerHTML = _badge('ok', '✓ done');
+    else                      stEl.innerHTML = _badge('err', 'FAIL');
+  }
+  const noteEl = document.getElementById('swSNote-' + idx);
+  if (noteEl && notes.length) noteEl.textContent = notes.join(', ');
+}
+
+async function _seedOneVehicle(row, idx) {
+  const acc = S.mockAccId;
+  const diffs = [];
+  let devId, vehId;
+
+  // If user chose an existing mock vehicle — skip creation steps
+  if (row.existingMockVid) {
+    [0,1,2,3,4].forEach(j => _setStepState(idx, j, 'done'));
+    const mv = S.mockVehicles.find(v => v._id === row.existingMockVid);
+    const mockImei  = (mv && (mv.t_imei || mv.tracker_imei)) || row.mock_imei;
+    const mockPlate = (mv && (mv.number_plate || mv.plate)) || row.mock_plate;
+    diffs.push('used existing vehicle');
+    return { ok: true, orig_imei: row.orig_imei, orig_vid: row.orig_vid, mock_imei: mockImei, mock_plate: mockPlate, test_vid: row.existingMockVid, test_dev_id: '', diffs };
+  }
+
+  // Step 1: create device
+  _setStepState(idx, 0, 'active');
+  try {
+    const d = await _post(`/idevice/createV2?acc_id=${acc}`, {
+      imei: row.mock_imei,
+      type: row.dev_type,
+      base_type: row.base_type || row.dev_type,
+      communication_protocol: row.comm_proto || 'none',
+      tag: 'switchtest-' + row.mock_imei,
+    });
+    if (d.error || (d.code && d.code !== '200' && d.code !== 200)) throw new Error(JSON.stringify(d).slice(0,200));
+    devId = (d.result && d.result._id) || d._id;
+    if (!devId) throw new Error('no device ID');
+    _setStepState(idx, 0, 'done');
+  } catch (e) { _setStepState(idx, 0, 'err'); return { ok: false, error: 'device: ' + e.message }; }
+
+  // Step 2: create vehicle
+  _setStepState(idx, 1, 'active');
+  try {
+    const d = await _post(`/vehicle/createV2?acc_id=${acc}`, {
+      plate: row.mock_plate,
+      account_id: acc,
+      tracker_imei: row.mock_imei,
+      protocol: row.protocol || 'J1939',
+    });
+    if (d.error) throw new Error(d.error);
+    vehId = (d.result && d.result._id) || d._id;
+    if (!vehId) throw new Error('no vehicle ID');
+    _setStepState(idx, 1, 'done');
+  } catch (e) { _setStepState(idx, 1, 'err'); return { ok: false, error: 'vehicle: ' + e.message }; }
+
+  // Step 3: attach spec
+  _setStepState(idx, 2, 'active');
+  if (row.spec_id) {
+    try {
+      await _post(`/vehicle/${vehId}/attachspecV2/${row.spec_id}?acc_id=${acc}`, {});
+      _setStepState(idx, 2, 'done');
+    } catch { _setStepState(idx, 2, 'err'); diffs.push('spec attach failed'); }
+  } else {
+    _setStepState(idx, 2, 'done'); diffs.push('no spec_id');
+  }
+
+  // Step 4: attach device
+  _setStepState(idx, 3, 'active');
+  try {
+    const functionality = row.obd_attached ? ['obd', 'tracker'] : ['tracker'];
+    const d = await _post(`/vehicle/${vehId}/attachideviceV2/options/${devId}?acc_id=${acc}`, {
+      operation: 'ATTACH_AS_PRIMARY',
+      functionality,
+      skip_subs_validations: true,
+      attach_reason: 'switch-test',
+    });
+    // CROSSSLOT can still commit — verify by read-back later
+    _setStepState(idx, 3, 'done');
+  } catch (e) { _setStepState(idx, 3, 'err'); diffs.push('attach: ' + e.message.slice(0,60)); }
+
+  // Step 5: set base info
+  _setStepState(idx, 4, 'active');
+  try {
+    const filteredTags = (row.tags || []).filter(t => t !== 'vehicle_verified');
+    await _post(`/vehicle/${vehId}/update/baseinfoV2?acc_id=${acc}`, {
+      addTags: filteredTags,
+      removeTags: [],
+      tag: row.mock_plate,
+      vehicle_type: row.vehicle_type || '',
+      emmission_standard: row.emission_std || '',
+    });
+    _setStepState(idx, 4, 'done');
+    if ((row.tags || []).includes('vehicle_verified')) diffs.push('missing vehicle_verified tag');
+  } catch (e) { _setStepState(idx, 4, 'err'); diffs.push('baseinfo: ' + e.message.slice(0,60)); }
+
+  return { ok: true, orig_imei: row.orig_imei, mock_imei: row.mock_imei, mock_plate: row.mock_plate, test_vid: vehId, test_dev_id: devId, diffs };
+}
+
+// ── STAGE 4: GEOFENCES ──────────────────────────────────────────────────────
+// GeoState tracks selections and results across renders
+const GS = { selected: new Set(), mapping: [] }; // source_id → mock_id
+
+window.addEventListener('_enterStage4', () => initGeoStage());
+
+async function initGeoStage() {
+  if (!S.geofences.length) { document.getElementById('swGeoBody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--t2);padding:20px">No geofences found in source account</td></tr>`; return; }
+  GS.selected = new Set(S.geofences.map(g => g._id));
+  // Fetch existing mock geofences to detect already-cloned ones by tag name
+  if (S.mockAccId && !GS._mockFetched) {
+    try {
+      const d = await _get(`/geofence/listV2?psize=2000&pnum=1&acc_id=${S.mockAccId}`);
+      const mockGeos = (d.result && (d.result.gf || d.result.geofences)) || [];
+      // Build tag → mockId index
+      GS._mockByTag = {};
+      mockGeos.forEach(g => { const key = (g.tag || g.name || '').toLowerCase(); if (key) GS._mockByTag[key] = g._id; });
+      // Pre-populate GS.mapping for already-existing geos
+      S.geofences.forEach(g => {
+        const key = (g.tag || g.name || '').toLowerCase();
+        if (key && GS._mockByTag[key] && !GS.mapping.find(m => m.src === g._id)) {
+          GS.mapping.push({ src: g._id, mock: GS._mockByTag[key], tag: g.tag, preExisting: true });
+        }
+      });
+      GS._mockFetched = true;
+    } catch { /* ignore */ }
+  }
+  _renderGeoTable();
+}
+
+function _renderGeoTable() {
+  const tbody = document.getElementById('swGeoBody');
+  tbody.innerHTML = S.geofences.map((g, i) => {
+    const done = GS.mapping.find(m => m.src === g._id);
+    const shape = (g.radius || g.radius === 0) ? 'circle' : 'polygon';
+    const stBadge = done
+      ? (done.preExisting ? `<span class="sw-exists-badge">already in mock</span>` : _badge('ok','✓ cloned'))
+      : _badge('pend','pending');
+    const cbDisabled = done ? 'disabled' : '';
+    return `<tr>
+      <td><input type="checkbox" ${GS.selected.has(g._id)?'checked':''} ${cbDisabled} onchange="GS.selected[this.checked?'add':'delete']('${g._id}')" style="accent-color:var(--blue)"></td>
+      <td style="font-weight:600">${_esc(g.tag||g.name||'—')}</td>
+      <td class="sw-tbl-muted">${shape}</td>
+      <td>${g.is_hub ? _badge('ok','hub') : _badge('pend','—')}</td>
+      <td class="sw-tbl-mono sw-tbl-muted" id="swGeoMid-${i}">${done ? done.mock : '—'}</td>
+      <td id="swGeoSt-${i}">${stBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// cloneGeofences() / rebuildGeoIndex() are now handled by _applyCloneGeo() in Apply.
+async function cloneGeofences() { alert('Use the Review & Apply step (Stage 9) to clone geofences.'); }
+async function rebuildGeoIndex() { alert('Use the Review & Apply step (Stage 9) to rebuild the spatial index.'); }
+
+function geoToggleAll(checked) {
+  if (checked) S.geofences.forEach(g => GS.selected.add(g._id));
+  else GS.selected.clear();
+  document.querySelectorAll('#swGeoBody input[type=checkbox]').forEach(cb => cb.checked = checked);
+}
+
+// ── STAGE 5: GROUPS ─────────────────────────────────────────────────────────
+S.mockGroups = []; // { src_id, name, mock_id, vehicle_ids, status }
+
+async function initGroupsStage() {
+  const incAll = document.getElementById('swIncAllVehicleGroups').checked;
+  const SKIP_KEYWORDS = ['live-tracking', 'all vehicles', 'all_vehicles'];
+  const groups = S.groups.filter(g => incAll || !SKIP_KEYWORDS.some(kw => (g.name||'').toLowerCase().includes(kw)));
+  const tbody = document.getElementById('swGroupBody');
+  if (!groups.length) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--t2);padding:20px">No groups${incAll?'':' (hidden: all_vehicles groups)'}. Toggle above to include.</td></tr>`; return; }
+
+  // Fetch existing mock groups (once per mock account session)
+  if (S.mockAccId && !S._mockGroupsFetched) {
+    try {
+      const d = await _get(`/group/listV2?acc_id=${S.mockAccId}&psize=200`);
+      const existingGroups = (d.result && d.result.groups) || [];
+      existingGroups.forEach(mg => {
+        const src = S.groups.find(g => g.name === mg.name);
+        if (src && !S.mockGroups.find(r => r.src_id === src._id)) {
+          S.mockGroups.push({ src_id: src._id, name: mg.name, mock_id: mg._id, vehicle_ids: [], preExisting: true });
+        }
+      });
+      S._mockGroupsFetched = true;
+    } catch { /* ignore */ }
+  }
+
+  // Build source_vid → mock_vid map from seeded
+  const vidMap = {};
+  S.seeded.forEach(s => { if (s.orig_vid) vidMap[s.orig_vid] = s.test_vid; });
+  S.mapping.forEach(m => { if (m.orig_vid) {
+    const seeded = S.seeded.find(s => s.orig_imei === m.orig_imei);
+    if (seeded) vidMap[m.orig_vid] = seeded.test_vid;
+  }});
+  tbody.innerHTML = groups.map((g, i) => {
+    const srcCount = (g.vehicle_ids || []).length;
+    const mockIds = (g.vehicle_ids || []).map(vid => vidMap[vid]).filter(Boolean);
+    const existing = S.mockGroups.find(mg => mg.src_id === g._id);
+    const stBadge = existing
+      ? (existing.preExisting ? `<span class="sw-exists-badge">already in mock</span>` : _badge('ok','✓ done'))
+      : _badge('pend','pending');
+    return `<tr id="swGR-${i}">
+      <td style="font-weight:600">${_esc(g.name)}</td>
+      <td class="sw-tbl-muted">${srcCount}</td>
+      <td>${mockIds.length} / ${srcCount}</td>
+      <td class="sw-tbl-mono sw-tbl-muted" id="swGRid-${i}">${existing ? existing.mock_id : '—'}</td>
+      <td id="swGRst-${i}">${stBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// recreateGroups() is now handled by _applyRecreateGroups() in Apply.
+async function recreateGroups() { alert('Use the Review & Apply step (Stage 9) to recreate groups.'); }
+
+// ── STAGE 6: ALERT CONFIG ────────────────────────────────────────────────────
+const SKIP_ALERT_TYPES = new Set(['geofence']);
+S.alertCopied = []; // which types were copied + read-back diff
+
+function initAlertStage() {
+  const tbody = document.getElementById('swAlertBody');
+  if (!S.alertConfig.length) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--t2);padding:20px">No alert config found — run Discover first.</td></tr>`; return; }
+  tbody.innerHTML = S.alertConfig.filter(a => !SKIP_ALERT_TYPES.has(a.type)).map((a, i) => {
+    const cfgStr = a.config ? Object.entries(a.config).map(([k,v]) => `${k}:${v}`).join(', ').slice(0,60) : '—';
+    const copied = S.alertCopied.find(c => c.type === a.type);
+    return `<tr>
+      <td><input type="checkbox" checked data-atype="${_esc(a.type)}" style="accent-color:var(--blue)"></td>
+      <td style="font-family:var(--font-mono);font-size:10px">${_esc(a.type)}</td>
+      <td>${a.is_enabled ? _badge('ok','enabled') : _badge('pend','disabled')}</td>
+      <td style="font-size:10px;color:var(--t2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc(cfgStr)}">${_esc(cfgStr)}</td>
+      <td class="sw-tbl-muted">${a.rest_time ? a.rest_time + 's' : '—'}</td>
+      <td id="swAst-${i}">${copied ? _badge('ok','✓ copied') : _badge('pend','pending')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function alertToggleAll(checked) {
+  document.querySelectorAll('#swAlertBody input[type=checkbox]').forEach(cb => cb.checked = checked);
+}
+
+// copyAlertThresholds() / readBackAlerts() are now handled by _applyCopyAlerts() in Apply.
+async function copyAlertThresholds() { alert('Use the Review & Apply step (Stage 9) to copy alert thresholds.'); }
+async function readBackAlerts() { alert('Use the Review & Apply step (Stage 9) to apply and verify alerts.'); }
+
+// ── STAGE 7: TRACKER ATTACH TIME ────────────────────────────────────────────
+function renderTrackerCmd() {
+  const dt = document.getElementById('swTargetTime').value;
+  const ms = dt ? new Date(dt + 'Z').getTime() : 1767225600000;
+  const cmd = `# Inside Backend/ or data_apis/ pod:\n` +
+    `TARGET_MS=${ms} MOCK_ACCOUNT_ID=${S.mockAccId || '<MOCK_ACC_ID>'} \\\n` +
+    `APPLY=1 node fix/setMockTrackerAttachTime.js`;
+  const el = document.getElementById('swTrkCmd');
+  if (el) el.childNodes[0] && (el.firstChild.nodeType === 3)
+    ? el.firstChild.nodeValue = cmd
+    : el.insertBefore(document.createTextNode(cmd), el.firstChild);
+}
+
+function copyCmd(el) {
+  const text = el.innerText.replace('click to copy','').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const copy = el.querySelector('.sw-cmd-copy');
+    if (copy) { copy.textContent = '✓ copied'; setTimeout(() => copy.textContent = 'click to copy', 2000); }
+  });
+}
+
+async function loadTrackerTimes() {
+  if (!S.seeded.length) { alert('Seed vehicles first.'); return; }
+  const spin = document.getElementById('swTrkSpin');
+  spin.style.display = 'inline-block';
+  const dt = document.getElementById('swTargetTime').value;
+  const targetMs = dt ? new Date(dt + 'Z').getTime() : 1767225600000;
+  const tbody = document.getElementById('swTrkBody');
+  tbody.innerHTML = S.seeded.map((s, i) => `<tr id="swTrk-${i}">
+    <td class="sw-tbl-plate sw-tbl-mock">${_esc(s.mock_plate||'—')}</td>
+    <td class="sw-tbl-mono" style="color:var(--blue)">${_esc(s.mock_imei)}</td>
+    <td id="swTrkMs-${i}" class="sw-tbl-mono sw-tbl-muted"><span class="sw-spin"></span></td>
+    <td id="swTrkDt-${i}" class="sw-tbl-muted">—</td>
+    <td id="swTrkSt-${i}">${_badge('pend','loading')}</td>
+  </tr>`).join('');
+  document.getElementById('swTrkTableWrap').style.display = 'block';
+  for (let i = 0; i < S.seeded.length; i++) {
+    const s = S.seeded[i];
+    try {
+      const d = await _get(`/idevice/${s.mock_imei}/allinfoV2`);
+      const attachMs = d.result && d.result.vehicle && d.result.vehicle.tracker_attach_time;
+      const msEl = document.getElementById('swTrkMs-' + i);
+      const dtEl = document.getElementById('swTrkDt-' + i);
+      const stEl = document.getElementById('swTrkSt-' + i);
+      if (msEl) msEl.textContent = attachMs != null ? String(attachMs) : '—';
+      if (dtEl && attachMs) dtEl.textContent = new Date(attachMs).toISOString().slice(0,16).replace('T',' ');
+      if (stEl) {
+        if (attachMs == null) stEl.innerHTML = _badge('warn','not found');
+        else if (String(attachMs).length < 13) stEl.innerHTML = _badge('err','seconds? check 13 digits');
+        else if (attachMs <= targetMs) stEl.innerHTML = _badge('ok','✓ OK');
+        else stEl.innerHTML = _badge('warn','needs fix');
+      }
+    } catch {
+      const stEl = document.getElementById('swTrkSt-' + i);
+      if (stEl) stEl.innerHTML = _badge('err','error');
+    }
+  }
+  spin.style.display = 'none';
+  renderTrackerCmd();
+}
+
+// ── STAGE 8: REPLAY WINDOW PLANNER ──────────────────────────────────────────
+S.alertScan = [];    // [{vid, plate, imei, types:{type:[ts_ms,...]}}]
+S.replayWindows = [];
+
+function _buildVehicleScopeDropdown() {
+  const sel = document.getElementById('swReplayScopeVeh');
+  sel.innerHTML = '<option value="all">All source vehicles</option>' +
+    S.vehicles.map(v => {
+      const pl = v.number_plate || v.plate || '';
+      const vid = v._id;
+      return `<option value="${_esc(vid)}">${_esc(pl)} (${_esc(vid.slice(-6))})</option>`;
+    }).join('');
+}
+
+async function scanAndPlan() {
+  if (!S.vehicles.length) { alert('Discover source account first.'); return; }
+  _buildVehicleScopeDropdown();
+  const scopeVid = document.getElementById('swReplayScopeVeh').value;
+  const lookback = parseInt(document.getElementById('swLookback').value) || 30;
+  const leadHrs  = parseInt(document.getElementById('swLeadHrs').value) || 2;
+  const maxWinHrs= parseInt(document.getElementById('swMaxWin').value) || 24;
+  const endMs    = Date.now();
+  const startMs  = endMs - lookback * 86400000;
+  const spin = document.getElementById('swScanSpin');
+  document.getElementById('swScanBtn').disabled = true;
+  spin.style.display = 'inline-block';
+  document.getElementById('swScanProgWrap').style.display = 'block';
+  const vehicles = scopeVid === 'all' ? S.vehicles : S.vehicles.filter(v => v._id === scopeVid);
+  S.alertScan = [];
+  for (let i = 0; i < vehicles.length; i++) {
+    const v = vehicles[i];
+    const vid = v._id;
+    const plate = v.number_plate || v.plate || vid;
+    const imei  = v.t_imei || v.tracker_imei || '';
+    document.getElementById('swScanStatus').textContent = `Scanning ${i+1}/${vehicles.length}: ${plate}`;
+    document.getElementById('swScanProg').style.width = Math.round((i+1)/vehicles.length*100) + '%';
+    const types = {};
+    let pnum = 1, done = false;
+    while (!done) {
+      const d = await _get(`/alertlog/vehicle/${vid}/logsV2/${startMs}/${endMs}?psize=500&pnum=${pnum}`);
+      const logs = (d.result && d.result.logs) || (d.result && d.result.alertlogs) || [];
+      logs.forEach(l => {
+        const t = l.type || l.alert_type;
+        const ts = l.event_time || l.created_at || l.timestamp;
+        if (t && ts) { types[t] = types[t] || []; types[t].push(ts); }
+      });
+      if (logs.length < 500) done = true; else pnum++;
+    }
+    if (Object.keys(types).length) S.alertScan.push({ vid, plate, imei, types });
+  }
+  document.getElementById('swScanBtn').disabled = false;
+  spin.style.display = 'none';
+  document.getElementById('swScanStatus').textContent = `Scanned ${S.alertScan.length} vehicles`;
+  _planWindows(leadHrs, maxWinHrs);
+}
+
+function _planWindows(leadHrs, maxWinHrs) {
+  const maxWinMs = maxWinHrs * 3600000;
+  const leadMs   = leadHrs * 3600000;
+  // Collect all types across all vehicles
+  const allTypes = new Set();
+  S.alertScan.forEach(vs => Object.keys(vs.types).forEach(t => allTypes.add(t)));
+  const uncovered = new Set(allTypes);
+  S.replayWindows = [];
+  let winIdx = 0;
+  while (uncovered.size > 0) {
+    let best = null, bestScore = -1, bestNew = [];
+    for (const vs of S.alertScan) {
+      // Collect all unique day-aligned window starts
+      const allTs = Object.values(vs.types).flat().sort((a,b)=>a-b);
+      const windowStarts = new Set(allTs.map(ts => Math.floor(ts / 86400000) * 86400000));
+      for (const ws of windowStarts) {
+        const winStart = ws;
+        const winEnd   = winStart + maxWinMs;
+        const newTypes = [];
+        let totalAlerts = 0;
+        const alertCounts = {};
+        Object.entries(vs.types).forEach(([type, tsList]) => {
+          const inWin = tsList.filter(ts => ts >= winStart && ts < winEnd);
+          if (inWin.length) {
+            totalAlerts += inWin.length;
+            alertCounts[type] = inWin.length;
+            if (uncovered.has(type)) newTypes.push(type);
+          }
+        });
+        const score = newTypes.length * 1000 + totalAlerts;
+        if (score > bestScore) {
+          bestScore = score; bestNew = newTypes; best = { vs, winStart, winEnd, alertCounts, newTypes, leadMs };
+        }
+      }
+    }
+    if (!best || bestNew.length === 0) break;
+    const actualStart = best.winStart - best.leadMs;
+    S.replayWindows.push({
+      id: `window-${++winIdx}`,
+      plate: best.vs.plate,
+      vid: best.vs.vid,
+      imei: best.vs.imei,
+      start_ms: actualStart,
+      end_ms: best.winEnd,
+      start: new Date(actualStart).toISOString(),
+      end: new Date(best.winEnd).toISOString(),
+      new_types: best.newTypes,
+      alerts: best.alertCounts,
+    });
+    bestNew.forEach(t => uncovered.delete(t));
+  }
+  _renderWindowTable();
+  _buildVerifyPairs();
+}
+
+function _renderWindowTable() {
+  document.getElementById('swWinTableWrap').style.display = 'block';
+  document.getElementById('swExportWinBtn').style.display = 'inline-flex';
+  const tbody = document.getElementById('swWinBody');
+  tbody.innerHTML = S.replayWindows.map(w =>
+    `<tr>
+      <td class="sw-tbl-mono" style="color:var(--blue)">${_esc(w.id)}</td>
+      <td class="sw-tbl-plate">${_esc(w.plate)}</td>
+      <td class="sw-tbl-mono sw-tbl-muted" style="font-size:10px">${w.start.slice(0,16).replace('T',' ')}</td>
+      <td class="sw-tbl-mono sw-tbl-muted" style="font-size:10px">${w.end.slice(0,16).replace('T',' ')}</td>
+      <td style="font-size:10px;color:var(--blue)">${w.new_types.join(', ')||'—'}</td>
+      <td style="font-size:9px;color:var(--t2)">${Object.entries(w.alerts).map(([k,v])=>`${k}:${v}`).join(' ')}</td>
+    </tr>`
+  ).join('');
+  document.getElementById('swScanStatus').textContent = `${S.replayWindows.length} windows planned, covering ${new Set(S.replayWindows.flatMap(w=>w.new_types)).size} alert types`;
+  _stageStatus[8] = 'done'; renderSteps();
+}
+
+async function exportWindowPlan() {
+  if (!S.replayWindows.length) return;
+  const plan = {
+    source_account: { id: S.srcAccId, name: S.srcAcc && (S.srcAcc.display_name || S.srcAcc.name) },
+    mock_account:   { id: S.mockAccId, name: S.mockName },
+    api: _base(),
+    generated: new Date().toISOString(),
+    windows: S.replayWindows,
+  };
+  const json = JSON.stringify(plan, null, 2);
+  await window.go.main.App.SaveFile(json, 'replay-windows.json');
+}
+
+// ── STAGE 8b: VERIFY ─────────────────────────────────────────────────────────
+function _buildVerifyPairs() {
+  const wrap = document.getElementById('swVerifyPairs');
+  if (!S.replayWindows.length) { wrap.innerHTML = '<p style="font-size:11px;color:var(--t2)">Run Scan & Plan first, or windows will be empty.</p>'; return; }
+  wrap.innerHTML = `<div style="font-size:11px;color:var(--t1);margin-bottom:8px">${S.replayWindows.length} windows ready. For each window, the source vehicle is fixed; select the matching mock vehicle from the seeded list.</div>` +
+    S.replayWindows.map((w, i) => {
+      const mockVehOpts = S.seeded.map(s =>
+        `<option value="${_esc(s.test_vid||'')}" data-imei="${_esc(s.mock_imei)}">${_esc(s.mock_plate)} / ${_esc(s.mock_imei)}</option>`).join('');
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px">
+        <span style="font-family:var(--font-mono);color:var(--blue);min-width:100px">${_esc(w.id)}</span>
+        <span style="color:var(--t2);min-width:80px">${_esc(w.plate)}</span>
+        <span style="color:var(--t2);font-size:10px">${w.start.slice(0,10)}</span>
+        <span style="color:var(--t2)">→</span>
+        <select class="sw-inp" id="swVPair-${i}" style="width:200px;padding:4px 8px;font-size:10px">${mockVehOpts}</select>
+      </div>`;
+    }).join('');
+}
+
+async function compareAlerts() {
+  if (!S.replayWindows.length) { alert('Plan replay windows first.'); return; }
+  const spin = document.getElementById('swVerSpin');
+  document.getElementById('swCompareBtn').disabled = true;
+  spin.style.display = 'inline-block';
+  const results = [];
+  for (let i = 0; i < S.replayWindows.length; i++) {
+    const w = S.replayWindows[i];
+    const mockSel = document.getElementById('swVPair-' + i);
+    const mockVid  = mockSel ? mockSel.value : '';
+    document.getElementById('swVerStatus').textContent = `Comparing ${i+1}/${S.replayWindows.length}…`;
+    const [srcD, mckD] = await Promise.all([
+      w.vid   ? _get(`/alertlog/vehicle/${w.vid}/logsV2/${w.start_ms}/${w.end_ms}?psize=500&pnum=1`) : Promise.resolve({}),
+      mockVid ? _get(`/alertlog/vehicle/${mockVid}/logsV2/${w.start_ms}/${w.end_ms}?psize=500&pnum=1`) : Promise.resolve({}),
+    ]);
+    const srcLogs = (srcD.result && (srcD.result.logs || srcD.result.alertlogs)) || [];
+    const mckLogs = (mckD.result && (mckD.result.logs || mckD.result.alertlogs)) || [];
+    const srcCounts = {}, mckCounts = {};
+    srcLogs.forEach(l => { const t=l.type||l.alert_type; if(t) srcCounts[t]=(srcCounts[t]||0)+1; });
+    mckLogs.forEach(l => { const t=l.type||l.alert_type; if(t) mckCounts[t]=(mckCounts[t]||0)+1; });
+    const types = new Set([...Object.keys(srcCounts), ...Object.keys(mckCounts)]);
+    results.push({ window: w, srcCounts, mckCounts, types: [...types] });
+  }
+  _renderVerifyResults(results);
+  document.getElementById('swCompareBtn').disabled = false;
+  spin.style.display = 'none';
+  document.getElementById('swVerStatus').textContent = 'Done';
+}
+
+// ── STAGE 9: REVIEW & APPLY ──────────────────────────────────────────────────
+function planAccount() {
+  const name = document.getElementById('swMockName').value.trim();
+  if (!name) { alert('Enter a mock account name.'); return; }
+  if (!name.endsWith('_test')) { alert('Account name must end with _test'); return; }
+  S.mockName = name;
+  // Show confirmed box (no mockAccId yet — will be set in Apply)
+  document.getElementById('swMockAccName').textContent = name;
+  document.getElementById('swMockAccId').textContent   = '(will be created in Apply)';
+  document.getElementById('swMockAccChip').textContent = 'planned';
+  document.getElementById('swMockCreated').style.display = 'block';
+  document.getElementById('swToSeedBtn').style.display   = 'inline-flex';
+  _stageStatus[2] = 'done'; renderSteps();
+  _saveSwState();
+}
+
+function buildReviewPlan() {
+  const el = document.getElementById('swReviewSummary');
+  const warn = document.getElementById('swReviewWarn');
+  const warnText = document.getElementById('swReviewWarnText');
+  const selected = S.mapping.filter(r => r.selected);
+  const toGeo = S.geofences.filter(g => GS.selected.has(g._id) && !GS.mapping.find(m => m.src === g._id && !m.preExisting));
+  const incAll = document.getElementById('swIncAllVehicleGroups') && document.getElementById('swIncAllVehicleGroups').checked;
+  const SKIP = ['live-tracking','all vehicles','all_vehicles'];
+  const toGroup = S.groups.filter(g => incAll || !SKIP.some(kw => (g.name||'').toLowerCase().includes(kw)));
+
+  const rows = [
+    { label: 'Source account',   val: (S.srcAcc && (S.srcAcc.display_name||S.srcAcc.name)) || S.srcAccId || '—' },
+    { label: 'Target account',   val: S.mockAccId ? `${S.mockName} (${S.mockAccId}) — existing` : (S.mockName ? `${S.mockName} — will be created` : '⚠ not set') },
+    { label: 'Vehicles to seed', val: `${selected.length} selected (${selected.filter(r=>r.existingMockVid).length} use existing, ${selected.filter(r=>!r.existingMockVid).length} create new)` },
+    { label: 'Geofences',        val: `${GS.selected.size} selected, ${toGeo.length} to clone` },
+    { label: 'Groups',           val: `${toGroup.length} groups` },
+    { label: 'Alert types',      val: `${S.alertConfig.filter(a => a.is_enabled).length} enabled types` },
+  ];
+
+  el.innerHTML = `<div class="sw-field-list">${rows.map(r =>
+    `<div class="sw-field"><div class="sw-field-k">${_esc(r.label)}</div><div class="sw-field-v" style="font-size:11px;word-break:break-all">${_esc(r.val)}</div></div>`
+  ).join('')}</div>`;
+
+  const issues = [];
+  if (!S.srcAccId) issues.push('Source account not discovered');
+  if (!S.mockName) issues.push('Target account not configured');
+  if (selected.length === 0) issues.push('No vehicles selected');
+  if (!_tok()) issues.push('No API token — select region or use manual override');
+
+  if (issues.length) {
+    warn.style.display = 'flex';
+    warnText.textContent = issues.join(' · ');
+    document.getElementById('swApplyBtn').disabled = true;
+  } else {
+    warn.style.display = 'none';
+    document.getElementById('swApplyBtn').disabled = false;
+  }
+}
+
+function _applyLog(msg, level) {
+  const box = document.getElementById('swApplyLog');
+  if (!box) return;
+  box.style.display = 'block';
+  const line = document.createElement('div');
+  const color = level === 'err' ? 'var(--red)' : level === 'ok' ? 'var(--green)' : level === 'head' ? 'var(--blue)' : 'var(--t1)';
+  line.style.cssText = `color:${color};padding:1px 0`;
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+let _applyRunning = false;
+
+async function applyAll() {
+  if (_applyRunning) return;
+  _applyRunning = true;
+  const btn = document.getElementById('swApplyBtn');
+  const spin = document.getElementById('swApplySpin');
+  btn.disabled = true; spin.style.display = 'inline-block';
+  document.getElementById('swApplyProgWrap').style.display = 'block';
+  const steps = [];
+  if (!S.mockAccId) steps.push('account');
+  steps.push('seed');
+  if (document.getElementById('swApplyCloneGeo').checked && S.geofences.length) steps.push('geo');
+  if (document.getElementById('swApplyRecreateGroups').checked && S.groups.length) steps.push('groups');
+  if (document.getElementById('swApplyCopyAlerts').checked && S.alertConfig.length) steps.push('alerts');
+  const total = steps.length;
+  let done = 0;
+  function prog(n) { document.getElementById('swApplyProg').style.width = Math.round(n/total*100)+'%'; }
+  function setStatus(s) { document.getElementById('swApplyStatus').textContent = s; }
+
+  try {
+    // 1. Create or confirm account
+    if (!S.mockAccId) {
+      _applyLog('── Creating mock account…', 'head');
+      setStatus('Creating account…');
+      await _applyCreateAccount();
+      if (!S.mockAccId) throw new Error('Account creation failed — check API log');
+      _applyLog(`✓ Account created: ${S.mockAccId}`, 'ok');
+      _saveSwState();
+    } else {
+      _applyLog(`── Using existing account: ${S.mockAccId}`, 'head');
+    }
+    prog(++done);
+
+    // 2. Seed vehicles
+    _applyLog('── Seeding vehicles…', 'head');
+    setStatus('Seeding vehicles…');
+    await _applySeedVehicles();
+    _applyLog(`✓ Seeded ${S.seeded.length} vehicles`, 'ok');
+    _saveSwState();
+    prog(++done);
+
+    // 3. Clone geofences
+    if (document.getElementById('swApplyCloneGeo').checked && S.geofences.length) {
+      _applyLog('── Cloning geofences…', 'head');
+      setStatus('Cloning geofences…');
+      await _applyCloneGeo();
+      _applyLog('✓ Geofences done', 'ok');
+      if (document.getElementById('swApplyRebuildGeoIdx').checked) {
+        _applyLog('  Rebuilding spatial index…');
+        await _post(`/geofence/${S.mockAccId}/createGeofenceIndexByAccId`, {});
+        _applyLog('  ✓ Index rebuilt', 'ok');
+      }
+      _saveSwState();
+      prog(++done);
+    }
+
+    // 4. Recreate groups
+    if (document.getElementById('swApplyRecreateGroups').checked && S.groups.length) {
+      _applyLog('── Recreating groups…', 'head');
+      setStatus('Recreating groups…');
+      await _applyRecreateGroups();
+      _applyLog('✓ Groups done', 'ok');
+      _saveSwState();
+      prog(++done);
+    }
+
+    // 5. Copy alerts
+    if (document.getElementById('swApplyCopyAlerts').checked && S.alertConfig.length) {
+      _applyLog('── Copying alert thresholds…', 'head');
+      setStatus('Copying alerts…');
+      await _applyCopyAlerts();
+      _applyLog('✓ Alerts copied', 'ok');
+      _saveSwState();
+      prog(++done);
+    }
+
+    // 6. Copy UI config
+    if (document.getElementById('swApplyCopyUI').checked && S.uiConfig) {
+      _applyLog('── Copying UI config…', 'head');
+      await _copyUIConfig();
+      _applyLog('✓ UI config copied', 'ok');
+    }
+
+    _applyLog('══ Apply complete! ══', 'ok');
+    setStatus('Done!');
+    _stageStatus[9] = 'done'; renderSteps();
+    prog(total);
+  } catch(e) {
+    _applyLog('✗ ' + e.message, 'err');
+    setStatus('Failed — see log');
+    _stageStatus[9] = 'err'; renderSteps();
+  } finally {
+    _applyRunning = false;
+    btn.disabled = false; spin.style.display = 'none';
+  }
+}
+
+async function _applyCreateAccount() {
+  const acc = S.srcAcc || {};
+  const COPY = ['type','payment_mode','region','country','timezone','currency',
+    'imperial_units','imperial_mileage','gallon_unit','operation_types',
+    'intangles_level','intangles_zone','fleet_size'];
+  const payload = { stage: 'poc', name: S.mockName, display_name: S.mockName };
+  COPY.forEach(f => { if (acc[f] !== undefined && acc[f] !== null) payload[f] = acc[f]; });
+  const data = await _post('/account/createV2', payload);
+  if (data.error) throw new Error('Create account: ' + data.error);
+  const id = (data.result && (data.result._id || data.result.account_id)) || data._id;
+  if (!id) throw new Error('No account ID in response');
+  S.mockAccId = id;
+  // Update stage 2 display
+  document.getElementById('swMockAccName').textContent = S.mockName;
+  document.getElementById('swMockAccId').textContent   = id;
+  document.getElementById('swMockCreated').style.display = 'block';
+}
+
+async function _applySeedVehicles() {
+  if (!S.mockAccId) throw new Error('No mock account ID');
+  // Fetch mock vehicles first if not already done
+  if (!S.mockVehicles.length && S.mockAccId) {
+    try {
+      const d = await _get(`/vehicle/getlist?psize=500&pnum=1&status=*&lastloc=false&acc_id=${S.mockAccId}`);
+      S.mockVehicles = (d.result && (d.result.v || d.result.vehicles)) || [];
+    } catch {}
+  }
+  const selected = S.mapping.filter(r => r.selected);
+  const pending = selected.filter(r => !S.seeded.find(s => s.orig_imei === r.orig_imei));
+  for (const row of pending) {
+    const idx = selected.indexOf(row);
+    const result = await _seedOneVehicle(row, idx);
+    if (result.ok) S.seeded.push(result);
+    else _applyLog(`  ✗ ${row.orig_plate}: ${result.error}`, 'err');
+  }
+}
+
+async function _applyCloneGeo() {
+  if (!S.mockAccId) throw new Error('No mock account ID');
+  const toClone = S.geofences.filter(g => GS.selected.has(g._id) && !GS.mapping.find(m => m.src === g._id && !m.preExisting));
+  for (const g of toClone) {
+    try {
+      const payload = {
+        tag: g.tag || g.name,
+        is_hub: !!g.is_hub,
+        is_charging_station: !!g.is_charging_station,
+        fence_tag_type: g.fence_tag_type || '',
+        additional_info: g.additional_info || '',
+      };
+      if (g.center) {
+        payload.center = { lat: g.center.latitude ?? g.center.lat, lng: g.center.longitude ?? g.center.lng };
+        payload.radius = g.radius;
+      }
+      if (g.points && g.points.length) {
+        payload.points = g.points.map(p => ({ lat: p.latitude ?? p.lat, lng: p.longitude ?? p.lng }));
+      }
+      const d = await _post(`/geofence/createV2?acc_id=${S.mockAccId}`, payload);
+      const mockId = (d.result && d.result._id) || d._id;
+      if (!mockId) throw new Error('no ID');
+      GS.mapping.push({ src: g._id, mock: mockId, tag: g.tag });
+      _applyLog(`  ✓ geo: ${g.tag||g._id}`);
+    } catch(e) { _applyLog(`  ✗ geo ${g.tag}: ${e.message}`, 'err'); }
+  }
+}
+
+async function _applyRecreateGroups() {
+  if (!S.mockAccId) throw new Error('No mock account ID');
+  const incAll = document.getElementById('swIncAllVehicleGroups') && document.getElementById('swIncAllVehicleGroups').checked;
+  const SKIP = ['live-tracking','all vehicles','all_vehicles'];
+  const groups = S.groups.filter(g => incAll || !SKIP.some(kw => (g.name||'').toLowerCase().includes(kw)));
+  const vidMap = {};
+  S.seeded.forEach(s => { if (s.orig_vid) vidMap[s.orig_vid] = s.test_vid; });
+  S.mapping.forEach(m => { if (m.orig_vid) { const seeded = S.seeded.find(s => s.orig_imei === m.orig_imei); if (seeded) vidMap[m.orig_vid] = seeded.test_vid; }});
+  for (const g of groups) {
+    const preExist = S.mockGroups.find(mg => mg.src_id === g._id);
+    if (preExist && !preExist.preExisting) continue;
+    try {
+      let mockGid = preExist && preExist.mock_id;
+      if (!mockGid) {
+        const listD = await _get(`/group/listV2?acc_id=${S.mockAccId}&psize=200`);
+        const existing = ((listD.result && listD.result.groups) || []).find(mg => mg.name === g.name);
+        mockGid = existing && existing._id;
+        if (!mockGid) {
+          const cd = await _post(`/group/createV2?acc_id=${S.mockAccId}`, { name: g.name, description: g.description || '', account_id: S.mockAccId });
+          mockGid = (cd.result && cd.result._id) || cd._id;
+        }
+      }
+      if (!mockGid) throw new Error('no group ID');
+      const mockVids = (g.vehicle_ids || []).map(v => vidMap[v]).filter(Boolean);
+      if (mockVids.length) await _post(`/group/${mockGid}/addvehiclesV2?acc_id=${S.mockAccId}`, { vehicle_ids: mockVids });
+      if (preExist) { preExist.vehicle_ids = mockVids; delete preExist.preExisting; }
+      else S.mockGroups.push({ src_id: g._id, name: g.name, mock_id: mockGid, vehicle_ids: mockVids });
+      _applyLog(`  ✓ group: ${g.name}`);
+    } catch(e) { _applyLog(`  ✗ group ${g.name}: ${e.message}`, 'err'); }
+  }
+}
+
+async function _applyCopyAlerts() {
+  if (!S.mockAccId) throw new Error('No mock account ID');
+  const SKIP = new Set(['geofence']);
+  const configs = S.alertConfig
+    .filter(a => !SKIP.has(a.type) && a.config)
+    .map(a => { const e = { type: a.type, is_enabled: a.is_enabled, config: a.config }; if (a.rest_time) e.rest_time = a.rest_time; return e; });
+  if (!configs.length) return;
+  const d = await _post(`/alertconfig/account/addV2?acc_id=${S.mockAccId}`, { account_id: S.mockAccId, configs });
+  if (d.error) throw new Error(d.error);
+  S.alertCopied = configs.map(c => ({ type: c.type }));
+}
+
+// ── Disk persistence ─────────────────────────────────────────────────────────
+const SW_KEY = 'sw_sess_v1';
+function _saveSwState() {
+  try {
+    const toSave = Object.assign({}, S, { token: '' }); // never persist token
+    localStorage.setItem(SW_KEY, JSON.stringify(toSave));
+  } catch(e) { console.warn('[SW] save failed', e); }
+}
+function _loadSwState() {
+  try {
+    const raw = localStorage.getItem(SW_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (!saved || !saved.srcAccId) return; // don't load empty sessions
+    Object.assign(S, saved, { token: '' });
+    // Restore GS mapping from saved geo state
+    if (S._geoMapping) { GS.mapping = S._geoMapping; GS.selected = new Set(S.geofences.map(g => g._id)); }
+    // Re-render whatever stage we're on
+    if (S.srcAcc) _renderDiscoverResult();
+    if (S.mapping.length) { _renderMappingTable(); document.getElementById('swMappingTable').style.display='block'; document.getElementById('swVerifyBtn').style.display='inline-flex'; _updateSelCount(); }
+    if (S.mockAccId || S.mockName) {
+      document.getElementById('swMockAccName').textContent = S.mockName;
+      document.getElementById('swMockAccId').textContent   = S.mockAccId || '(planned)';
+      document.getElementById('swMockCreated').style.display = 'block';
+      document.getElementById('swToSeedBtn').style.display   = 'inline-flex';
+      _stageStatus[2] = 'done';
+    }
+    if (S.seeded.length) {
+      _stageStatus[3] = 'done';
+    }
+    renderSteps();
+    // Show a banner
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:52px;right:16px;background:rgba(46,196,182,.12);border:1px solid rgba(46,196,182,.3);border-radius:6px;padding:6px 12px;font-size:10px;color:var(--t0);z-index:9990';
+    banner.textContent = `Session restored: ${S.srcAcc && (S.srcAcc.display_name||S.srcAcc.name) || S.srcAccId}`;
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 3000);
+  } catch(e) { console.warn('[SW] load failed', e); }
+}
+function clearSwState() {
+  if (!confirm('Clear saved session state? This does not undo any changes made via Apply.')) return;
+  localStorage.removeItem(SW_KEY);
+  Object.assign(S, { srcAccId:'', srcAcc:null, vehicles:[], idevices:[], geofences:[], groups:[], alertConfig:[], uiConfig:null, specs:{}, mapping:[], mockAccId:'', mockName:'', seeded:[], mockVehicles:[], mockGroups:[], alertCopied:[], alertScan:[], replayWindows:[] });
+  GS.mapping = []; GS.selected = new Set(); GS._mockFetched = false;
+  _stageStatus.fill(null);
+  renderSteps();
+  document.getElementById('swDiscoverResult').style.display = 'none';
+  document.getElementById('swMappingTable').style.display = 'none';
+  document.getElementById('swMockCreated').style.display = 'none';
+  document.getElementById('swToSeedBtn').style.display = 'none';
+  goStage(0);
+}
+
+function _renderVerifyResults(results) {
+  const wrap = document.getElementById('swVerifyResults');
+  wrap.innerHTML = results.map(r => {
+    const srcTotal = Object.values(r.srcCounts).reduce((a,b)=>a+b,0);
+    const mckTotal = Object.values(r.mckCounts).reduce((a,b)=>a+b,0);
+    const allMatch = srcTotal === mckTotal;
+    const rows = r.types.map(type => {
+      const s = r.srcCounts[type]||0, m = r.mckCounts[type]||0;
+      const miss = s - m;
+      return `<tr>
+        <td class="sw-tbl-mono" style="font-size:10px">${_esc(type)}</td>
+        <td style="text-align:right">${s}</td>
+        <td style="text-align:right">${m}</td>
+        <td style="text-align:right;${miss>0?'color:var(--red)':miss<0?'color:var(--yellow)':'color:var(--green)'}">${miss>0?'–'+miss:miss<0?'+'+Math.abs(miss):'✓'}</td>
+      </tr>`;
+    }).join('');
+    return `<div style="background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--blue);font-weight:600">${_esc(r.window.id)}</span>
+        <span style="font-size:10px;color:var(--t2)">${r.window.start.slice(0,16).replace('T',' ')} … ${r.window.end.slice(0,16).replace('T',' ')}</span>
+        <span style="margin-left:auto">${allMatch?_badge('ok','✓ match'):_badge('warn','diff')}</span>
+        <span style="font-size:10px;color:var(--t2)">src=${srcTotal} mock=${mckTotal}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:var(--bg2)">
+          <th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase">Alert Type</th>
+          <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--t2)">Source</th>
+          <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--blue)">Mock</th>
+          <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:700;color:var(--t2)">Delta</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

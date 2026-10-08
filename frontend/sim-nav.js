@@ -9,6 +9,7 @@ const _STROKE = {
   apiclient:`<polygon points="10.5,2 5.5,9.5 9.5,9.5 7.5,16 14,8.5 10,8.5"/>`,
   mongo:    `<ellipse cx="9" cy="5" rx="5.5" ry="2.5"/><path d="M3.5 5v8c0 1.38 2.46 2.5 5.5 2.5s5.5-1.12 5.5-2.5V5"/><line x1="9" y1="2.5" x2="9" y2="15.5"/>`,
   utilities:`<rect x="2.5" y="2.5" width="5" height="5" rx="1"/><rect x="10.5" y="2.5" width="5" height="5" rx="1"/><rect x="2.5" y="10.5" width="5" height="5" rx="1"/><rect x="10.5" y="10.5" width="5" height="5" rx="1"/>`,
+  switch:   `<rect x="1.5" y="2" width="7" height="7" rx="1.5"/><rect x="9.5" y="9" width="7" height="7" rx="1.5"/><path d="M8.5 5.5H11a2 2 0 0 1 2 2V9"/><polyline points="10,7.5 12.5,9.5 10,11.5"/>`,
   history:  `<circle cx="9" cy="9" r="7"/><polyline points="9,5 9,9 12.5,11"/>`,
   metrics:  `<polyline points="2,14 5.5,8 9,11.5 12.5,4.5 16,7"/>`,
   settings: `<circle cx="9" cy="9" r="3"/><path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.6 3.6l1.4 1.4M13 13l1.4 1.4M14.4 3.6l-1.4 1.4M5 13l-1.4 1.4"/>`,
@@ -21,6 +22,7 @@ const _FILL = {
   apiclient:`<path d="M10.5 2H5.5L3.5 10H9l-2.5 6 8.5-10H10z"/>`,
   mongo:    `<path d="M9 2C6 2 3.5 3.3 3.5 5v8c0 1.7 2.5 3 5.5 3s5.5-1.3 5.5-3V5C14.5 3.3 12 2 9 2zm0 1.5c2.5 0 4 .9 4 1.5s-1.5 1.5-4 1.5S5 5.6 5 5s1.5-1.5 4-1.5z"/>`,
   utilities:`<rect x="2" y="2" width="6" height="6" rx="1.5"/><rect x="10" y="2" width="6" height="6" rx="1.5"/><rect x="2" y="10" width="6" height="6" rx="1.5"/><rect x="10" y="10" width="6" height="6" rx="1.5"/>`,
+  switch:   `<rect x="1.5" y="2" width="7" height="7" rx="1.5"/><rect x="9.5" y="9" width="7" height="7" rx="1.5"/><path d="M8.5 5.5H11a2 2 0 0 1 2 2V9"/><polyline points="10,7.5 12.5,9.5 10,11.5"/>`,
   history:  `<path d="M9 2a7 7 0 1 0 0 14A7 7 0 0 0 9 2zm.5 4.5v4.2l3.3 2-1 1.6-4.3-2.6V6.5h2z"/>`,
   metrics:  `<rect x="2" y="8" width="3" height="6" rx=".5"/><rect x="7.5" y="3.5" width="3" height="10.5" rx=".5"/><rect x="13" y="6" width="3" height="8" rx=".5"/>`,
   settings: `<path d="M9 6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm6.5-.7-.9-2-1.9.5a4.8 4.8 0 0 0-1.2-.7l-.3-2H7.8l-.3 2a4.8 4.8 0 0 0-1.2.7L4.4 3.8l-.9 2 1.5 1.2c-.1.4-.1.8-.1 1.3s0 .9.1 1.3L3.5 11l.9 2 1.9-.5a4.8 4.8 0 0 0 1.2.7l.3 2h2.4l.3-2a4.8 4.8 0 0 0 1.2-.7l1.9.5.9-2-1.5-1.2c.1-.4.1-.8.1-1.3s0-.9-.1-1.3z"/>`,
@@ -178,6 +180,30 @@ body.reduce-motion *{transition-duration:.01ms!important;animation-duration:.01m
 .side-nav.sn-collapsed .sn-zoom,
 .side-nav.sn-collapsed .sn-region{display:none}
 .side-nav.sn-collapsed .sn-collapse-btn{color:var(--t1)}
+/* ── IMEI search picker (shared) ── */
+.imei-inp-wrap{position:relative;display:inline-flex;align-items:center;width:100%}
+.imei-inp-wrap input{padding-right:26px!important;box-sizing:border-box}
+.imei-inp-spin{position:absolute;right:7px;width:11px;height:11px;border:1.5px solid var(--border-strong);border-top-color:var(--blue);border-radius:50%;animation:_ispin .65s linear infinite;display:none;pointer-events:none;flex-shrink:0}
+.imei-inp-spin.on{display:block}
+@keyframes _ispin{to{transform:rotate(360deg)}}
+.imei-dd{position:fixed;background:var(--bg1);border:1px solid var(--border-strong);border-radius:7px;z-index:9999;box-shadow:0 10px 28px rgba(0,0,0,.6);max-height:260px;overflow-y:auto;display:none;font-family:var(--font-ui)}
+.imei-dd.open{display:block}
+.imei-dd::-webkit-scrollbar{width:3px}.imei-dd::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.imei-dd-hdr{padding:6px 10px 5px;font-size:8px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:5px}
+.imei-dd-item{padding:8px 10px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s;border-bottom:1px solid var(--border-subtle)}
+.imei-dd-item:last-child{border-bottom:none}
+.imei-dd-item:hover,.imei-dd-item.focused{background:var(--bg2)}
+.imei-dd-item:hover .imei-dd-imei,.imei-dd-item.focused .imei-dd-imei{color:var(--blue)}
+.imei-dd-icon{width:26px;height:26px;border-radius:5px;background:var(--bg2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--t2);transition:all .1s}
+.imei-dd-item:hover .imei-dd-icon,.imei-dd-item.focused .imei-dd-icon{background:rgba(46,196,182,.1);color:var(--blue)}
+.imei-dd-info{flex:1;min-width:0}
+.imei-dd-imei{font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--t0);transition:color .1s}
+.imei-dd-meta{font-size:9px;color:var(--t2);margin-top:2px;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imei-dd-tag{color:var(--blue);font-weight:600}
+.imei-dd-plate{color:var(--t1)}
+.imei-dd-sep{color:var(--border-strong)}
+.imei-dd-acc{color:var(--t2);overflow:hidden;text-overflow:ellipsis}
+.imei-dd-msg{padding:12px 12px;text-align:center;font-size:10px;color:var(--t2);line-height:1.5}
 `;
 
 window.SimNav = {
@@ -200,6 +226,7 @@ window.SimNav = {
 
     const pages = [
       { href:'sim-run.html',      icon:_icon('run',      packKey), tip:'Run',         key:'run'       },
+      { href:'sim-switch.html',   icon:_icon('switch',   packKey), tip:'Switch Mock',  key:'switch'    },
       { href:'sim-logs.html',     icon:_icon('logs',     packKey), tip:'Data Logs',   key:'logs'      },
       { href:'sim-mqtt.html',     icon:_icon('mqtt',     packKey), tip:'MQTT Client', key:'mqtt'      },
       { href:'api-client.html',   icon:_icon('apiclient',packKey), tip:'API Client',  key:'apiclient' },
@@ -365,6 +392,122 @@ window.SimNav = {
   regionShort(key) {
     const map = { 'eu-north':'EU','us-east':'US','ap-south':'AP','in-central':'IN' };
     return map[key] || key.substring(0,2).toUpperCase();
+  },
+
+  initImeiPicker(inputId, onSelect) {
+    const inp = document.getElementById(inputId);
+    if (!inp || inp.dataset.imeiPicker) return;
+    inp.dataset.imeiPicker = '1';
+
+    const inpWrap = document.createElement('div');
+    inpWrap.className = 'imei-inp-wrap';
+    inp.parentNode.insertBefore(inpWrap, inp);
+    inpWrap.appendChild(inp);
+    const spin = document.createElement('div');
+    spin.className = 'imei-inp-spin';
+    inpWrap.appendChild(spin);
+
+    const dd = document.createElement('div');
+    dd.className = 'imei-dd';
+    document.body.appendChild(dd);
+
+    function _reposition() {
+      const r = inp.getBoundingClientRect();
+      dd.style.left  = r.left + 'px';
+      dd.style.width = r.width + 'px';
+      const spaceBelow = window.innerHeight - r.bottom;
+      if (spaceBelow < 200 && r.top > 200) {
+        dd.style.top    = '';
+        dd.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+      } else {
+        dd.style.bottom = '';
+        dd.style.top    = (r.bottom + 4) + 'px';
+      }
+    }
+
+    function _getRegionKey() {
+      return (document.getElementById('t-region') || document.getElementById('ctrlRegion') || {}).value
+        || SimState.getActiveRegionKey();
+    }
+
+    const _deviceIcon = `<svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="14" height="10" rx="2"/><line x1="6" y1="8" x2="12" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/></svg>`;
+    let _timer = null, _lastQ = '';
+
+    inp.addEventListener('input', () => {
+      clearTimeout(_timer);
+      const q = inp.value.trim();
+      if (q.length < 3) { dd.classList.remove('open'); return; }
+      _timer = setTimeout(() => _search(q), 350);
+    });
+
+    inp.addEventListener('focus', () => {
+      const q = inp.value.trim();
+      if (q.length >= 3) {
+        if (q !== _lastQ) _search(q);
+        else if (dd.querySelector('.imei-dd-item')) { _reposition(); dd.classList.add('open'); }
+      }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+      if (!inpWrap.contains(e.target) && !dd.contains(e.target)) dd.classList.remove('open');
+    });
+
+    window.addEventListener('scroll', () => {
+      if (dd.classList.contains('open')) _reposition();
+    }, true);
+
+    async function _search(q) {
+      _lastQ = q;
+      const regionKey = _getRegionKey();
+      const r = SimState.getRegion(regionKey);
+      if (!r || !r.apiBase || !r.userToken) {
+        _showMsg('Set userToken in Region settings to enable device search'); return;
+      }
+      spin.classList.add('on');
+      _reposition();
+      dd.classList.add('open');
+      dd.innerHTML = `<div class="imei-dd-empty">Searching…</div>`;
+      try {
+        const raw = await window.go.main.App.SearchDevices(r.apiBase, r.userToken, q);
+        const data = JSON.parse(raw);
+        if (data.error) { _showMsg('Error: ' + data.error); return; }
+        const devices = data.devices || [];
+        if (!devices.length) { _showMsg('No devices found for “' + _esc(q) + '”'); return; }
+        dd.innerHTML = `<div class="imei-dd-hdr">${_deviceIcon}&nbsp;${devices.length} result${devices.length > 1 ? 's' : ''}</div>` +
+          devices.map(d => `
+            <div class="imei-dd-item" data-imei="${_esc(d.imei)}">
+              <div class="imei-dd-icon">${_deviceIcon}</div>
+              <div class="imei-dd-info">
+                <div class="imei-dd-imei">${_esc(d.imei)}</div>
+                <div class="imei-dd-meta">
+                  ${d.tag   ? `<span class="imei-dd-tag">${_esc(d.tag)}</span>` : ''}
+                  ${d.tag && d.plate ? `<span class="imei-dd-sep">\xb7</span>` : ''}
+                  ${d.plate ? `<span class="imei-dd-plate">${_esc(d.plate)}</span>` : ''}
+                  ${d.accName ? `<span class="imei-dd-sep">\xb7</span><span class="imei-dd-acc">${_esc(d.accName)}</span>` : ''}
+                </div>
+              </div>
+            </div>`).join('');
+        dd.querySelectorAll('.imei-dd-item').forEach(el => {
+          el.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const imei = el.getAttribute('data-imei');
+            inp.value = imei;
+            dd.classList.remove('open');
+            _lastQ = imei;
+            if (onSelect) onSelect(imei);
+          });
+        });
+      } catch (e) {
+        _showMsg('Search failed: ' + String(e));
+      } finally {
+        spin.classList.remove('on');
+      }
+    }
+
+    function _showMsg(msg) { dd.innerHTML = `<div class="imei-dd-empty">${_esc(msg)}</div>`; }
+    function _esc(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
   },
 };
 

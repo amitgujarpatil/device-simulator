@@ -164,11 +164,17 @@ export function SaveFile(arg1:string,arg2:string):Promise<void>;
 
 export function SaveRunLogs(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function SearchDevices(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function SelectOutputDir():Promise<string>;
 
 export function StartSimulation(arg1:simulator.Config):Promise<void>;
 
 export function StopSimulation():Promise<void>;
+
+export function SwitchAPIGet(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function SwitchAPIPost(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
 
 export function TestMQTT(arg1:simulator.RegionConfig):Promise<{[key: string]: any}>;
 
