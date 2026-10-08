@@ -44,7 +44,6 @@ function _icon(key, packKey) {
 const NAV_CSS = `
 :root{--bg0:#09080e;--bg1:#100e1a;--bg2:#181526;--bg3:#221e33;--border:#2d2a40;--t0:#f0eaff;--t1:#b8acdc;--t2:#8878b8;--blue:#a78bfa;--green:#34d399;--yellow:#fbbf24;--red:#f87171;--purple:#818cf8;--orange:#fb923c;--font-ui:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--font-mono:'SF Mono','Cascadia Code',Consolas,monospace}
 *{box-sizing:border-box;margin:0;padding:0}
-html{zoom:1.25}
 body{font-family:var(--font-ui);background:var(--bg0);color:var(--t0);height:100vh;display:flex;flex-direction:row;overflow:hidden;font-size:12px}
 .side-nav{width:44px;min-width:44px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:0 0 8px;gap:2px;flex-shrink:0;z-index:20}
 .sn-trafficpad{height:36px;width:100%;flex-shrink:0;--wails-draggable:drag}

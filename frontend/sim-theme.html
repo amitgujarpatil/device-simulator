@@ -85,6 +85,9 @@
 .bs-sub{font-size:8px;color:var(--t2);margin-top:2px}
 /* Reset bar */
 .reset-bar{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+/* UI Pref chip buttons (reuse fetch-chip style from sim-run) */
+.fetch-chip{padding:3px 10px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s;outline:none}
+.fetch-chip.on{background:rgba(167,139,250,.15);border-color:var(--blue);color:var(--blue)}
 .reset-lbl{font-size:11px;color:var(--t1)}
 .chev{font-size:9px;color:var(--t2);transition:transform .2s}
 .chev.open{transform:rotate(180deg)}
@@ -248,6 +251,54 @@
           <span style="font-family:var(--font-mono);font-size:10px;color:var(--blue)">Mono: 0x1A2B3C4D  IMEI: 869305073861125  lat: 53.3498  lon: -6.2603</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- UI Preferences -->
+  <div class="th-section" id="uiPrefSection">
+    <div class="th-sec-title">UI Preferences</div>
+    <div class="ty-rows">
+
+      <!-- Zoom -->
+      <div class="ty-row">
+        <span class="ty-lbl">Zoom</span>
+        <input type="range" class="ty-sl" id="uiZoomSl" min="80" max="150" step="10" value="100" oninput="onZoomSlide(this)">
+        <span class="ty-val" id="uiZoomVal">100%</span>
+        <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;height:24px;margin-left:4px" onclick="onZoomReset()">Reset</button>
+      </div>
+
+      <!-- Log panel position -->
+      <div class="ty-row">
+        <span class="ty-lbl">Log panel</span>
+        <div style="display:flex;gap:6px">
+          <button class="fetch-chip" id="uiLogRight"  onclick="onLogPos('right')"  style="font-size:11px;padding:3px 10px">Right</button>
+          <button class="fetch-chip" id="uiLogBottom" onclick="onLogPos('bottom')" style="font-size:11px;padding:3px 10px">Bottom</button>
+        </div>
+      </div>
+
+      <!-- Log width (right dock) -->
+      <div class="ty-row" id="uiLogWRow">
+        <span class="ty-lbl">Log width (right)</span>
+        <input type="range" class="ty-sl" id="uiLogWSl" min="280" max="700" step="20" value="420" oninput="onLogWSlide(this)">
+        <span class="ty-val" id="uiLogWVal">420px</span>
+      </div>
+
+      <!-- Log height (bottom dock) -->
+      <div class="ty-row" id="uiLogHRow" style="display:none">
+        <span class="ty-lbl">Log height (bottom)</span>
+        <input type="range" class="ty-sl" id="uiLogHSl" min="120" max="500" step="20" value="280" oninput="onLogHSlide(this)">
+        <span class="ty-val" id="uiLogHVal">280px</span>
+      </div>
+
+      <!-- Remember last size -->
+      <div class="ty-row">
+        <span class="ty-lbl">Remember drag size</span>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--t1)">
+          <input type="checkbox" id="uiRememberSize" onchange="onRememberSize(this.checked)" style="accent-color:var(--blue);width:14px;height:14px">
+          Save when resized by drag
+        </label>
+      </div>
+
     </div>
   </div>
 
@@ -542,6 +593,7 @@ function init() {
   renderCustomThemes();
   renderIconPacks();
   renderButtonStyles();
+  initUIPref();
 }
 
 function setGroup(g) {
@@ -717,6 +769,64 @@ function renderCustomThemes() {
   });
 }
 
+// ── UI Preferences ────────────────────────────────────────────
+function initUIPref() {
+  const t = SimState.getTheme();
+  // Zoom
+  const zoom = Math.round((t.zoom || 1) * 100);
+  const zSl = document.getElementById('uiZoomSl');
+  if (zSl) { zSl.value = zoom; document.getElementById('uiZoomVal').textContent = zoom + '%'; }
+  // Log position
+  const pos = t.logPos || 'right';
+  document.getElementById('uiLogRight')  && (document.getElementById('uiLogRight').classList.toggle('on', pos === 'right'));
+  document.getElementById('uiLogBottom') && (document.getElementById('uiLogBottom').classList.toggle('on', pos === 'bottom'));
+  _uiLogPosShow(pos);
+  // Width / height
+  const wSl = document.getElementById('uiLogWSl'); if (wSl) { wSl.value = t.logWidth || 420; document.getElementById('uiLogWVal').textContent = (t.logWidth || 420) + 'px'; }
+  const hSl = document.getElementById('uiLogHSl'); if (hSl) { hSl.value = t.logHeight || 280; document.getElementById('uiLogHVal').textContent = (t.logHeight || 280) + 'px'; }
+  // Remember size checkbox
+  const cb = document.getElementById('uiRememberSize'); if (cb) cb.checked = t.rememberLogSize !== false;
+}
+
+function _uiLogPosShow(pos) {
+  const wr = document.getElementById('uiLogWRow'), hr = document.getElementById('uiLogHRow');
+  if (wr) wr.style.display = pos === 'right'  ? '' : 'none';
+  if (hr) hr.style.display = pos === 'bottom' ? '' : 'none';
+}
+
+function onZoomSlide(el) {
+  const v = parseInt(el.value);
+  document.getElementById('uiZoomVal').textContent = v + '%';
+  SimState.setTheme({ zoom: v / 100 });
+  SimState.applyTheme();
+}
+function onZoomReset() {
+  SimState.setTheme({ zoom: 1 });
+  SimState.applyTheme();
+  const sl = document.getElementById('uiZoomSl'); if (sl) sl.value = 100;
+  document.getElementById('uiZoomVal').textContent = '100%';
+}
+function onLogPos(pos) {
+  SimState.setTheme({ logPos: pos });
+  document.getElementById('uiLogRight')  && document.getElementById('uiLogRight').classList.toggle('on',  pos === 'right');
+  document.getElementById('uiLogBottom') && document.getElementById('uiLogBottom').classList.toggle('on', pos === 'bottom');
+  _uiLogPosShow(pos);
+  flash();
+}
+function onLogWSlide(el) {
+  const v = parseInt(el.value);
+  document.getElementById('uiLogWVal').textContent = v + 'px';
+  SimState.setTheme({ logWidth: v });
+}
+function onLogHSlide(el) {
+  const v = parseInt(el.value);
+  document.getElementById('uiLogHVal').textContent = v + 'px';
+  SimState.setTheme({ logHeight: v });
+}
+function onRememberSize(checked) {
+  SimState.setTheme({ rememberLogSize: checked });
+}
+
 function resetAll() {
   curTheme = { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'', iconPack:'outline', buttonStyle:'default' };
   SimState.setTheme(curTheme);
@@ -731,6 +841,7 @@ function resetAll() {
   renderColorPickers();
   renderIconPacks();
   renderButtonStyles();
+  initUIPref();
   flash();
 }
 

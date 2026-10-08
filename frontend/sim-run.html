@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="run">
 <head>
 <script src="/wails/ipc.js"></script>
 <script src="/wails/runtime.js"></script>
@@ -9,320 +9,514 @@
 <script src="sim-nav.js"></script>
 <link rel="stylesheet" href="flatpickr-dark.css">
 <script src="flatpickr.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-.app-wrap{flex-direction:column!important}
-/* ── Header ── */
-.hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 12px;height:44px;display:flex;align-items:center;gap:8px;flex-shrink:0}
-.hdr-logo{font-size:12px;font-weight:700;color:var(--t0)}.hdr-logo span{color:var(--blue)}
-.hdr-sep{width:1px;height:22px;background:var(--border)}
-.status-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t1);background:var(--bg2);padding:2px 8px;border-radius:4px;border:1px solid var(--border)}
-.tg-wrap{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t1)}
-.sp{flex:1}
-/* ── Main 3-col ── */
+/* ── Design tokens ── */
+:root {
+  --accent:#2EC4B6; --accent-on:#06201D; --accent-link:#5EEAD4; --accent-link-hover:#99F6E4;
+  --accent-soft-bg:#16302C; --accent-soft-fg:#7EE2D6; --accent-soft-border:#1F4A44;
+  --bg-rail:#0B0D10; --bg-app:#0E1013; --bg-panel:#121519; --bg-card:#16191E; --bg-raised:#1B1F25;
+  --border-subtle:#1E2228; --border:#252A31; --border-strong:#2E343C;
+  --text-1:#E6E8EB; --text-pill:#C3CAD3; --text-2:#A7AFB9; --text-3:#8A939E; --text-muted:#7D8692;
+  --data-packets:var(--purple); --data-historic:#6CA8FF; --data-gps:#5BD28A; --data-obd:#F2A93B;
+  --stream-a-bg:#1A2638; --stream-a-fg:#8EBBFF;
+  --stream-b-bg:#17301F; --stream-b-fg:#7FE0A6;
+  --stream-c-bg:#33270F; --stream-c-fg:#F5BF63;
+  --status-idle:#8A939E; --status-running:var(--accent); --status-warn:#F2A93B; --status-success:#5BD28A; --status-error:#F87171;
+  --warn-bg:#33270F; --warn-border:#4A3814; --warn-fg:#F5BF63;
+  --success-bg:#17301F; --success-border:#23452D; --success-fg:#7FE0A6;
+  --error-bg:#3A1A1C; --error-border:#5A2629; --error-fg:#FCA5A5;
+  --font-sans:'IBM Plex Sans',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  /* Legacy aliases so JS-modified inline styles still resolve */
+  --bg0:var(--bg-app); --bg1:var(--bg-panel); --bg2:var(--bg-card); --bg3:var(--bg-raised);
+  --t0:var(--text-1); --t1:var(--text-2); --t2:var(--text-3);
+  --blue:var(--accent); --green:var(--data-gps); --yellow:var(--status-warn); --red:var(--status-error);
+  --purple:#818cf8; --orange:var(--data-obd);
+}
+/* ── Page-scope: beat sim-nav.js NAV_CSS (appended after this style, same specificity).
+   html[data-page="run"] has specificity 0,1,1 vs :root 0,1,0 and body 0,0,1 — wins cleanly. ── */
+html[data-page="run"]                     { --blue:var(--accent); --font-mono:'IBM Plex Mono',ui-monospace,monospace; --font-ui:'IBM Plex Sans',system-ui,sans-serif; }
+html[data-page="run"] body                { font-family:var(--font-sans); font-size:14px; background:var(--bg-app); color:var(--text-1); }
+html[data-page="run"] .sb                 { background:var(--bg-panel); border-right:1px solid var(--border-subtle); overflow:hidden; overflow-y:unset; }
+html[data-page="run"] .btn-go             { background:var(--accent); color:var(--accent-on); }
+html[data-page="run"] .btn-go:hover:not(:disabled) { filter:brightness(1.1); box-shadow:none; }
+html[data-page="run"] .btn-go:disabled    { background:var(--bg-raised); color:var(--text-muted); }
+html[data-page="run"] .btn-ghost          { background:var(--bg-card); border:1px solid var(--border-strong); color:var(--text-1); }
+html[data-page="run"] .btn-ghost:hover    { background:var(--bg-raised); box-shadow:none; color:var(--text-1); }
+html[data-page="run"] .tg                 { width:30px; height:18px; border-radius:999px; background:var(--border-strong); border:none; padding:2px; display:flex; justify-content:flex-start; position:static; }
+html[data-page="run"] .tg.on             { background:var(--accent); border-color:transparent; justify-content:flex-end; }
+html[data-page="run"] .tg::after         { content:''; position:static; width:14px; height:14px; background:var(--text-3); border-radius:50%; display:block; transform:none; transition:background .2s; }
+html[data-page="run"] .tg.on::after      { background:var(--accent-on); transform:none; }
+html[data-page="run"] .sn-icon.on        { background:var(--accent-soft-bg); color:var(--accent); }
+html[data-page="run"] .inp:focus         { box-shadow:0 0 0 2px rgba(46,196,182,.12); }
+
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;font-family:var(--font-sans);font-size:14px;line-height:1.45;background:var(--bg-app);color:var(--text-1)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none;padding:0}
+input::placeholder{color:var(--text-muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent-link);text-decoration:none}
+a:hover{color:var(--accent-link-hover)}
+
+/* ── Layout ── */
+.app-wrap{display:flex;flex-direction:column!important;height:100vh;overflow:hidden}
 .main{flex:1;display:flex;overflow:hidden}
+
+/* ── Header ── */
+.hdr{background:var(--bg-panel);border-bottom:1px solid var(--border-subtle);padding:0 20px;height:52px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hdr-brand{font-size:15px;font-weight:600;letter-spacing:-0.01em;color:var(--text-1);white-space:nowrap}
+.hdr-sep{width:1px;height:20px;background:var(--border-strong);flex-shrink:0}
+.hdr-breadcrumb{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2);min-width:0}
+.hdr-breadcrumb a{color:var(--text-2)}
+.hdr-breadcrumb a:hover{color:var(--text-1)}
+.hdr-test-name{color:var(--text-1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+/* Status pill */
+.status-badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--bg-raised);border:1px solid var(--border-strong);font-size:12px;color:var(--text-pill);flex-shrink:0}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--status-idle);flex-shrink:0;transition:background .2s}
+.dot-idle{background:var(--status-idle)}
+.dot-run{background:var(--status-running)}
+.dot-pause{background:var(--status-warn)}
+.dot-stop{background:var(--status-error)}
+.dot-done{background:var(--status-success)}
+.dot-live{background:var(--status-running)}
+.sp{flex:1}
+/* Header region select */
+.hdr-region-wrap{display:flex;align-items:center;gap:8px}
+.hdr-region-lbl{font-size:12px;color:var(--text-3)}
+.hdr-region-sel-wrap{position:relative}
+#hdrRegion{height:36px;appearance:none;background:var(--bg-app);border:1px solid var(--border-strong);border-radius:6px;padding:0 28px 0 10px;font-size:13px;color:var(--text-1);outline:none}
+#hdrRegion:focus{border-color:var(--accent)}
+.hdr-region-arrow{position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-3)}
+/* Cross-region chip */
+#hdrCross{display:none;align-items:center;gap:3px;padding:2px 8px;border-radius:4px;border:1px solid var(--border-strong);background:var(--bg-card);cursor:pointer;font-size:12px}
+/* Dry run toggle */
+.dry-btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 10px;background:none;border:1px solid transparent;border-radius:6px;font-size:13px;color:var(--text-2);white-space:nowrap}
+.dry-btn:hover{color:var(--text-1)}
+/* Toggle (.tg) — used by dry run + sidebar toggles */
+.tg{width:30px;height:18px;border-radius:999px;background:var(--border-strong);padding:2px;display:flex;justify-content:flex-start;transition:background .2s;flex-shrink:0;cursor:pointer;user-select:none}
+.tg.on{background:var(--accent);justify-content:flex-end}
+.tg::after{content:'';width:14px;height:14px;border-radius:50%;background:var(--text-3);display:block;transition:background .2s}
+.tg.on::after{background:var(--accent-on)}
+/* Header buttons */
+.hdr-btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:6px;font-size:13px;font-weight:500;color:var(--text-1);transition:background .15s,border-color .15s;white-space:nowrap}
+.hdr-btn:hover{background:var(--bg-raised);border-color:var(--border)}
+.hdr-btn:disabled{color:var(--text-muted);cursor:not-allowed}
+/* btn-group for Pause/Stop */
+#simCtrlGroup{display:inline-flex;border:1px solid var(--border-strong);border-radius:6px;overflow:hidden}
+#simCtrlGroup .btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;background:var(--bg-card);border:0;border-right:1px solid var(--border-strong);font-size:13px;font-weight:500;color:var(--text-1);transition:background .15s;white-space:nowrap}
+#simCtrlGroup .btn:last-child{border-right:0}
+#simCtrlGroup .btn:hover:not(:disabled){background:var(--bg-raised)}
+#simCtrlGroup .btn:disabled{color:var(--text-muted);cursor:not-allowed}
+/* Start button */
+.btn-go{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 16px;background:var(--accent);border:0;border-radius:6px;font-size:13px;font-weight:600;color:var(--accent-on);transition:filter .15s;white-space:nowrap}
+.btn-go:hover:not(:disabled){filter:brightness(1.1)}
+.btn-go:disabled{background:var(--bg-raised);color:var(--text-muted);cursor:not-allowed;filter:none}
+/* Ghost/secondary button */
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:6px;font-size:13px;font-weight:500;color:var(--text-1)}
+.btn-ghost:hover{background:var(--bg-raised)}
+/* btn-val-active state */
+.btn-val-active{background:var(--accent-soft-bg)!important;border-color:var(--accent-soft-border)!important;color:var(--accent)!important}
+/* Pause button active state (JS sets style directly) */
+.btn-pause{}
+
 /* ── Left sidebar ── */
-.sb{width:238px;min-width:238px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.sb-hdr{padding:8px 10px 6px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sb-title{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t0);flex:1}
-.icon-btn{width:20px;height:20px;border-radius:3px;border:1px solid var(--border);background:var(--bg2);color:var(--t1);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s;outline:none}
-.icon-btn:hover{background:var(--bg3);color:var(--t0)}
+.sb{width:340px;min-width:340px;background:var(--bg-panel);border-right:1px solid var(--border-subtle);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sb-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
+.sb-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+.icon-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:6px;color:var(--text-pill);transition:background .15s}
+.icon-btn:hover{background:var(--bg-raised);color:var(--text-1)}
+
 /* Test list */
-.test-list{overflow-y:auto;flex-shrink:0;max-height:195px;border-bottom:1px solid var(--border)}
+.test-list{padding:0 12px 14px;border-bottom:1px solid var(--border-subtle);overflow-y:auto;max-height:180px;flex-shrink:0}
 .test-list::-webkit-scrollbar{width:3px}.test-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.ti{display:flex;align-items:stretch;cursor:pointer;border-bottom:1px solid rgba(45,42,64,.5);transition:background .12s;position:relative}
-.ti:hover{background:var(--bg2)}.ti.on{background:rgba(167,139,250,.07)}
-.ti-accent{width:3px;flex-shrink:0}
-.ti-body{flex:1;padding:6px 9px 5px}
-.ti-name{font-size:10px;font-weight:600;color:var(--t0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
-.ti-meta{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.ti-del{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--t2);opacity:0;cursor:pointer;padding:2px 4px}
-.ti:hover .ti-del{opacity:1}.ti-del:hover{color:var(--red)}
-/* Config summary */
-.cfg-sum{overflow-y:auto;flex:1}
+.ti{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px;text-align:left;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:8px;cursor:pointer;margin-bottom:6px;transition:background .12s,border-color .12s;position:relative}
+.ti:last-child{margin-bottom:0}
+.ti:hover{background:var(--bg-raised)}
+.ti.on{background:var(--bg-raised);border-color:var(--accent-soft-border)}
+.ti-accent{display:none}
+.ti-body{width:100%}
+.ti-name{font-size:14px;font-weight:500;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.ti-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--text-2);font-family:var(--font-mono)}
+.ti-meta .badge{font-family:var(--font-sans)}
+.ti-del{position:absolute;right:8px;top:8px;font-size:11px;color:var(--text-3);opacity:0;cursor:pointer;padding:2px 5px;border-radius:4px}
+.ti:hover .ti-del{opacity:1}.ti-del:hover{color:var(--status-error)}
+
+/* Badge inside test list meta */
+.badge{padding:1px 6px;border-radius:4px;background:var(--bg-app);border:1px solid var(--border-strong);font-size:11px;color:var(--text-2)}
+.badge-simulate,.badge-pipeline{background:var(--bg-app);border-color:var(--border-strong);color:var(--text-2)}
+.badge-fetch{background:var(--accent-soft-bg);border-color:var(--accent-soft-border);color:var(--accent-soft-fg)}
+.badge-mqtt-pub{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-fg)}
+
+/* Sidebar region badges from sim-nav */
+.rb{padding:1px 6px;border-radius:4px;background:var(--bg-app);border:1px solid var(--border-strong);font-size:10px;color:var(--text-2)}
+
+/* Tabs above cfgSum */
+.sb-tabs{display:flex;gap:4px;padding:0 12px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
+.sb-tab{height:42px;padding:0 10px;background:none;border:0;border-bottom:2px solid transparent;font-size:13px;font-weight:500;color:var(--text-2);transition:color .15s,border-color .15s;white-space:nowrap}
+.sb-tab:hover{color:var(--text-1)}
+.sb-tab.on{color:var(--text-1);border-bottom-color:var(--accent)}
+.sb-tab-cross{display:inline-flex;align-items:center;gap:5px}
+.sb-tab-cross-badge{font-family:var(--font-mono);font-size:10px;padding:1px 5px;border-radius:4px;background:var(--accent-soft-bg);color:var(--accent-soft-fg)}
+
+/* Config summary (rendered by JS) */
+.cfg-sum{overflow-y:auto;flex:1;min-height:0;padding-bottom:44px}
 .cfg-sum::-webkit-scrollbar{width:3px}.cfg-sum::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.cs-sec{border-bottom:1px solid var(--border)}
-.cs-hdr{padding:7px 10px;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:800;letter-spacing:.09em;color:var(--t0);text-transform:uppercase;cursor:pointer;user-select:none}
-.cs-hdr:hover{background:rgba(45,42,64,.5);color:var(--blue)}.cs-hdr .ch{margin-left:auto;font-size:8px;opacity:.7;transition:transform .2s}.cs-hdr.open .ch{transform:rotate(90deg)}
-.cs-body{padding:7px 12px 11px;display:none}.cs-body.open{display:block}
-.locked-field{display:flex;align-items:center;gap:8px;padding:4px 2px;border-bottom:1px solid rgba(45,42,64,.5)}
+.cs-sec{border-bottom:1px solid var(--border-subtle)}
+.cs-hdr{padding:8px 16px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.07em;color:var(--text-1);text-transform:uppercase;cursor:pointer;user-select:none}
+.cs-hdr:hover{background:rgba(255,255,255,.02);color:var(--accent)}
+.cs-hdr .ch{margin-left:auto;font-size:10px;opacity:.6;transition:transform .2s}
+.cs-hdr.open .ch{transform:rotate(90deg)}
+.cs-body{padding:8px 16px 12px;display:none}
+.cs-body.open{display:block}
+.locked-field{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(37,42,49,.6)}
 .locked-field:last-child{border-bottom:none}
-.lf-lbl{font-size:9px;color:var(--t2);font-weight:700;min-width:60px;flex-shrink:0;letter-spacing:.03em;text-transform:uppercase}
-.lf-val{font-size:10px;color:var(--t0);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;padding:3px 0}
-.lf-val.hi{color:var(--blue)}
-.lf-val.hidden{color:var(--t2);letter-spacing:.1em}
-.cfg-edit-link{display:block;padding:6px 10px;font-size:9px;color:var(--blue);text-decoration:none;border-top:1px solid var(--border);text-align:center}
-.cfg-edit-link:hover{background:rgba(167,139,250,.07)}
-/* Resume state */
-.rs-section{padding:7px 10px;border-top:1px solid var(--border)}
-/* ── Center ── */
-.pipe{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:12px;gap:11px}
-.pipe::-webkit-scrollbar{width:3px}.pipe::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.ptitle{font-size:9px;color:var(--t0);text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin-bottom:7px}
-/* Ring section */
-.ring-section{display:flex;align-items:center;gap:14px;background:var(--bg1);border:1px solid var(--border);border-radius:9px;padding:13px 16px}
-.ring-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
-.ring-info{display:flex;flex-direction:column;gap:7px;flex:1}
-.ring-elapsed-lbl{font-size:8px;color:var(--t1);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1px;font-weight:700}
-.ring-elapsed{font-size:24px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;color:var(--t0);line-height:1;letter-spacing:.04em}
-.ring-phase-lbl{font-size:8px;color:var(--t1);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;margin-bottom:2px;font-weight:700}
-.ring-phase-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;background:var(--bg2);border:1px solid var(--border);color:var(--t1)}
-.ring-phase-badge.run{background:rgba(167,139,250,.12);border-color:var(--blue);color:var(--blue)}
-.ring-phase-badge.done{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
-.ring-phase-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
-.ring-divider{width:1px;background:var(--border);align-self:stretch;margin:0 2px}
-.ring-stats-mini{display:flex;flex-direction:column;gap:5px;flex:2;min-width:0}
-.rsm-item{display:flex;align-items:center;gap:6px;font-size:9px}
-.rsm-bar-wrap{flex:1;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
-.rsm-bar-fill{height:100%;border-radius:2px;width:0;transition:width .5s ease}
-/* 2×2 counters */
-.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.mc{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:11px}
-.mc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
-.mc-num{font-size:24px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;line-height:1}
-.mc-num.b{color:var(--blue)}.mc-num.p{color:var(--purple)}.mc-num.g{color:var(--green)}.mc-num.o{color:var(--orange)}
-.mc-icon{font-size:15px;opacity:.3}
-.mc-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t1);margin-bottom:1px}
-.mc-sub{font-size:8px;color:var(--t2)}
-.mc-bar{height:2px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:5px}
-.mc-bar-fill{height:100%;border-radius:2px;width:0;transition:width .6s ease}
-.mc-bar-fill.b{background:var(--blue)}.mc-bar-fill.p{background:var(--purple)}.mc-bar-fill.g{background:var(--green)}.mc-bar-fill.o{background:var(--orange)}
-/* Pipeline steps */
-.steps-row{display:flex;align-items:stretch}
-.step{flex:1;min-width:90px;background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:8px 11px}
-.step.run{border-color:var(--blue);box-shadow:0 0 8px rgba(167,139,250,.15)}.step.done{border-color:rgba(52,211,153,.35)}.step.err{border-color:rgba(248,113,113,.35)}
-.arr{color:var(--t2);font-size:14px;padding:0 4px;flex-shrink:0;display:flex;align-items:center}
-.sh{display:flex;align-items:center;gap:4px;margin-bottom:5px}
-.sn{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.ss{margin-left:auto;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px}
-.ss.p{background:var(--bg2);color:var(--t2)}.ss.r{background:rgba(167,139,250,.14);color:var(--blue);animation:blink 1.5s infinite}.ss.d{background:rgba(52,211,153,.12);color:var(--green)}
-.sp-bar{height:3px;background:var(--bg2);border-radius:2px;margin-bottom:4px;overflow:hidden}
-.sp-fill{height:100%;background:var(--blue);border-radius:2px;transition:width .5s ease;width:0}.sp-fill.done{background:var(--green)}
-.si{font-size:9px;color:var(--t1)}.si strong{color:var(--t0)}
-/* Phase cards */
-.ph{background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px}
-.ph.on{border-color:rgba(167,139,250,.3);box-shadow:0 0 10px rgba(167,139,250,.06)}
-.ph-hdr{display:flex;align-items:center;gap:6px;margin-bottom:9px}
-.ph-title{font-size:11px;font-weight:700}.ph-sub{font-size:9px;color:var(--t1);margin-left:1px}
-.ph-badge{margin-left:auto;font-size:8px;padding:2px 6px;border-radius:3px;font-weight:700;background:var(--bg2);color:var(--t2)}
-.streams{display:flex;gap:7px}
-.st{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 8px}
-.st.on{border-color:rgba(167,139,250,.3)}
-.st-hdr{display:flex;align-items:center;gap:5px;margin-bottom:5px}
-.st-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--t1)}
-.badge-circle{width:15px;height:15px;border-radius:50%;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--bg0)}
-.ba{background:var(--blue)}.bb{background:var(--green)}.bc{background:var(--purple)}
-.st-prog{height:3px;background:var(--bg0);border-radius:2px;margin:3px 0;overflow:hidden}
-.st-fill{height:100%;border-radius:2px;width:0;transition:width .5s ease}
-.fa{background:var(--blue)}.fb{background:var(--green)}.fc{background:var(--purple)}.fg2{background:var(--green)}.fblue{background:var(--blue)}
-.st-stat{font-size:9px;color:var(--t1)}.st-stat strong{color:var(--t0)}.st-detail{font-size:8px;color:var(--t2);margin-top:1px}
-/* ── Log panel ── */
-.logs{width:320px;min-width:320px;background:var(--bg1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-.log-hdr{padding:7px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0}
-.log-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t1)}
-.log-count{font-size:8px;color:var(--t2);background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;white-space:nowrap;margin-right:auto}
-.pills{display:flex;gap:3px}
-.pill{padding:2px 5px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1)}
-.pill.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
-.pill.on.g{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
-.pill.on.y{background:rgba(251,191,36,.12);border-color:var(--yellow);color:var(--yellow)}
-.pill.on.r{background:rgba(248,113,113,.12);border-color:var(--red);color:var(--red)}
-.clr{margin-left:auto;font-size:10px;color:var(--t2);cursor:pointer}.clr:hover{color:var(--t1)}
-.log-body{flex:1;overflow-y:auto;font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:10px;line-height:1.55}
-.log-body::-webkit-scrollbar{width:3px}.log-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.le{padding:2px 10px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;border-bottom:1px solid rgba(45,42,64,.4)}
-.le:hover{background:var(--bg2)}
-.lts{color:var(--t2);min-width:46px;flex-shrink:0}
-.ltg{min-width:66px;flex-shrink:0;font-weight:700}
-.ltg.fe{color:var(--blue)}.ltg.sp{color:var(--purple)}.ltg.bt{color:var(--orange)}.ltg.up{color:var(--green)}.ltg.mq{color:var(--yellow)}.ltg.ph{color:var(--t0)}.ltg.er{color:var(--red)}
-.lm{color:var(--t1);flex:1;word-break:break-word}.lm.ok{color:var(--green)}.lm.warn{color:var(--yellow)}.lm.err{color:var(--red)}.lm.ph{color:var(--t0);font-weight:600}
-.log-ftr{padding:5px 10px;border-top:1px solid var(--border);display:flex;gap:4px;flex-shrink:0}
-.xbtn{flex:1;padding:4px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t1);font-size:9px;cursor:pointer;text-align:center}
-.xbtn:hover{background:var(--bg3);color:var(--blue)}
-.elapsed-bar{font-size:9px;color:var(--t2);text-align:center;padding:2px 0;font-family:monospace}
-/* Timing number-input rows */
-.ct-row{display:flex;align-items:center;padding:4px 2px;gap:8px;border-bottom:1px solid rgba(45,42,64,.5)}
+.lf-lbl{font-size:11px;color:var(--text-3);font-weight:600;width:80px;min-width:unset;flex-shrink:0;letter-spacing:.03em;text-transform:uppercase}
+.lf-val{font-size:12px;color:var(--text-1);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;padding:2px 0}
+.lf-val.hi{color:var(--accent)}
+.lf-val.hidden{color:var(--text-3);letter-spacing:.1em}
+/* Inline-editable fields */
+.lf-inp{font-size:12px;color:var(--text-1);font-family:var(--font-mono);background:var(--bg-app);border:1px solid transparent;border-radius:5px;padding:3px 8px;flex:1;min-width:0;outline:none;height:28px;transition:background .15s,border-color .15s}
+.lf-inp:focus{background:var(--bg-raised);border-color:var(--accent);box-shadow:0 0 0 2px rgba(46,196,182,.12)}
+.lf-inp:hover:not(:focus){border-color:var(--border-strong)}
+select.lf-inp{font-family:var(--font-sans);padding:3px 22px 3px 8px;border:1px solid var(--border-strong);-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A939E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;background-color:var(--bg-app);cursor:pointer}
+select.lf-inp:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(46,196,182,.12)}
+.lf-tg-wrap{display:flex;align-items:center;gap:8px;flex:1}
+.lf-tg-lbl{font-size:12px;color:var(--text-2);user-select:none}
+/* Timing rows */
+.ct-row{display:flex;align-items:center;padding:5px 0;gap:8px;border-bottom:1px solid rgba(37,42,49,.6)}
 .ct-row:last-child{border-bottom:none}
-.ct-lbl{font-size:9px;color:var(--t2);font-weight:700;letter-spacing:.03em;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ct-lbl{font-size:11px;color:var(--text-3);font-weight:600;letter-spacing:.03em;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ct-inp-wrap{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.ct-inp{width:58px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:10px;font-family:var(--font-mono,'SF Mono','Cascadia Code',Consolas,monospace);padding:3px 6px;outline:none;text-align:right;-moz-appearance:textfield}
-.ct-inp:focus{border-color:var(--blue);background:var(--bg3);box-shadow:0 0 0 2px rgba(167,139,250,.12)}
-.ct-inp:hover:not(:focus){border-color:var(--t2)}
+.ct-inp{width:62px;background:var(--bg-app);border:1px solid var(--border-strong);border-radius:5px;color:var(--text-1);font-size:12px;font-family:var(--font-mono);padding:3px 8px;outline:none;text-align:right;-moz-appearance:textfield;height:28px}
+.ct-inp:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(46,196,182,.12)}
+.ct-inp:hover:not(:focus){border-color:var(--text-3)}
 .ct-inp::-webkit-outer-spin-button,.ct-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.ct-unit{font-size:9px;color:var(--t2);font-weight:600;min-width:12px}
-/* Log payload expansion */
-.le-exp{font-size:8px;color:var(--blue);cursor:pointer;padding:0 4px;flex-shrink:0;opacity:.7;user-select:none}
-.le-exp:hover{opacity:1}
-.le-payload{font-size:9px;font-family:var(--font-mono,'SF Mono','Cascadia Code',Consolas,monospace);color:var(--t1);background:var(--bg0);border:1px solid var(--border);border-radius:3px;padding:10px 12px;margin:2px 0 4px;white-space:pre-wrap;word-break:break-all;display:none;max-height:320px;overflow-y:auto;width:100%}
-/* Colored JSON in payloads */
-.json-key{color:#a78bfa}.json-str{color:#34d399}.json-num{color:#fb923c}.json-bool{color:#fbbf24}.json-null{color:#f87171}
-/* Inline-editable sidebar fields */
-.lf-inp{font-size:10px;color:var(--t0);font-family:monospace;background:var(--bg2);border:1px solid transparent;border-radius:4px;padding:3px 6px;flex:1;min-width:0;outline:none;width:100%;height:24px;transition:background .2s,border-color .15s,box-shadow .2s}
-.lf-inp:focus{background:var(--bg3);border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,.12)}
-.lf-inp:hover:not(:focus){border-color:var(--border)}
-select.lf-inp{padding:3px 20px 3px 6px;border:1px solid var(--border);-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%238878b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center;cursor:pointer;transition:border-color .15s,background-color .15s}
-select.lf-inp:hover{border-color:var(--t2);background-color:var(--bg3)}
-select.lf-inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,.12)}
-/* Toggle in locked-field rows */
-.lf-tg-wrap{display:flex;align-items:center;gap:7px;flex:1}
-.lf-tg-lbl{font-size:9px;color:var(--t1);user-select:none}
-/* Pause button */
-.btn-pause{background:var(--yellow);color:#000}.btn-pause:hover{filter:brightness(1.15)}.btn-pause:disabled{background:var(--bg2);color:var(--t2);cursor:not-allowed}
-.dot-pause{background:var(--yellow)}
-/* Resume State section */
-.kv{display:flex;align-items:center;gap:6px;padding:3px 2px;border-bottom:1px solid rgba(45,42,64,.4);font-size:9px}
+.ct-unit{font-size:11px;color:var(--text-3);font-weight:600;min-width:14px}
+/* Resume state */
+.kv{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(37,42,49,.5);font-size:12px}
 .kv:last-child{border-bottom:none}
-.k{color:var(--t2);min-width:70px;flex-shrink:0;font-weight:600}
-.v{color:var(--t0);font-family:monospace;flex:1}
-.v.ok{color:var(--green)}.v.hi{color:var(--blue)}
-/* Clear state button in section header */
-.cs-clr-btn{margin-left:auto;font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:var(--red);cursor:pointer;transition:background .15s;user-select:none;outline:none}
-.cs-clr-btn:hover{background:rgba(248,113,113,.22)}
+.k{color:var(--text-3);min-width:74px;flex-shrink:0;font-weight:600}
+.v{color:var(--text-1);font-family:var(--font-mono);flex:1}
+.v.ok{color:var(--data-gps)}.v.hi{color:var(--accent)}
+.cs-clr-btn{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:var(--status-error);cursor:pointer;transition:background .15s;user-select:none;outline:none}
+.cs-clr-btn:hover{background:rgba(248,113,113,.2)}
 .cs-hdr:has(.cs-clr-btn) .ch{margin-left:0}
-/* ── Fetch download card ── */
-.fetch-dl{background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:12px 14px;display:none}
-.fetch-dl.ready{border-color:rgba(52,211,153,.3);display:block}
-.fetch-dl-hdr{display:flex;align-items:center;gap:8px;margin-bottom:11px}
-.fetch-dl-title{font-size:11px;font-weight:700;color:var(--t0);flex:1}
-.fetch-dl-badge{font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.3)}
-.fetch-stat-row{display:flex;gap:8px;margin-bottom:11px}
-.fetch-stat{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 10px}
-.fetch-stat-val{font-size:17px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;line-height:1.2}
-.fetch-stat-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-top:2px}
+/* Edit in settings link */
+.cfg-edit-link{display:block;padding:12px 16px;font-size:13px;font-weight:500;color:var(--accent-link);border-top:1px solid var(--border-subtle);text-align:right}
+.cfg-edit-link:hover{color:var(--accent-link-hover)}
+
+/* ── Center pipeline column ── */
+.pipe{flex:1;display:flex;flex-direction:column;overflow-y:auto;padding:20px 24px 28px;gap:20px;background:var(--bg-app)}
+.pipe::-webkit-scrollbar{width:3px}.pipe::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sec-label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px}
+
+/* Run status card */
+.run-status-card{display:flex;flex-wrap:wrap;align-items:center;gap:20px 32px;padding:20px 24px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px}
+.ring-wrap{position:relative;width:108px;height:108px;flex:0 0 auto}
+.ring-wrap svg{display:block}
+.ring-center{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-pct-txt{font-family:var(--font-mono);font-size:24px;font-weight:500;line-height:1}
+.ring-overall-lbl{font-size:11px;color:var(--text-3);margin-top:4px}
+.ring-info{display:flex;flex-direction:column;gap:8px;min-width:160px}
+.ring-elapsed-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+.ring-elapsed{font-family:var(--font-mono);font-size:36px;font-weight:500;line-height:1;letter-spacing:-0.02em}
+.ring-phase-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2)}
+.ring-phase-badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;background:var(--bg-raised);border:1px solid var(--border-strong);font-size:12px;color:var(--text-pill)}
+.ring-phase-badge.run{background:var(--accent-soft-bg);border-color:var(--accent-soft-border);color:var(--accent-soft-fg)}
+.ring-phase-badge.done{background:var(--success-bg);border-color:var(--success-border);color:var(--success-fg)}
+.ring-phase-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.run-status-summary{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:10px;padding-left:24px;border-left:1px solid var(--border)}
+.rss-row{display:grid;grid-template-columns:96px 1fr;align-items:baseline;gap:4px 12px;font-size:13px}
+.rss-lbl{color:var(--text-3)}
+.rss-val{font-family:var(--font-mono);font-size:12.5px;font-weight:500;color:var(--text-1)}
+
+/* Counters */
+.counters-grid{display:flex;flex-wrap:wrap;gap:12px}
+.ctr-tile{flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:10px;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px}
+.ctr-hdr{display:flex;align-items:center;justify-content:space-between}
+.ctr-name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text-pill)}
+.ctr-sq{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.ctr-icon{color:var(--text-muted);flex-shrink:0}
+.ctr-num{font-family:var(--font-mono);font-size:30px;font-weight:500;line-height:1}
+.ctr-sub{font-size:12px;color:var(--text-3)}
+.ctr-bar{display:block;height:3px;border-radius:2px;background:var(--border);overflow:hidden}
+.ctr-bar-fill{display:block;height:100%;border-radius:2px;width:0;transition:width .6s ease}
+
+/* Pipeline steps */
+.steps-ol{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.step{flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:8px;padding:14px 16px;background:var(--bg-card);transition:background .15s}
+.step.run{background:var(--accent-soft-bg)}
+.step.done{background:var(--success-bg)}
+.step.err{background:var(--error-bg)}
+/* Step number + badge row */
+.sh{display:flex;align-items:center;justify-content:space-between}
+.step-num{font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
+/* Step status chip */
+.ss{font-size:11px;font-weight:500;padding:1px 7px;border-radius:4px;border:1px solid;white-space:nowrap}
+.ss.p{background:var(--bg-raised);border-color:var(--border-strong);color:var(--text-2)}
+.ss.r{background:var(--accent-soft-bg);border-color:var(--accent-soft-border);color:var(--accent-soft-fg);animation:blink 1.5s infinite}
+.ss.d{background:var(--success-bg);border-color:var(--success-border);color:var(--success-fg)}
+.ss.e{background:var(--error-bg);border-color:var(--error-border);color:var(--error-fg)}
+/* Step name row */
+.sn-row{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+/* Step info */
+.si{font-size:12px;color:var(--text-2)}
+.si strong{color:var(--text-1)}
+/* Step progress bar (kept for JS that sets width) */
+.sp-bar{height:2px;background:var(--border);border-radius:2px;overflow:hidden}
+.sp-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s ease;width:0}
+.sp-fill.done{background:var(--data-gps)}
+/* .sn used by JS querySelector('.sn') for text content update */
+.sn{font-weight:600}
+
+/* Phase cards */
+.ph{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s}
+.ph.on{border-color:var(--accent-soft-border)}
+.ph-hdr{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.ph-title-row{display:flex;align-items:baseline;gap:10px;font-size:14px;font-weight:600}
+.ph-sub{font-size:13px;font-weight:400;color:var(--text-2)}
+.ph-badge{font-size:11px;font-weight:500;padding:1px 7px;border-radius:4px;background:var(--bg-raised);border:1px solid var(--border-strong);color:var(--text-2)}
+/* Streams row */
+.streams{display:flex;flex-wrap:wrap;gap:1px;background:var(--border)}
+.st{flex:1 1 200px;min-width:0;display:flex;flex-direction:column;gap:10px;padding:16px 18px;background:var(--bg-card);transition:background .15s}
+.st.on{background:var(--bg-raised)}
+.st-hdr{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
+.badge-circle{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:500;flex-shrink:0}
+.ba{background:var(--stream-a-bg);color:var(--stream-a-fg)}
+.bb{background:var(--stream-b-bg);color:var(--stream-b-fg)}
+.bc{background:var(--stream-c-bg);color:var(--stream-c-fg)}
+.st-lbl{color:var(--text-1)}
+.st-stat{font-size:13px;color:var(--text-2)}.st-stat strong{color:var(--text-1)}
+.st-detail{font-family:var(--font-mono);font-size:11.5px;color:var(--text-3)}
+/* Hidden progress fills kept for JS */
+.st-prog{height:0;overflow:hidden}
+.st-fill{height:3px;border-radius:2px;width:0;transition:width .5s ease}
+.fa{background:var(--stream-a-fg)}.fb{background:var(--stream-b-fg)}.fc{background:var(--stream-c-fg)}
+.fg2{background:var(--data-gps)}.fblue{background:var(--accent)}
+
+/* Phase 2 collapsible */
+.ph2-btn{width:100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:14px 18px;background:none;border:0;text-align:left;cursor:pointer}
+.ph2-btn:hover{background:rgba(255,255,255,.015)}
+.ph2-title-row{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
+.ph2-chevron{color:var(--text-3)}
+
+/* Fetch download card */
+.fetch-dl{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:none}
+.fetch-dl.ready{border-color:var(--success-border);display:block}
+.fetch-dl-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.fetch-dl-title{font-size:13px;font-weight:600;color:var(--text-1);flex:1}
+.fetch-dl-badge{font-size:11px;font-weight:500;padding:2px 7px;border-radius:4px;background:var(--success-bg);color:var(--success-fg);border:1px solid var(--success-border)}
+.fetch-stat-row{display:flex;gap:10px;margin-bottom:14px}
+.fetch-stat{flex:1;background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:8px;padding:8px 12px}
+.fetch-stat-val{font-size:18px;font-weight:500;font-family:var(--font-mono);line-height:1.2}
+.fetch-stat-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-top:3px}
 .fetch-dl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.fetch-dl-lbl{font-size:9px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.04em;min-width:46px}
-.fetch-chip{padding:3px 9px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s;outline:none}
-.fetch-chip.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
-.fetch-chip.fmt.on{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
-.fetch-dl-sep{width:1px;height:16px;background:var(--border);margin:0 2px}
-/* ── Right-panel tabs (LOGS / VALIDATE) ── */
-.rp-tabs{display:flex;gap:2px;flex-shrink:0}
-.rp-tab{padding:2px 8px;border-radius:3px;font-size:8px;font-weight:800;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t2);letter-spacing:.06em;text-transform:uppercase;transition:all .12s}
-.rp-tab.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
-.log-hdr-right{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
-/* ── Validate panel ── */
+.fetch-dl-lbl{font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;min-width:48px}
+.fetch-chip{padding:3px 10px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;background:var(--bg-raised);border:1px solid var(--border-strong);color:var(--text-2);transition:all .12s;outline:none}
+.fetch-chip.on{background:var(--accent-soft-bg);border-color:var(--accent-soft-border);color:var(--accent-soft-fg)}
+.fetch-chip.fmt.on{background:var(--success-bg);border-color:var(--success-border);color:var(--success-fg)}
+.fetch-dl-sep{width:1px;height:18px;background:var(--border-strong);margin:0 2px}
+
+/* Elapsed bar (kept hidden, JS sets text) */
+.elapsed-bar{font-size:11px;color:var(--text-3);text-align:center;padding:2px 0;font-family:var(--font-mono)}
+
+/* ── Right logs panel ── */
+.logs{width:420px;min-width:320px;max-width:50vw;background:var(--bg-panel);border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;flex-shrink:0;position:relative}
+.log-hdr{display:flex;align-items:center;gap:6px;padding:0 12px 0 16px;height:44px;flex-shrink:0;border-bottom:1px solid var(--border-subtle)}
+.log-count{font-family:var(--font-mono);font-size:10px;letter-spacing:0;padding:0 5px;border-radius:4px;background:var(--bg-raised);border:1px solid var(--border-strong);color:var(--text-pill)}
+/* Log controls below header */
+.log-controls{display:flex;flex-direction:column;gap:10px;padding:0 16px 14px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
+/* Filter segmented group */
+.pills{display:flex;padding:3px;gap:2px;background:var(--bg-app);border:1px solid var(--border);border-radius:8px}
+.pill{flex:1 1 0;height:30px;background:none;border:1px solid transparent;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-2);transition:all .12s}
+.pill.on{background:var(--bg-raised);border-color:var(--border-strong);color:var(--text-1)}
+.pill.on.y{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-fg)}
+.pill.on.r{background:var(--error-bg);border-color:var(--error-border);color:var(--error-fg)}
+.pill.on.g{background:var(--success-bg);border-color:var(--success-border);color:var(--success-fg)}
+/* Log search */
+.log-search-wrap{position:relative}
+.log-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-3)}
+#logSearch{width:100%;height:36px;background:var(--bg-app);border:1px solid var(--border-strong);border-radius:6px;padding:0 10px 0 32px;font-size:13px;color:var(--text-1);outline:none;-webkit-appearance:none;appearance:none}
+#logSearch:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(46,196,182,.1)}
+#logSearch::placeholder{color:var(--text-muted)}
+/* Log body */
+.log-body{flex:1;overflow-y:auto;font-family:var(--font-mono);font-size:12px;line-height:1.55;min-height:0}
+.log-body::-webkit-scrollbar{width:3px}.log-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+/* Empty state */
+.log-empty{flex:1 1 auto;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;font-family:var(--font-sans)}
+.log-empty-icon{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--bg-card);border:1px solid var(--border);color:var(--text-3)}
+.log-empty-title{font-size:13px;font-weight:500;color:var(--text-1)}
+.log-empty-sub{font-size:12px;color:var(--text-3);max-width:220px}
+/* Log entries */
+.le{padding:4px 16px;display:grid;grid-template-columns:72px 44px 1fr;gap:8px;align-items:baseline;border-bottom:1px solid rgba(37,42,49,.5)}
+.le:hover{background:var(--bg-card)}
+.le[data-ty="warn"]{background:rgba(51,39,15,.4)}
+.le[data-ty="err"]{background:rgba(58,26,28,.4)}
+.lts{font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
+.ltg{font-family:var(--font-mono);font-size:11px;font-weight:500}
+.ltg.fe{color:var(--accent)}.ltg.sp{color:var(--purple)}.ltg.bt{color:var(--orange)}.ltg.up{color:var(--data-gps)}.ltg.mq{color:var(--status-warn)}.ltg.ph{color:var(--text-1)}.ltg.er{color:var(--status-error)}
+.lm{font-size:11.5px;color:var(--text-2);word-break:break-word;font-family:var(--font-mono)}
+.lm.ok{color:var(--data-gps)}.lm.warn{color:var(--status-warn)}.lm.err{color:var(--status-error)}.lm.ph{color:var(--text-1);font-weight:600}
+.le-exp{font-size:10px;color:var(--accent);cursor:pointer;padding:0 4px;flex-shrink:0;opacity:.7;user-select:none;grid-column:1/-1}
+.le-exp:hover{opacity:1}
+.le-payload{font-size:10px;font-family:var(--font-mono);color:var(--text-2);background:var(--bg-app);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin:2px 0 4px;white-space:pre-wrap;word-break:break-all;display:none;max-height:320px;overflow-y:auto;width:100%;grid-column:1/-1}
+/* JSON colors */
+.json-key{color:#a78bfa}.json-str{color:#34d399}.json-num{color:#fb923c}.json-bool{color:#fbbf24}.json-null{color:#f87171}
+/* Clear button */
+.clr{color:var(--text-3);cursor:pointer;font-size:12px;padding:4px;border-radius:4px}
+.clr:hover{color:var(--text-1);background:var(--bg-raised)}
+/* Log footer */
+.log-ftr{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border-subtle);flex-shrink:0}
+.log-ftr-lbl{font-size:12px;color:var(--text-3);margin-right:auto}
+.xbtn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:6px;font-family:var(--font-mono);font-size:12px;color:var(--text-2);transition:background .12s}
+.xbtn:hover{background:var(--bg-raised);color:var(--text-1)}
+/* Right panel tabs */
+.rp-tabs{display:flex;gap:0;flex-shrink:0}
+.rp-tab{height:44px;padding:0 12px;border:0;border-bottom:2px solid transparent;font-size:12px;font-weight:500;cursor:pointer;background:none;color:var(--text-2);letter-spacing:0;text-transform:none;transition:color .15s,border-color .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.rp-tab:hover{color:var(--text-1)}
+.rp-tab.on{color:var(--text-1);border-bottom-color:var(--accent)}
+
+/* ── Validate panel (sidebar) ── */
 .val-panel{flex:1;overflow-y:auto;display:flex;flex-direction:column;padding:10px;gap:8px}
 .val-panel::-webkit-scrollbar{width:3px}.val-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.val-cfg-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;flex-wrap:wrap}
-.val-cfg-item{font-size:8px;color:var(--t2);display:flex;align-items:center;gap:3px}
-.val-cfg-item .vcv{color:var(--t0);font-family:monospace;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.val-cfg-item .vcv.miss{color:var(--red)}
+.val-cfg-row{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;flex-wrap:wrap}
+.val-cfg-item{font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:3px}
+.val-cfg-item .vcv{color:var(--text-1);font-family:var(--font-mono);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.val-cfg-item .vcv.miss{color:var(--status-error)}
 .val-check-row{display:flex;align-items:center;gap:8px}
-.val-btn{padding:5px 14px;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;background:var(--blue);color:#000;border:none;transition:filter .12s;white-space:nowrap}
-.val-btn:hover{filter:brightness(1.15)}.val-btn:disabled{background:var(--bg2);color:var(--t2);cursor:not-allowed}
-.val-last{font-size:8px;color:var(--t2);flex:1;text-align:right}
-.val-spinner{display:none;width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.val-btn{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-on);border:none;transition:filter .12s;white-space:nowrap}
+.val-btn:hover{filter:brightness(1.1)}.val-btn:disabled{background:var(--bg-raised);color:var(--text-muted);cursor:not-allowed;filter:none}
+.val-last{font-size:11px;color:var(--text-3);flex:1;text-align:right}
+.val-spinner{display:none;width:14px;height:14px;border:2px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 .val-spinner.on{display:block}
 .val-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.vc{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 9px}
-.vc.match{border-color:rgba(52,211,153,.35)}.vc.diff{border-color:rgba(251,191,36,.35)}.vc.miss{border-color:rgba(248,113,113,.35)}
-.vc-title{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);margin-bottom:4px}
+.vc{background:var(--bg-card);border:1px solid var(--border);border-radius:7px;padding:9px 10px}
+.vc.match{border-color:var(--success-border)}.vc.diff{border-color:var(--warn-border)}.vc.miss{border-color:var(--error-border)}
+.vc-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:4px}
 .vc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
-.vc-lbl{font-size:8px;color:var(--t2)}.vc-num{font-size:14px;font-weight:800;font-family:monospace;line-height:1;color:var(--t0)}
-.vc-diff{font-size:9px;font-weight:700;margin-top:2px}
-.vc-diff.ok{color:var(--green)}.vc-diff.warn{color:var(--yellow)}.vc-diff.bad{color:var(--red)}
-/* Alert type breakdown table */
-.val-section{border:1px solid var(--border);border-radius:6px;overflow:hidden}
-.val-sec-hdr{display:flex;align-items:center;gap:6px;padding:6px 9px;background:var(--bg2);cursor:pointer;user-select:none}
-.val-sec-hdr:hover{background:var(--bg3)}
-.val-sec-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--t0);flex:1}
-.val-sec-counts{font-size:8px;color:var(--t1);font-family:monospace}
-.val-sec-ch{font-size:9px;color:var(--t2);transition:transform .2s}.val-sec-hdr.open .val-sec-ch{transform:rotate(90deg)}
+.vc-lbl{font-size:10px;color:var(--text-3)}.vc-num{font-size:15px;font-weight:600;font-family:var(--font-mono);line-height:1;color:var(--text-1)}
+.vc-diff{font-size:11px;font-weight:600;margin-top:3px}
+.vc-diff.ok{color:var(--data-gps)}.vc-diff.warn{color:var(--status-warn)}.vc-diff.bad{color:var(--status-error)}
+/* Alert type breakdown */
+.val-section{border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.val-sec-hdr{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--bg-card);cursor:pointer;user-select:none}
+.val-sec-hdr:hover{background:var(--bg-raised)}
+.val-sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-1);flex:1}
+.val-sec-counts{font-size:10px;color:var(--text-2);font-family:var(--font-mono)}
+.val-sec-ch{font-size:11px;color:var(--text-3);transition:transform .2s}.val-sec-hdr.open .val-sec-ch{transform:rotate(90deg)}
 .val-sec-body{display:none;overflow-x:auto}.val-sec-body.open{display:block}
-.val-tbl{width:100%;border-collapse:collapse;font-size:9px}
-.val-tbl th{padding:4px 8px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);background:var(--bg1);border-bottom:1px solid var(--border);white-space:nowrap}
-.val-tbl td{padding:4px 8px;border-bottom:1px solid rgba(45,42,64,.4);color:var(--t1);vertical-align:top;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.val-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.val-tbl th{padding:4px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);background:var(--bg-panel);border-bottom:1px solid var(--border);white-space:nowrap}
+.val-tbl td{padding:4px 8px;border-bottom:1px solid rgba(37,42,49,.5);color:var(--text-2);vertical-align:top;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .val-tbl tr:last-child td{border-bottom:none}
-.val-tbl tr:hover td{background:var(--bg2);color:var(--t0)}
-.val-tbl td.num{font-family:monospace;color:var(--t0)}.val-tbl td.ok{color:var(--green)}.val-tbl td.warn{color:var(--yellow)}.val-tbl td.bad{color:var(--red)}
-.val-more{padding:5px 8px;font-size:8px;color:var(--t2);text-align:center;border-top:1px solid var(--border);background:var(--bg1)}
-.val-open-full{display:block;margin:4px 0 0;padding:5px 8px;font-size:9px;font-weight:700;color:var(--blue);text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:5px;cursor:pointer;text-decoration:none}
-.val-open-full:hover{background:var(--bg3)}
-.val-error{padding:8px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:5px;font-size:9px;color:var(--red)}
-/* ── Validate dashboard ── */
-.vd-nav{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;flex-shrink:0}
-.vd-nav-btn{width:18px;height:18px;border-radius:3px;border:1px solid var(--border);background:var(--bg1);color:var(--t1);cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1}
-.vd-nav-btn:hover{background:var(--bg3);color:var(--t0)}
-.vd-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--t0);flex:1;text-align:center}
+.val-tbl tr:hover td{background:var(--bg-card);color:var(--text-1)}
+.val-tbl td.num{font-family:var(--font-mono);color:var(--text-1)}.val-tbl td.ok{color:var(--data-gps)}.val-tbl td.warn{color:var(--status-warn)}.val-tbl td.bad{color:var(--status-error)}
+.val-more{padding:5px 8px;font-size:10px;color:var(--text-3);text-align:center;border-top:1px solid var(--border);background:var(--bg-panel)}
+.val-open-full{display:block;margin:4px 0 0;padding:6px 10px;font-size:11px;font-weight:600;color:var(--accent-link);text-align:center;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:6px;cursor:pointer;text-decoration:none}
+.val-open-full:hover{background:var(--bg-raised)}
+.val-error{padding:9px 10px;background:var(--error-bg);border:1px solid var(--error-border);border-radius:6px;font-size:11px;color:var(--error-fg)}
+/* Validate dashboard */
+.vd-nav{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:7px;flex-shrink:0}
+.vd-nav-btn{width:20px;height:20px;border-radius:4px;border:1px solid var(--border-strong);background:var(--bg-raised);color:var(--text-2);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;line-height:1}
+.vd-nav-btn:hover{background:var(--bg-raised);color:var(--text-1)}
+.vd-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-1);flex:1;text-align:center}
 .vd-dots{display:flex;gap:4px;align-items:center}
-.vd-dot{width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:background .15s}
-.vd-dot.on{background:var(--blue)}
+.vd-dot{width:5px;height:5px;border-radius:50%;background:var(--border-strong);cursor:pointer;transition:background .15s}
+.vd-dot.on{background:var(--accent)}
 .vd-panel{display:none;flex-direction:column;gap:5px}
 .vd-panel.on{display:flex}
-.vd-cmp{width:100%;border-collapse:collapse;font-size:9px}
-.vd-cmp th{padding:3px 6px;text-align:right;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);border-bottom:1px solid var(--border);white-space:nowrap}
+.vd-cmp{width:100%;border-collapse:collapse;font-size:11px}
+.vd-cmp th{padding:3px 6px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);border-bottom:1px solid var(--border);white-space:nowrap}
 .vd-cmp th:first-child{text-align:left;padding-left:4px}
-.vd-cmp td{padding:4px 6px;text-align:right;font-family:monospace;color:var(--t0);border-top:1px solid rgba(45,42,64,.4)}
-.vd-cmp td:first-child{text-align:left;font-family:var(--font-ui);font-size:9px;color:var(--t1);padding-left:4px;font-weight:600;white-space:nowrap}
-.vd-cmp td.ok{color:var(--green)}.vd-cmp td.warn{color:var(--yellow)}.vd-cmp td.bad{color:var(--red)}.vd-cmp td.mut{color:var(--t2)}
-.vd-cmp tr:hover td{background:rgba(45,42,64,.3)}
-.vd-sub-hdr{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:4px 4px 3px;border-bottom:1px solid var(--border);margin-top:2px}
+.vd-cmp td{padding:4px 6px;text-align:right;font-family:var(--font-mono);color:var(--text-1);border-top:1px solid rgba(37,42,49,.5)}
+.vd-cmp td:first-child{text-align:left;font-size:11px;color:var(--text-2);padding-left:4px;font-weight:600;white-space:nowrap;font-family:var(--font-sans)}
+.vd-cmp td.ok{color:var(--data-gps)}.vd-cmp td.warn{color:var(--status-warn)}.vd-cmp td.bad{color:var(--status-error)}.vd-cmp td.mut{color:var(--text-3)}
+.vd-cmp tr:hover td{background:rgba(37,42,49,.3)}
+.vd-sub-hdr{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:4px 4px 3px;border-bottom:1px solid var(--border);margin-top:2px}
 .vd-legend{display:flex;gap:10px;padding:0 2px 1px}
-.vd-leg-item{display:flex;align-items:center;gap:3px;font-size:8px;color:var(--t1)}
+.vd-leg-item{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text-2)}
 .vd-leg-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-/* ── Responsive layout ── */
-@media (max-width:1000px){
-  .sb{width:200px;min-width:180px}
-  .logs{width:260px;min-width:240px}
-}
-@media (max-width:820px){
-  .sb{width:180px;min-width:160px}
-  .logs{width:220px;min-width:200px}
-  .metrics-grid{grid-template-columns:1fr 1fr}
-  .ring-elapsed{font-size:18px}
-}
-@media (max-width:680px){
-  .logs{display:none}
-  .sb{width:160px;min-width:140px}
-}
-/* ── Flatpickr overrides ── */
-.flatpickr-calendar{background:var(--bg1)!important;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 1px var(--border)!important;border-radius:8px!important;font-family:var(--font-ui)!important}
-.flatpickr-calendar.arrowTop:before{border-bottom-color:var(--border)!important}.flatpickr-calendar.arrowTop:after{border-bottom-color:var(--bg2)!important}
-.flatpickr-calendar.arrowBottom:before{border-top-color:var(--border)!important}.flatpickr-calendar.arrowBottom:after{border-top-color:var(--bg1)!important}
-.flatpickr-months{background:var(--bg2)!important;border-radius:7px 7px 0 0}
-.flatpickr-months .flatpickr-month{background:transparent!important;color:var(--t0)!important;fill:var(--t0)!important}
-.flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{color:var(--t2)!important;fill:var(--t2)!important}
-.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:var(--blue)!important}
-.flatpickr-current-month{color:var(--t0)!important}.flatpickr-current-month input.cur-year{color:var(--t0)!important}
-.flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--bg2)!important;color:var(--t0)!important}
-.flatpickr-weekdays{background:var(--bg1)!important}
-span.flatpickr-weekday{background:transparent!important;color:var(--t2)!important;font-size:9px!important;font-weight:700!important;letter-spacing:.05em!important}
-.flatpickr-days,.dayContainer{border:none!important}
-.flatpickr-day{color:var(--t1)!important;border:none!important;border-radius:5px!important;font-size:11px!important}
-.flatpickr-day:hover{background:var(--bg3)!important;color:var(--t0)!important}
-.flatpickr-day.today{border:1px solid var(--blue)!important;font-weight:700}
-.flatpickr-day.today:hover,.flatpickr-day.selected,.flatpickr-day.selected:hover{background:var(--blue)!important;border-color:var(--blue)!important;color:#09080e!important;font-weight:700!important}
-.flatpickr-day.disabled,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:var(--border)!important}
-.flatpickr-time{background:var(--bg2)!important;border-top:1px solid var(--border)!important;border-radius:0 0 7px 7px!important}
-.flatpickr-time input{background:var(--bg1)!important;color:var(--t0)!important;border-radius:4px!important;font-size:12px!important;font-family:var(--font-mono)!important}
-.flatpickr-time input:hover,.flatpickr-time input:focus{background:var(--bg3)!important}
-.flatpickr-time .flatpickr-time-separator{color:var(--t2)!important}
-.numInputWrapper span{border-color:var(--border)!important}.numInputWrapper span svg path{fill:var(--t2)!important}
-.numInputWrapper:hover{background:var(--bg3)!important}
-input.flatpickr-alt-input[readonly]{cursor:pointer}
-/* ── Main-panel validation view ── */
-#valView{flex:1;flex-direction:column;overflow:hidden;display:none;background:var(--bg0)}
-.vv-hdr{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg1);display:flex;align-items:center;gap:8px;flex-shrink:0}
-.vv-back{padding:4px 10px;border-radius:5px;font-size:9px;font-weight:800;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1)}
-.vv-back:hover{background:var(--bg3);color:var(--t0)}
-.vv-title{font-size:12px;font-weight:800;color:var(--t0)}
-.vv-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+
+/* ── Validation main-panel view ── */
+#valView{flex:1;flex-direction:column;overflow:hidden;display:none;background:var(--bg-app)}
+.vv-hdr{padding:10px 16px;border-bottom:1px solid var(--border-subtle);background:var(--bg-panel);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.vv-back{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--bg-card);border:1px solid var(--border-strong);color:var(--text-2)}
+.vv-back:hover{background:var(--bg-raised);color:var(--text-1)}
+.vv-title{font-size:13px;font-weight:600;color:var(--text-1)}
+.vv-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
 .vv-body::-webkit-scrollbar{width:3px}.vv-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-/* Larger vd components inside main panel */
 .vv-body .vd-nav{padding:8px 12px;border-radius:8px}
-.vv-body .vd-title{font-size:11px}
-.vv-body .vd-nav-btn{width:24px;height:24px;font-size:11px}
+.vv-body .vd-title{font-size:12px}
+.vv-body .vd-nav-btn{width:24px;height:24px;font-size:12px}
 .vv-body .vd-dot{width:7px;height:7px}
-.vv-body .vd-cmp th,.vv-body .vd-cmp td{padding:7px 10px;font-size:11px}
-.vv-body .vd-cmp th{font-size:9px}
-.vv-body .vd-sub-hdr{font-size:10px;padding:6px 6px 4px;margin-top:4px}
+.vv-body .vd-cmp th,.vv-body .vd-cmp td{padding:7px 10px;font-size:12px}
+.vv-body .vd-cmp th{font-size:10px}
+.vv-body .vd-sub-hdr{font-size:11px;padding:6px 6px 4px;margin-top:4px}
 .vv-body #vdPanel2{display:none;flex-direction:row;gap:14px}
 .vv-body #vdPanel2.on{display:flex}
 .vv-body #vdPanel2 > *{flex:1;min-width:0}
-.vv-body .val-open-full{font-size:10px;padding:7px 10px}
-.vv-body .val-error{font-size:10px;padding:10px 12px}
-.vv-body .val-cfg-row{font-size:9px;padding:8px 10px}
-/* btn-val-view active state */
-.btn.btn-val-active{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.vv-body .val-open-full{font-size:11px;padding:8px 10px}
+.vv-body .val-error{font-size:11px;padding:10px 12px}
+.vv-body .val-cfg-row{font-size:11px;padding:9px 12px}
+
+/* ── Animations ── */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Flatpickr overrides ── */
+.flatpickr-calendar{background:var(--bg-panel)!important;box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 1px var(--border-subtle)!important;border-radius:8px!important;font-family:var(--font-sans)!important}
+.flatpickr-calendar.arrowTop:before{border-bottom-color:var(--border-subtle)!important}.flatpickr-calendar.arrowTop:after{border-bottom-color:var(--bg-card)!important}
+.flatpickr-calendar.arrowBottom:before{border-top-color:var(--border-subtle)!important}.flatpickr-calendar.arrowBottom:after{border-top-color:var(--bg-panel)!important}
+.flatpickr-months{background:var(--bg-card)!important;border-radius:7px 7px 0 0}
+.flatpickr-months .flatpickr-month{background:transparent!important;color:var(--text-1)!important;fill:var(--text-1)!important}
+.flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{color:var(--text-3)!important;fill:var(--text-3)!important}
+.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:var(--accent)!important}
+.flatpickr-current-month{color:var(--text-1)!important}.flatpickr-current-month input.cur-year{color:var(--text-1)!important}
+.flatpickr-current-month .flatpickr-monthDropdown-months{background:var(--bg-card)!important;color:var(--text-1)!important}
+.flatpickr-weekdays{background:var(--bg-panel)!important}
+span.flatpickr-weekday{background:transparent!important;color:var(--text-3)!important;font-size:10px!important;font-weight:600!important;letter-spacing:.05em!important}
+.flatpickr-days,.dayContainer{border:none!important}
+.flatpickr-day{color:var(--text-2)!important;border:none!important;border-radius:5px!important;font-size:12px!important}
+.flatpickr-day:hover{background:var(--bg-raised)!important;color:var(--text-1)!important}
+.flatpickr-day.today{border:1px solid var(--accent)!important;font-weight:600}
+.flatpickr-day.today:hover,.flatpickr-day.selected,.flatpickr-day.selected:hover{background:var(--accent)!important;border-color:var(--accent)!important;color:var(--accent-on)!important;font-weight:700!important}
+.flatpickr-day.disabled,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay{color:var(--border-strong)!important}
+.flatpickr-time{background:var(--bg-card)!important;border-top:1px solid var(--border)!important;border-radius:0 0 7px 7px!important}
+.flatpickr-time input{background:var(--bg-panel)!important;color:var(--text-1)!important;border-radius:4px!important;font-size:13px!important;font-family:var(--font-mono)!important}
+.flatpickr-time input:hover,.flatpickr-time input:focus{background:var(--bg-raised)!important}
+.flatpickr-time .flatpickr-time-separator{color:var(--text-3)!important}
+.numInputWrapper span{border-color:var(--border-strong)!important}.numInputWrapper span svg path{fill:var(--text-3)!important}
+.numInputWrapper:hover{background:var(--bg-raised)!important}
+input.flatpickr-alt-input[readonly]{cursor:pointer}
+
+/* ── Responsive ── */
+@media(max-width:1439px){.hdr-btn .btn-label,#simCtrlGroup .btn .btn-label,.btn-go .btn-label{display:none}
+  .hdr-btn{padding:0 10px}.btn-go{padding:0 12px}#simCtrlGroup .btn{padding:0 10px}}
+@media(max-width:1100px){.sb{width:280px;min-width:240px}.logs{width:340px;min-width:260px}}
+@media(max-width:860px){.sb{width:220px;min-width:200px}.logs{width:260px;min-width:220px}}
+@media(max-width:680px){.logs{display:none}.sb{width:180px;min-width:160px}}
+
+/* ── datetime-local input ── */
+input[type="datetime-local"].lf-inp{-webkit-appearance:none;appearance:none;border:1px solid var(--border-strong)}
+input[type="datetime-local"].lf-inp::-webkit-calendar-picker-indicator{filter:invert(0.6);cursor:pointer}
+
+/* ── Pause/Stop disabled: opacity-only, no theme-color bleed ── */
+html[data-page="run"] #simCtrlGroup .btn{text-transform:none;font-weight:500}
+html[data-page="run"] #simCtrlGroup .btn:disabled{opacity:.4;background:var(--bg-card);color:var(--text-1)}
+
+/* ── Log panel resize handle ── */
+.log-resize{position:absolute;left:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:10;background:transparent;transition:background .15s}
+.log-resize:hover,.log-resize.dragging{background:rgba(46,196,182,.15)}
+/* ── Log dock/close icon buttons ── */
+.log-dock-btn,.log-close-btn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:none;color:var(--text-3);transition:background .12s,color .12s;flex-shrink:0;border:none;padding:0;cursor:pointer}
+.log-dock-btn:hover,.log-close-btn:hover{background:var(--bg-raised);color:var(--text-1)}
+/* reopen button shown in .hdr when logs are closed */
+#btnLogsReopen{display:none;align-items:center;gap:5px}
+/* bottom-dock mode */
+.logs.dock-bottom{width:100%!important;max-width:none!important;min-width:0!important;flex-direction:column;border-left:none;border-top:1px solid var(--border-subtle)}
+.logs.dock-bottom .log-resize{left:0;right:0;top:0;bottom:auto;width:100%;height:6px;cursor:row-resize}
 </style>
 </head>
 <body>
@@ -330,23 +524,57 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
 
 <!-- Header -->
 <div class="hdr">
-  <div class="hdr-logo">◉ <span>DeviceSimulator</span></div>
+  <!-- Left group -->
+  <span class="hdr-brand">DeviceSimulator</span>
   <div class="hdr-sep"></div>
+  <nav aria-label="Breadcrumb" class="hdr-breadcrumb">
+    <a href="sim-settings.html">Tests</a>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    <span class="hdr-test-name" id="hdrTestName">—</span>
+  </nav>
   <div class="status-badge"><div class="dot dot-idle" id="sDot"></div><span id="sTxt">Idle</span></div>
-  <div class="hdr-sep"></div>
-  <span style="font-size:9px;color:var(--t2);letter-spacing:.06em;text-transform:uppercase">Region</span>
-  <select id="hdrRegion" class="inp" style="width:130px;font-size:11px" onchange="onHdrRegionChange(this.value)"></select>
-  <div id="hdrCross" style="display:none;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);cursor:pointer" onclick="focusDeviceSection()" title="Cross-region active — click to edit"></div>
+  <!-- Cross-region chip -->
+  <div id="hdrCross" onclick="focusDeviceSection()" title="Cross-region active — click to edit"></div>
   <div class="sp"></div>
-  <div class="tg-wrap"><span>DRY RUN</span><div class="tg" id="dryTg" onclick="this.classList.toggle('on');dry=this.classList.contains('on')"></div></div>
-  <div class="hdr-sep"></div>
-  <div class="btn-group" id="simCtrlGroup">
-    <button class="btn btn-go" id="btnGo" onclick="startSim()" title="Start simulation">▶ START</button>
-    <button class="btn btn-stop" id="btnStop" onclick="stopSim()" disabled title="Stop simulation">■ STOP</button>
-    <button class="btn btn-pause" id="btnPause" onclick="pauseSim()" disabled title="Pause / Resume">⏸ PAUSE</button>
+  <!-- Right group -->
+  <div class="hdr-region-wrap">
+    <span class="hdr-region-lbl">Region</span>
+    <div class="hdr-region-sel-wrap">
+      <select id="hdrRegion" onchange="onHdrRegionChange(this.value)"></select>
+      <svg class="hdr-region-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
   </div>
-  <button class="btn btn-ghost" onclick="resetSim()" title="Reset run state">↺ RESET</button>
-  <button class="btn btn-ghost" id="btnValView" onclick="toggleValView()" title="Compare SRC vs TGT">◎ Validate</button>
+  <button type="button" role="switch" aria-checked="false" class="dry-btn" onclick="(function(el){el.classList.toggle('on');dry=el.classList.contains('on');el.setAttribute('aria-checked',dry);})(this.querySelector('.tg')||this)">
+    Dry run
+    <div class="tg" id="dryTg" onclick="event.stopPropagation();this.classList.toggle('on');dry=this.classList.contains('on')"></div>
+  </button>
+  <div class="hdr-sep"></div>
+  <button class="hdr-btn" id="btnValView" onclick="toggleValView()" title="Compare SRC vs TGT">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16 10"/></svg>
+    <span class="btn-label">Validate</span>
+  </button>
+  <button class="hdr-btn" onclick="resetSim()" title="Reset run state">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg>
+    <span class="btn-label">Reset</span>
+  </button>
+  <div role="group" aria-label="Run controls" id="simCtrlGroup">
+    <button class="btn btn-pause" id="btnPause" onclick="pauseSim()" disabled title="Pause / Resume">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5v14M15 5v14"/></svg>
+      <span class="btn-label">Pause</span>
+    </button>
+    <button class="btn btn-stop" id="btnStop" onclick="stopSim()" disabled title="Stop simulation">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+      <span class="btn-label">Stop</span>
+    </button>
+  </div>
+  <button class="hdr-btn" id="btnLogsReopen" onclick="openLogs()" title="Show logs panel (Ctrl+`)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+    <span class="btn-label">Logs</span>
+  </button>
+  <button class="btn-go" id="btnGo" onclick="startSim()" title="Start simulation">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M7 4.5l13 7.5-13 7.5z"/></svg>
+    <span class="btn-label">Start run</span>
+  </button>
 </div>
 
 <div class="main">
@@ -355,85 +583,194 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
 <div class="sb">
   <div class="sb-hdr">
     <span class="sb-title">Tests</span>
-    <button class="icon-btn" title="New test" onclick="goNewTest()">+</button>
+    <button class="icon-btn" title="New test" onclick="goNewTest()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
   </div>
   <div class="test-list" id="testList"></div>
 
-  <!-- Config summary (read-only, from state) -->
+  <!-- Cosmetic tabs — scroll cfgSum to relevant section -->
+  <div class="sb-tabs" role="tablist" aria-label="Configuration sections">
+    <button class="sb-tab on" role="tab" aria-selected="true" onclick="sbTab(this,0)">Device</button>
+    <button class="sb-tab" role="tab" aria-selected="false" onclick="sbTab(this,1)">MQTT</button>
+    <button class="sb-tab sb-tab-cross" role="tab" aria-selected="false" onclick="sbTab(this,2)">
+      Fetch
+      <span class="sb-tab-cross-badge" id="sbTabCrossBadge" style="display:none">CROSS</span>
+    </button>
+  </div>
+
+  <!-- Config summary (rendered by JS into cfgSum) -->
   <div class="cfg-sum" id="cfgSum"></div>
-  <a class="cfg-edit-link" href="sim-settings.html">⚙ Edit in Settings →</a>
+  <a class="cfg-edit-link" href="sim-settings.html">Edit in Settings →</a>
 </div>
 
-<!-- Center metrics -->
+<!-- Center pipeline area -->
 <div class="pipe" id="simPipe">
-  <div class="ring-section">
+
+  <!-- Run status card -->
+  <section class="run-status-card" aria-label="Run status">
+    <!-- Progress ring -->
     <div class="ring-wrap">
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r="55" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 8" opacity=".5"/>
-        <circle cx="60" cy="60" r="46" fill="none" stroke="var(--border)" stroke-width="7"/>
-        <circle id="ringArc" cx="60" cy="60" r="46" fill="none" stroke="var(--blue)" stroke-width="7"
+      <svg width="108" height="108" viewBox="0 0 108 108" aria-hidden="true">
+        <circle cx="54" cy="54" r="46" fill="none" stroke="var(--border)" stroke-width="8"/>
+        <circle cx="54" cy="54" r="46" fill="none" stroke="var(--border-strong)" stroke-width="1" stroke-dasharray="2 6"/>
+        <circle id="ringArc" cx="54" cy="54" r="46" fill="none" stroke="var(--accent)" stroke-width="8"
           stroke-dasharray="289" stroke-dashoffset="289" stroke-linecap="round"
-          transform="rotate(-90,60,60)"
-          style="transition:stroke-dashoffset .1s linear;filter:drop-shadow(0 0 5px rgba(167,139,250,.6))"/>
-        <text id="ringPct" x="60" y="57" text-anchor="middle" dominant-baseline="middle"
-          font-size="18" font-weight="800" fill="var(--t0)" font-family="'SF Mono',Consolas,monospace">0%</text>
-        <text x="60" y="72" text-anchor="middle" font-size="8" fill="var(--t2)" font-family="-apple-system,sans-serif" letter-spacing="1">overall</text>
+          transform="rotate(-90,54,54)"
+          style="transition:stroke-dashoffset .1s linear;filter:drop-shadow(0 0 4px rgba(46,196,182,.5))"/>
       </svg>
+      <div class="ring-center">
+        <span class="ring-pct-txt" id="ringPct">0%</span>
+        <span class="ring-overall-lbl">overall</span>
+      </div>
     </div>
-    <div class="ring-divider"></div>
+    <!-- Timer + phase -->
     <div class="ring-info">
-      <div><div class="ring-elapsed-lbl">Elapsed</div><div class="ring-elapsed" id="ringElapsed">00:00.0</div></div>
-      <div><div class="ring-phase-lbl">Phase</div><div class="ring-phase-badge" id="ringPhase"><span class="ring-phase-dot"></span>Idle</div></div>
+      <span class="ring-elapsed-lbl">Elapsed</span>
+      <span class="ring-elapsed" id="ringElapsed">00:00.0</span>
+      <div class="ring-phase-row">
+        Phase
+        <div class="ring-phase-badge" id="ringPhase"><span class="ring-phase-dot"></span>Idle</div>
+      </div>
     </div>
-    <div class="ring-divider"></div>
-    <div class="ring-stats-mini">
-      <div class="ptitle" style="margin-bottom:3px">Live metrics</div>
-      <div class="rsm-item"><span style="color:var(--blue);min-width:54px">Packets</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmPkts" style="background:var(--blue)"></div></div><span id="rmPktsLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
-      <div class="rsm-item"><span style="color:var(--purple);min-width:54px">Historic</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmHist" style="background:var(--purple)"></div></div><span id="rmHistLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
-      <div class="rsm-item"><span style="color:var(--green);min-width:54px">Live GPS</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmGps" style="background:var(--green)"></div></div><span id="rmGpsLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
-      <div class="rsm-item"><span style="color:var(--orange);min-width:54px">Live OBD</span><div class="rsm-bar-wrap"><div class="rsm-bar-fill" id="rmObd" style="background:var(--orange)"></div></div><span id="rmObdLbl" style="font-family:monospace;color:var(--t1);min-width:34px;text-align:right">0</span></div>
+    <!-- Summary -->
+    <div class="run-status-summary">
+      <div class="rss-row"><span class="rss-lbl">Route</span><span class="rss-val" id="sumRoute">—</span></div>
+      <div class="rss-row"><span class="rss-lbl">Window</span><span class="rss-val" id="sumWindow">—</span></div>
+      <div class="rss-row"><span class="rss-lbl">History end</span><span class="rss-val" id="sumHistEnd">—</span></div>
     </div>
-  </div>
+  </section>
 
-  <div><div class="ptitle">Counters</div>
-    <div class="metrics-grid">
-      <div class="mc"><div class="mc-top"><div class="mc-num b" id="stPkts">0</div><span class="mc-icon" style="color:var(--blue)">📦</span></div><div class="mc-lbl">Total Packets</div><div class="mc-sub">OBD + GPS fetched</div><div class="mc-bar"><div class="mc-bar-fill b" id="mcPkts"></div></div></div>
-      <div class="mc"><div class="mc-top"><div class="mc-num p" id="stHist">0</div><span class="mc-icon" style="color:var(--purple)">🗂</span></div><div class="mc-lbl">Historic</div><div class="mc-sub">Before history-end</div><div class="mc-bar"><div class="mc-bar-fill p" id="mcHist"></div></div></div>
-      <div class="mc"><div class="mc-top"><div class="mc-num g" id="stGps">0</div><span class="mc-icon" style="color:var(--green)">📡</span></div><div class="mc-lbl">Live GPS</div><div class="mc-sub">Phase 1 &amp; 2</div><div class="mc-bar"><div class="mc-bar-fill g" id="mcGps"></div></div></div>
-      <div class="mc"><div class="mc-top"><div class="mc-num o" id="stObd">0</div><span class="mc-icon" style="color:var(--orange)">⚙</span></div><div class="mc-lbl">Live OBD</div><div class="mc-sub">Phase 1 accumulate</div><div class="mc-bar"><div class="mc-bar-fill o" id="mcObd"></div></div></div>
-    </div>
-  </div>
+  <!-- Hidden legacy live-metrics bar IDs (JS writes to these; keeping them avoids errors) -->
+  <span id="rmPkts" style="display:none"></span>
+  <span id="rmHist" style="display:none"></span>
+  <span id="rmGps" style="display:none"></span>
+  <span id="rmObd" style="display:none"></span>
+  <span id="rmPktsLbl" style="display:none"></span>
+  <span id="rmHistLbl" style="display:none"></span>
+  <span id="rmGpsLbl" style="display:none"></span>
+  <span id="rmObdLbl" style="display:none"></span>
 
-  <div><div class="ptitle">Pipeline Steps</div>
-    <div class="steps-row">
-      <div class="step" id="cFetch"><div class="sh"><span style="color:var(--blue)">⬇</span><span class="sn" style="color:var(--blue)">Fetch</span><span class="ss p" id="sFetch">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pFetch"></div></div><div class="si" id="iFetch">Pages: <strong>—</strong></div></div>
-      <div class="arr">›</div>
-      <div class="step" id="cSplit"><div class="sh"><span style="color:var(--purple)">⟋</span><span class="sn" style="color:var(--purple)">Split</span><span class="ss p" id="sSplit">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pSplit"></div></div><div class="si" id="iSplit">Hist/Live: <strong>—</strong></div></div>
-      <div class="arr">›</div>
-      <div class="step" id="cBatch"><div class="sh"><span style="color:var(--orange)">🗄</span><span class="sn" style="color:var(--orange)">Batch</span><span class="ss p" id="sBatch">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pBatch"></div></div><div class="si" id="iBatch">Files: <strong>—</strong></div></div>
-      <div class="arr">›</div>
-      <div class="step" id="cMqtt"><div class="sh"><span style="color:var(--yellow)">⚡</span><span class="sn" style="color:var(--yellow)">MQTT</span><span class="ss p" id="sMqtt">Pending</span></div><div class="sp-bar"><div class="sp-fill" id="pMqtt"></div></div><div class="si" id="iMqtt">Broker: <strong>—</strong></div></div>
+  <!-- Counters -->
+  <section aria-labelledby="counters-lbl">
+    <div class="sec-label" id="counters-lbl">Counters</div>
+    <div class="counters-grid">
+      <!-- Total packets -->
+      <div class="ctr-tile">
+        <div class="ctr-hdr">
+          <span class="ctr-name"><span class="ctr-sq" style="background:var(--data-packets)"></span>Total packets</span>
+          <svg class="ctr-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/></svg>
+        </div>
+        <span class="ctr-num" id="stPkts" style="color:var(--data-packets)">0</span>
+        <span class="ctr-sub">OBD + GPS fetched</span>
+        <span class="ctr-bar"><span class="ctr-bar-fill" id="mcPkts" style="background:var(--data-packets)"></span></span>
+      </div>
+      <!-- Historic -->
+      <div class="ctr-tile">
+        <div class="ctr-hdr">
+          <span class="ctr-name"><span class="ctr-sq" style="background:var(--data-historic)"></span>Historic</span>
+          <svg class="ctr-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4M12 8v4l3 2"/></svg>
+        </div>
+        <span class="ctr-num" id="stHist" style="color:var(--data-historic)">0</span>
+        <span class="ctr-sub">Before history-end</span>
+        <span class="ctr-bar"><span class="ctr-bar-fill" id="mcHist" style="background:var(--data-historic)"></span></span>
+      </div>
+      <!-- Live GPS -->
+      <div class="ctr-tile">
+        <div class="ctr-hdr">
+          <span class="ctr-name"><span class="ctr-sq" style="background:var(--data-gps)"></span>Live GPS</span>
+          <svg class="ctr-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>
+        </div>
+        <span class="ctr-num" id="stGps" style="color:var(--data-gps)">0</span>
+        <span class="ctr-sub">Phase 1 &amp; 2</span>
+        <span class="ctr-bar"><span class="ctr-bar-fill" id="mcGps" style="background:var(--data-gps)"></span></span>
+      </div>
+      <!-- Live OBD -->
+      <div class="ctr-tile">
+        <div class="ctr-hdr">
+          <span class="ctr-name"><span class="ctr-sq" style="background:var(--data-obd)"></span>Live OBD</span>
+          <svg class="ctr-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/></svg>
+        </div>
+        <span class="ctr-num" id="stObd" style="color:var(--data-obd)">0</span>
+        <span class="ctr-sub">Phase 1 accumulate</span>
+        <span class="ctr-bar"><span class="ctr-bar-fill" id="mcObd" style="background:var(--data-obd)"></span></span>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- Pipeline steps -->
+  <section aria-labelledby="pipeline-lbl">
+    <div class="sec-label" id="pipeline-lbl">Pipeline</div>
+    <ol class="steps-ol">
+      <li class="step" id="cFetch">
+        <div class="sh">
+          <span class="step-num">01</span>
+          <span class="ss p" id="sFetch">Pending</span>
+        </div>
+        <span class="sn-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 19h14"/></svg>
+          <span class="sn">Fetch</span>
+        </span>
+        <div class="sp-bar"><div class="sp-fill" id="pFetch"></div></div>
+        <div class="si" id="iFetch">Pages: <strong>—</strong></div>
+      </li>
+      <li class="step" id="cSplit">
+        <div class="sh">
+          <span class="step-num">02</span>
+          <span class="ss p" id="sSplit">Pending</span>
+        </div>
+        <span class="sn-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h6l4-6h6M10 12l4 6h6"/></svg>
+          <span class="sn">Split</span>
+        </span>
+        <div class="sp-bar"><div class="sp-fill" id="pSplit"></div></div>
+        <div class="si" id="iSplit">Hist/Live: <strong>—</strong></div>
+      </li>
+      <li class="step" id="cBatch">
+        <div class="sh">
+          <span class="step-num">03</span>
+          <span class="ss p" id="sBatch">Pending</span>
+        </div>
+        <span class="sn-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/></svg>
+          <span class="sn">Batch</span>
+        </span>
+        <div class="sp-bar"><div class="sp-fill" id="pBatch"></div></div>
+        <div class="si" id="iBatch">Files: <strong>—</strong></div>
+      </li>
+      <li class="step" id="cMqtt">
+        <div class="sh">
+          <span class="step-num">04</span>
+          <span class="ss p" id="sMqtt">Pending</span>
+        </div>
+        <span class="sn-row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg>
+          <span class="sn">MQTT</span>
+        </span>
+        <div class="sp-bar"><div class="sp-fill" id="pMqtt"></div></div>
+        <div class="si" id="iMqtt">Broker: <strong>—</strong></div>
+      </li>
+    </ol>
+  </section>
 
   <!-- Fetch-only mode download card -->
   <div class="fetch-dl" id="fetchDlCard">
     <div class="fetch-dl-hdr">
-      <span style="font-size:13px">↓</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 19h14"/></svg>
       <span class="fetch-dl-title">Download Fetched Data</span>
       <span class="fetch-dl-badge" id="fetchDlBadge">0 packets</span>
     </div>
     <div class="fetch-stat-row">
-      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--blue)" id="fdTotal">0</div><div class="fetch-stat-lbl">Total</div></div>
-      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--green)" id="fdGPS">0</div><div class="fetch-stat-lbl">GPS</div></div>
-      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--orange)" id="fdOBD">0</div><div class="fetch-stat-lbl">OBD</div></div>
-      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--t2)" id="fdOther">0</div><div class="fetch-stat-lbl">Other</div></div>
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--data-packets)" id="fdTotal">0</div><div class="fetch-stat-lbl">Total</div></div>
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--data-gps)" id="fdGPS">0</div><div class="fetch-stat-lbl">GPS</div></div>
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--data-obd)" id="fdOBD">0</div><div class="fetch-stat-lbl">OBD</div></div>
+      <div class="fetch-stat"><div class="fetch-stat-val" style="color:var(--text-3)" id="fdOther">0</div><div class="fetch-stat-lbl">Other</div></div>
     </div>
-    <div class="fetch-dl-row" style="margin-bottom:8px">
+    <div class="fetch-dl-row" style="margin-bottom:10px">
       <span class="fetch-dl-lbl">Filter</span>
-      <button class="fetch-chip on" id="fdAll"   onclick="setFdFilter('all',this)">ALL</button>
-      <button class="fetch-chip"    id="fdGpsBtn" onclick="setFdFilter('gps',this)">GPS</button>
-      <button class="fetch-chip"    id="fdObdBtn" onclick="setFdFilter('obd',this)">OBD</button>
+      <button class="fetch-chip on" id="fdAll"    onclick="setFdFilter('all',this)">ALL</button>
+      <button class="fetch-chip"   id="fdGpsBtn"  onclick="setFdFilter('gps',this)">GPS</button>
+      <button class="fetch-chip"   id="fdObdBtn"  onclick="setFdFilter('obd',this)">OBD</button>
       <div class="fetch-dl-sep"></div>
       <span class="fetch-dl-lbl">Format</span>
       <button class="fetch-chip fmt on" id="fdJson"  onclick="setFdFmt('json',this)">JSON</button>
@@ -441,47 +778,117 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
       <button class="fetch-chip fmt"    id="fdCsv"   onclick="setFdFmt('csv',this)">CSV</button>
     </div>
     <div class="fetch-dl-row">
-      <button class="btn btn-go" style="font-size:10px;padding:5px 14px" onclick="downloadFetchedData()">↓ Download</button>
-      <span style="font-size:9px;color:var(--t2);margin-left:4px" id="fdHint">Select filter &amp; format then download</span>
+      <button class="btn-go" style="font-size:12px;height:32px;padding:0 14px" onclick="downloadFetchedData()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10M8 10l4 4 4-4M5 19h14"/></svg>
+        Download
+      </button>
+      <span style="font-size:12px;color:var(--text-3)" id="fdHint">Select filter &amp; format then download</span>
     </div>
   </div>
 
-  <div class="ph" id="ph1">
-    <div class="ph-hdr"><span>⟳</span><span class="ph-title">Phase 1</span><span class="ph-sub">— concurrent streams</span><div class="ph-badge" id="ph1Badge">Pending</div></div>
+  <!-- Phase 1 card -->
+  <section class="ph" id="ph1" aria-labelledby="ph1-title">
+    <div class="ph-hdr">
+      <div class="ph-title-row">
+        <h2 id="ph1-title" style="margin:0;font-size:14px;font-weight:600">Phase 1</h2>
+        <span class="ph-sub">Concurrent streams</span>
+      </div>
+      <span class="ph-badge" id="ph1Badge">Pending</span>
+    </div>
     <div class="streams">
-      <div class="st" id="stA"><div class="st-hdr"><div class="badge-circle ba">A</div><span class="st-lbl">Historic Upload</span></div><div class="st-prog"><div class="st-fill fa" id="pA"></div></div><div class="st-stat" id="iA">Batch <strong>0</strong> / <strong id="totB">—</strong></div><div class="st-detail" id="dA">seq-id:1 · encrypted</div></div>
-      <div class="st" id="stB"><div class="st-hdr"><div class="badge-circle bb">B</div><span class="st-lbl">GPS L1 MQTT</span></div><div class="st-prog"><div class="st-fill fb" id="pB"></div></div><div class="st-stat" id="iB">Published: <strong>0</strong></div><div class="st-detail">topic: TARGET/obd · l:"1"</div></div>
-      <div class="st" id="stC"><div class="st-hdr"><div class="badge-circle bc">C</div><span class="st-lbl">OBD Accumulation</span></div><div class="st-prog"><div class="st-fill fc" id="pC"></div></div><div class="st-stat" id="iC">Rows: <strong>0</strong></div><div class="st-detail">live_obd_TARGET.db</div></div>
+      <div class="st" id="stA">
+        <div class="st-hdr"><div class="badge-circle ba">A</div><span class="st-lbl">Historic upload</span></div>
+        <div class="st-prog"><div class="st-fill fa" id="pA"></div></div>
+        <div class="st-stat" id="iA">Batch <strong>0</strong> / <strong id="totB">—</strong></div>
+        <div class="st-detail" id="dA">seq-id:1 · encrypted</div>
+        <div id="stAstat" style="display:none"></div>
+        <div id="stAdetail" style="display:none"></div>
+        <div id="stAfill" style="display:none"></div>
+      </div>
+      <div class="st" id="stB">
+        <div class="st-hdr"><div class="badge-circle bb">B</div><span class="st-lbl">GPS L1 MQTT</span></div>
+        <div class="st-prog"><div class="st-fill fb" id="pB"></div></div>
+        <div class="st-stat" id="iB">Published: <strong>0</strong></div>
+        <div class="st-detail">topic: TARGET/obd · l:"1"</div>
+        <div id="stBstat" style="display:none"></div>
+        <div id="stBdetail" style="display:none"></div>
+        <div id="stBfill" style="display:none"></div>
+      </div>
+      <div class="st" id="stC">
+        <div class="st-hdr"><div class="badge-circle bc">C</div><span class="st-lbl">OBD accumulation</span></div>
+        <div class="st-prog"><div class="st-fill fc" id="pC"></div></div>
+        <div class="st-stat" id="iC">Rows: <strong>0</strong></div>
+        <div class="st-detail">live_obd_TARGET.db</div>
+        <div id="stCstat" style="display:none"></div>
+        <div id="stCdetail" style="display:none"></div>
+        <div id="stCfill" style="display:none"></div>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <div class="ph" id="ph2">
-    <div class="ph-hdr"><span>▶</span><span class="ph-title">Phase 2</span><span class="ph-sub">— sequential</span><div class="ph-badge" id="ph2Badge">Pending</div></div>
-    <div class="streams">
-      <div class="st" id="p2Up"><div class="st-hdr"><div class="badge-circle" style="background:var(--green)">↑</div><span class="st-lbl">OBD Upload</span></div><div class="st-prog"><div class="st-fill fg2" id="pP2U"></div></div><div class="st-stat" id="iP2U">live_obd_<strong id="p2Imei">—</strong>.db</div><div class="st-detail">Accumulated in Phase 1</div></div>
-      <div class="st" id="p2Str" style="flex:2"><div class="st-hdr"><div class="badge-circle" style="background:var(--blue)">⟳</div><span class="st-lbl">Normal Mode Streaming</span></div><div class="st-prog"><div class="st-fill fblue" id="pP2S"></div></div><div class="st-stat" id="iP2S">Published: <strong>0</strong> / <strong id="p2Tot">—</strong></div><div class="p2-split" style="display:flex;gap:8px;margin:3px 0;font-size:11px"><div class="p2-box" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 7px"><div style="color:var(--green);font-weight:600;font-size:10px;letter-spacing:.5px;margin-bottom:2px">GPS</div><div style="color:var(--t0)">Sent <strong id="p2GpsSent">0</strong>/<strong id="p2GpsTot">—</strong></div><div style="color:var(--t2)">Rem <strong id="p2GpsRem">—</strong></div></div><div class="p2-box" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 7px"><div style="color:var(--orange);font-weight:600;font-size:10px;letter-spacing:.5px;margin-bottom:2px">OBD</div><div style="color:var(--t0)">Sent <strong id="p2ObdSent">0</strong>/<strong id="p2ObdTot">—</strong></div><div style="color:var(--t2)">Rem <strong id="p2ObdRem">—</strong></div></div></div><div class="st-detail" id="p2NormalInterval">GPS + OBD · 60s interval</div></div>
+  <!-- Phase 2 card -->
+  <section class="ph" id="ph2" aria-label="Phase 2">
+    <button type="button" class="ph2-btn" aria-expanded="false" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true')">
+      <span class="ph2-title-row">
+        <svg class="ph2-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        Phase 2
+        <span class="ph-sub">Sequential</span>
+      </span>
+      <span class="ph-badge" id="ph2Badge">Pending</span>
+    </button>
+    <div class="streams" style="display:none">
+      <div class="st" id="p2Up">
+        <div class="st-hdr"><div class="badge-circle" style="background:var(--success-bg);color:var(--success-fg)">↑</div><span class="st-lbl">OBD Upload</span></div>
+        <div class="st-prog"><div class="st-fill fg2" id="pP2U"></div></div>
+        <div class="st-stat" id="iP2U">live_obd_<strong id="p2Imei">—</strong>.db</div>
+        <div class="st-detail">Accumulated in Phase 1</div>
+      </div>
+      <div class="st" id="p2Str" style="flex:2">
+        <div class="st-hdr"><div class="badge-circle" style="background:var(--accent-soft-bg);color:var(--accent-soft-fg)">⟳</div><span class="st-lbl">Normal Mode Streaming</span></div>
+        <div class="st-prog"><div class="st-fill fblue" id="pP2S"></div></div>
+        <div class="st-stat" id="iP2S">Published: <strong>0</strong> / <strong id="p2Tot">—</strong></div>
+        <div class="p2-split" style="display:flex;gap:8px;margin:4px 0;font-size:12px">
+          <div class="p2-box" style="flex:1;background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:6px;padding:5px 8px">
+            <div style="color:var(--data-gps);font-weight:600;font-size:11px;letter-spacing:.5px;margin-bottom:3px">GPS</div>
+            <div style="color:var(--text-1)">Sent <strong id="p2GpsSent">0</strong>/<strong id="p2GpsTot">—</strong></div>
+            <div style="color:var(--text-3)">Rem <strong id="p2GpsRem">—</strong></div>
+          </div>
+          <div class="p2-box" style="flex:1;background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:6px;padding:5px 8px">
+            <div style="color:var(--data-obd);font-weight:600;font-size:11px;letter-spacing:.5px;margin-bottom:3px">OBD</div>
+            <div style="color:var(--text-1)">Sent <strong id="p2ObdSent">0</strong>/<strong id="p2ObdTot">—</strong></div>
+            <div style="color:var(--text-3)">Rem <strong id="p2ObdRem">—</strong></div>
+          </div>
+        </div>
+        <div class="st-detail" id="p2NormalInterval">GPS + OBD · 60s interval</div>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- MQTT Direct mode publish card (shown instead of Phase 1/2) -->
+  <!-- MQTT Direct mode publish card -->
   <div class="ph" id="mqttDirectCard" style="display:none">
-    <div class="ph-hdr"><span>⚡</span><span class="ph-title">MQTT Direct</span><span class="ph-sub">— one packet at a time</span><div class="ph-badge" id="mqttDirectBadge">Pending</div></div>
+    <div class="ph-hdr">
+      <div class="ph-title-row">
+        <h2 style="margin:0;font-size:14px;font-weight:600">MQTT Direct</h2>
+        <span class="ph-sub">one packet at a time</span>
+      </div>
+      <span class="ph-badge" id="mqttDirectBadge">Pending</span>
+    </div>
     <div class="streams">
       <div class="st" id="mdGps">
-        <div class="st-hdr"><div class="badge-circle" style="background:var(--green)">G</div><span class="st-lbl">GPS</span></div>
-        <div class="st-prog"><div class="st-fill" style="background:var(--green)" id="mdGpsFill"></div></div>
+        <div class="st-hdr"><div class="badge-circle bb">G</div><span class="st-lbl">GPS</span></div>
+        <div class="st-prog"><div class="st-fill fb" id="mdGpsFill"></div></div>
         <div class="st-stat" id="mdGpsStat">Published: <strong>0</strong> / <strong id="mdGpsTotal">—</strong></div>
         <div class="st-detail" id="mdGpsInterval">interval: —</div>
       </div>
       <div class="st" id="mdObd">
-        <div class="st-hdr"><div class="badge-circle" style="background:var(--orange)">O</div><span class="st-lbl">OBD</span></div>
-        <div class="st-prog"><div class="st-fill" style="background:var(--orange)" id="mdObdFill"></div></div>
+        <div class="st-hdr"><div class="badge-circle bc">O</div><span class="st-lbl">OBD</span></div>
+        <div class="st-prog"><div class="st-fill fc" id="mdObdFill"></div></div>
         <div class="st-stat" id="mdObdStat">Published: <strong>0</strong> / <strong id="mdObdTotal">—</strong></div>
         <div class="st-detail" id="mdObdInterval">interval: —</div>
       </div>
       <div class="st" id="mdErr">
-        <div class="st-hdr"><div class="badge-circle" style="background:var(--red)">!</div><span class="st-lbl">Errors</span></div>
-        <div class="st-prog"><div class="st-fill" style="background:var(--red)" id="mdErrFill"></div></div>
+        <div class="st-hdr"><div class="badge-circle" style="background:var(--error-bg);color:var(--error-fg)">!</div><span class="st-lbl">Errors</span></div>
+        <div class="st-prog"><div class="st-fill" style="background:var(--status-error)" id="mdErrFill"></div></div>
         <div class="st-stat" id="mdErrStat">Errors: <strong>0</strong></div>
         <div class="st-detail">auto-reconnect on drop</div>
       </div>
@@ -489,7 +896,7 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
   </div>
 
   <div class="elapsed-bar" id="elapsed"></div>
-</div>
+</div><!-- end .pipe -->
 
 <!-- Main-panel validation view -->
 <div id="valView" style="flex:1;flex-direction:column;overflow:hidden;display:none">
@@ -500,7 +907,7 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
     <div class="sp"></div>
     <div class="val-spinner" id="valSpinner"></div>
     <button class="val-btn" id="valBtn" onclick="runValidation()">▶ Check</button>
-    <span class="val-last" id="valLastChecked" style="font-size:9px;color:var(--t2);margin-left:4px"></span>
+    <span class="val-last" id="valLastChecked" style="font-size:11px;color:var(--text-3);margin-left:6px"></span>
   </div>
   <div class="vv-body">
     <div class="val-cfg-row" id="valCfgRow"></div>
@@ -518,36 +925,36 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
       </div>
       <div class="vd-panel on" id="vdPanel0">
         <div class="vd-legend">
-          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--blue)"></div>SRC</div>
+          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--accent)"></div>SRC</div>
           <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--purple)"></div>TGT</div>
         </div>
         <table class="vd-cmp">
-          <thead><tr><th></th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th><th>Δ</th></tr></thead>
+          <thead><tr><th></th><th style="color:var(--accent)">SRC</th><th style="color:var(--purple)">TGT</th><th>Δ</th></tr></thead>
           <tbody id="vdSummaryBody"></tbody>
         </table>
       </div>
       <div class="vd-panel" id="vdPanel1">
         <div class="vd-legend">
-          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--blue)"></div>SRC</div>
+          <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--accent)"></div>SRC</div>
           <div class="vd-leg-item"><div class="vd-leg-dot" style="background:var(--purple)"></div>TGT</div>
         </div>
         <table class="vd-cmp">
-          <thead><tr><th>Alert Type</th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th><th>Δ</th></tr></thead>
+          <thead><tr><th>Alert Type</th><th style="color:var(--accent)">SRC</th><th style="color:var(--purple)">TGT</th><th>Δ</th></tr></thead>
           <tbody id="vdAlertBody"></tbody>
         </table>
       </div>
       <div class="vd-panel" id="vdPanel2">
         <div>
-          <div class="vd-sub-hdr" style="color:var(--red)">● Active DTCs</div>
+          <div class="vd-sub-hdr" style="color:var(--status-error)">● Active DTCs</div>
           <table class="vd-cmp">
-            <thead><tr><th>Code</th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th></tr></thead>
+            <thead><tr><th>Code</th><th style="color:var(--accent)">SRC</th><th style="color:var(--purple)">TGT</th></tr></thead>
             <tbody id="vdDtcActiveBody"></tbody>
           </table>
         </div>
         <div>
-          <div class="vd-sub-hdr" style="color:var(--yellow)">○ Inactive DTCs</div>
+          <div class="vd-sub-hdr" style="color:var(--status-warn)">○ Inactive DTCs</div>
           <table class="vd-cmp">
-            <thead><tr><th>Code</th><th style="color:var(--blue)">SRC</th><th style="color:var(--purple)">TGT</th></tr></thead>
+            <thead><tr><th>Code</th><th style="color:var(--accent)">SRC</th><th style="color:var(--purple)">TGT</th></tr></thead>
             <tbody id="vdDtcInactiveBody"></tbody>
           </table>
         </div>
@@ -561,39 +968,180 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
         <span class="val-sec-ch" id="valLogCh">▶</span>
       </div>
       <div class="val-sec-body" id="valLogBody" style="display:none;padding:6px 8px">
-        <pre id="valLogPre" style="margin:0;font-size:9px;color:var(--t1);white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;line-height:1.5"></pre>
+        <pre id="valLogPre" style="margin:0;font-size:11px;color:var(--text-2);white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;line-height:1.5"></pre>
       </div>
     </div>
   </div>
 </div>
 
 <!-- Right panel: LOGS -->
-<div class="logs">
+<div class="logs" id="logsPanel2">
+  <div class="log-resize" id="logResize" title="Drag to resize · double-click to reset"></div>
   <div class="log-hdr">
-    <span class="log-title">Logs</span>
-    <div class="log-hdr-right" id="logHdrRight">
-      <span class="log-count" id="logCount" title="Entries shown / max before auto-trim">0</span>
-      <div class="pills">
-        <span class="pill on" id="pAll" onclick="filt('all',this)">ALL</span>
-        <span class="pill" id="pInfo" onclick="filt('info',this)">INFO</span>
-        <span class="pill" id="pWarn" onclick="filt('warn',this)">WARN</span>
-        <span class="pill" id="pErr" onclick="filt('err',this)">ERR</span>
-      </div>
-      <span class="clr" onclick="clearLog()" title="Clear all logs">✕</span>
+    <div class="rp-tabs">
+      <span class="rp-tab on" onclick="switchRpTab('logs')">Logs&thinsp;<span class="log-count" id="logCount">0</span></span>
+      <span class="rp-tab" onclick="switchRpTab('validate')">Validate</span>
     </div>
+    <span class="sp"></span>
+    <span class="clr" onclick="clearLog()" title="Clear all logs">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </span>
+    <button class="log-dock-btn" id="btnLogDock" onclick="toggleLogDock()" title="Toggle dock position (Right / Bottom)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18"/></svg>
+    </button>
+    <button class="log-close-btn" id="btnLogsClose" onclick="closeLogs()" title="Hide logs panel (Ctrl+`)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7M5 12h15"/></svg>
+    </button>
   </div>
   <!-- LOGS panel -->
   <div id="logsPanel" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
-    <div class="log-body" id="logBody"></div>
+    <div class="log-controls">
+      <div role="group" aria-label="Filter by level" class="pills">
+        <button class="pill on" id="pAll"  onclick="filt('all',this)">All</button>
+        <button class="pill"    id="pInfo" onclick="filt('info',this)">Info</button>
+        <button class="pill"    id="pWarn" onclick="filt('warn',this)">Warn</button>
+        <button class="pill"    id="pErr"  onclick="filt('err',this)">Error</button>
+      </div>
+      <div class="log-search-wrap">
+        <label for="logSearch" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Filter log messages</label>
+        <svg class="log-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+        <input type="search" id="logSearch" placeholder="Filter messages">
+      </div>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-empty">
+        <span class="log-empty-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7l5 5-5 5M12 18h7"/></svg>
+        </span>
+        <span class="log-empty-title">No log output yet</span>
+        <span class="log-empty-sub">Entries stream here as soon as the run starts.</span>
+      </div>
+    </div>
     <div class="log-ftr">
-      <button class="xbtn" onclick="xport('txt')">↓ .txt</button>
-      <button class="xbtn" onclick="xport('json')">↓ .json</button>
-      <button class="xbtn" onclick="xport('csv')">↓ .csv</button>
+      <span class="log-ftr-lbl">Export</span>
+      <button class="xbtn" onclick="xport('txt')">.txt</button>
+      <button class="xbtn" onclick="xport('json')">.json</button>
+      <button class="xbtn" onclick="xport('csv')">.csv</button>
     </div>
   </div>
 </div>
 </div><!-- end .main -->
 </div><!-- end .app-wrap -->
+
+<script>
+// ── Sidebar tabs (cosmetic scroll) ────────────────────────────
+function sbTab(el, idx) {
+  document.querySelectorAll('.sb-tab').forEach(function(t,i){
+    t.classList.toggle('on', i === idx);
+    t.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+  });
+  var sum = document.getElementById('cfgSum');
+  if (!sum) return;
+  var secs = sum.querySelectorAll('.cs-sec');
+  // idx 0=Device(first), 1=MQTT(second if exists), 2=Fetch
+  var target = secs[idx] || secs[0];
+  if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+// ── logSearch wire ─────────────────────────────────────────────
+var logSearchQ = '';
+document.addEventListener('DOMContentLoaded', function() {
+  var ls = document.getElementById('logSearch');
+  if (ls) ls.addEventListener('input', function() {
+    logSearchQ = this.value.toLowerCase();
+    // re-render log body honoring both filter and search
+    var b = document.getElementById('logBody');
+    if (b) { b.innerHTML = ''; if (typeof logs !== 'undefined') logs.forEach(function(e){ renderEntry(e); }); }
+    if (typeof _updateLogCount === 'function') _updateLogCount();
+  });
+  // Update cross badge on tabs when cfgSum re-renders
+  var obs = typeof MutationObserver !== 'undefined' ? new MutationObserver(function() {
+    var t = typeof activeTest !== 'undefined' ? activeTest : null;
+    var badge = document.getElementById('sbTabCrossBadge');
+    if (!badge || !t) return;
+    var srcKey = t.srcRegionKey || (typeof SimState !== 'undefined' ? SimState.getActiveRegionKey() : '');
+    var tgtKey = t.regionKey || (typeof SimState !== 'undefined' ? SimState.getActiveRegionKey() : '');
+    badge.style.display = (srcKey && tgtKey && srcKey !== tgtKey) ? '' : 'none';
+  }) : null;
+  var cfgSum = document.getElementById('cfgSum');
+  if (obs && cfgSum) obs.observe(cfgSum, { childList: true, subtree: false });
+});
+
+// ── hdrTestName + sumRoute/sumWindow/sumHistEnd wires ──────────
+// These are called after renderCfgSummary / renderTestList to keep header in sync
+var _origRenderTestList, _origRenderCfgSummary;
+document.addEventListener('DOMContentLoaded', function() {
+  // Patch renderCfgSummary to also update summary rows
+  if (typeof renderCfgSummary === 'function') {
+    var _orig = renderCfgSummary;
+    window.renderCfgSummary = function() {
+      _orig.apply(this, arguments);
+      _updateHeaderExtras();
+    };
+  }
+  if (typeof renderTestList === 'function') {
+    var _orig2 = renderTestList;
+    window.renderTestList = function() {
+      _orig2.apply(this, arguments);
+      _updateHdrTestName();
+    };
+  }
+});
+
+function _updateHdrTestName() {
+  var el = document.getElementById('hdrTestName');
+  if (!el) return;
+  var t = typeof activeTest !== 'undefined' ? activeTest : null;
+  el.textContent = (t && t.name) ? t.name : '—';
+}
+
+function _updateHeaderExtras() {
+  _updateHdrTestName();
+  var t = typeof activeTest !== 'undefined' ? activeTest : null;
+  var r = typeof activeRegion !== 'undefined' ? activeRegion : null;
+  if (!t || !r) return;
+  var srcR = (typeof SimState !== 'undefined') ? (SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r) : r;
+  // Route
+  var routeEl = document.getElementById('sumRoute');
+  if (routeEl) {
+    var srcLbl = srcR.label || srcR.key || 'SRC';
+    var tgtLbl = r.label || r.key || 'TGT';
+    routeEl.textContent = srcLbl + (srcR !== r ? ' → ' + tgtLbl : '');
+  }
+  // Window
+  var windowEl = document.getElementById('sumWindow');
+  if (windowEl && t.from && t.until) {
+    var fmtDt = function(s) { var d = new Date(s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); };
+    windowEl.textContent = fmtDt(t.from) + ' → ' + fmtDt(t.until);
+  } else if (windowEl) {
+    windowEl.textContent = '—';
+  }
+  // History end
+  var histEl = document.getElementById('sumHistEnd');
+  if (histEl && t.histEnd) {
+    var d2 = new Date(t.histEnd);
+    histEl.textContent = isNaN(d2.getTime()) ? '—' : d2.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + d2.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  } else if (histEl) {
+    histEl.textContent = '—';
+  }
+}
+
+// Patch renderEntry to honour logSearchQ
+// This runs before the main script's renderEntry so we shadow it after load
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof renderEntry === 'function') {
+    var _origRE = renderEntry;
+    window.renderEntry = function(e) {
+      if (logSearchQ && !(e.msg || '').toLowerCase().includes(logSearchQ)) return;
+      _origRE.call(this, e);
+    };
+  }
+});
+
+// ph1/ph2 alias (JS references ph1/ph2 by ID; rename needed)
+// ph1 → phCard1 and ph2 → ph2Wrap done via IDs in the HTML.
+// The JS also calls g('ph1') and g('ph2'). We add alias elements:
+</script>
 
 <script>
 // ── State bridge ──────────────────────────────────────────────
@@ -802,10 +1350,9 @@ function renderCfgSummary() {
       <div class="cs-body open">
         ${lfSel('Src Region', 'srcRegionKey', t.srcRegionKey || SimState.getActiveRegionKey(), _regionOpts)}
         ${lfIn('Src IMEI', 'srcImei', t.srcImei)}
-        ${lfSel('Tgt Region', 'regionKey', t.regionKey || SimState.getActiveRegionKey(), _regionOpts)}
         ${lfIn('Tgt IMEI', 'tgtImei', t.tgtImei)}
-        ${lfSel('Switch', 'mode', t.mode||'simulate', [['simulate','Simulate'],['pipeline','Pipeline'],['fetch','Fetch only'],['mqtt-pub','MQTT Direct']])}
-        ${lfTg('Connection', 'usePlainMqtt', !!t.usePlainMqtt, 'Secure (TLS)', 'Plain (TCP)')}
+        ${lfSel('Mode', 'mode', t.mode||'simulate', [['simulate','Simulate'],['pipeline','Pipeline'],['fetch','Fetch only'],['mqtt-pub','MQTT Direct']])}
+        ${lfTg('Plain MQTT', 'usePlainMqtt', !!t.usePlainMqtt, 'Off', 'On')}
         ${lfTg('Encrypt', 'encrypt', !!t.encrypt, 'Off', 'On')}
         ${lfTg('L1 Enrich', 'enrichL1', !!t.enrichL1, 'Off', 'On')}
         ${lfIn('From', 'from', t.from, 'datetime-local')}
@@ -1168,7 +1715,7 @@ function colorJson(obj){
   });
 }
 function _logLimit(){return Math.max(100, (SimState.getGlobal().maxLogEntries)||1000)}
-function _updateLogCount(){const el=g('logCount');if(el)el.textContent=logs.length+' / '+_logLimit()}
+function _updateLogCount(){const el=g('logCount');if(el)el.textContent=logs.length}
 function addLog(ts,tag,cls,msg,ty,rawData){
   const e={ts,tag,cls,msg,ty,rawData};logs.push(e);renderEntry(e);
   const limit=_logLimit();
@@ -1872,6 +2419,202 @@ async function clearTestState() {
     addLog('+  0.0s', 'SYS', 'er', 'Clear state failed: ' + String(err), 'err');
   }
 }
+
+// ── Log panel: resize, dock, open/close ───────────────────────
+(function() {
+  const ZOOM_STEPS = [0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5];
+  const DEFAULT_W = 420, DEFAULT_H = 280, MIN_W = 320, MIN_H = 160;
+
+  function _getPanel() { return document.getElementById('logsPanel2'); }
+  function _getMain()  { return document.querySelector('.main'); }
+  function _getWrap()  { return document.querySelector('.app-wrap'); }
+
+  function _persist(patch) {
+    if (typeof SimState === 'undefined') return;
+    SimState.setTheme(patch);
+  }
+
+  function _readPrefs() {
+    if (typeof SimState === 'undefined') return {};
+    return SimState.getTheme ? SimState.getTheme() : (SimState.getGlobal().theme || {});
+  }
+
+  // Apply saved dimensions to the panel
+  function _applyDimensions(panel, prefs, pos) {
+    if (pos === 'bottom') {
+      panel.style.height = (prefs.logHeight || DEFAULT_H) + 'px';
+      panel.style.width  = '';
+    } else {
+      panel.style.width  = (prefs.logWidth  || DEFAULT_W) + 'px';
+      panel.style.height = '';
+    }
+  }
+
+  function _setDock(pos) {
+    const panel = _getPanel();
+    const main  = _getMain();
+    const wrap  = _getWrap();
+    if (!panel || !main || !wrap) return;
+
+    const prefs = _readPrefs();
+    if (pos === 'bottom') {
+      panel.classList.add('dock-bottom');
+      // Move panel OUT of .main and AFTER it in .app-wrap
+      if (panel.parentElement !== wrap) wrap.appendChild(panel);
+      // Update resize handle orientation: bottom-dock uses top-edge
+      const rz = document.getElementById('logResize');
+      if (rz) { rz.style.left='0'; rz.style.right='0'; rz.style.top='0'; rz.style.bottom=''; rz.style.width='100%'; rz.style.height='6px'; }
+      // Update dock button icon → show "right" icon
+      const dockBtn = document.getElementById('btnLogDock');
+      if (dockBtn) dockBtn.title = 'Dock right';
+    } else {
+      panel.classList.remove('dock-bottom');
+      // Move panel back INTO .main (at the end)
+      if (panel.parentElement !== main) main.appendChild(panel);
+      const rz = document.getElementById('logResize');
+      if (rz) { rz.style.left='0'; rz.style.top='0'; rz.style.bottom='0'; rz.style.right=''; rz.style.width='6px'; rz.style.height=''; }
+      const dockBtn = document.getElementById('btnLogDock');
+      if (dockBtn) dockBtn.title = 'Dock bottom';
+    }
+    _applyDimensions(panel, prefs, pos);
+    _persist({ logPos: pos });
+  }
+
+  window.toggleLogDock = function() {
+    const prefs = _readPrefs();
+    const cur   = prefs.logPos || 'right';
+    _setDock(cur === 'right' ? 'bottom' : 'right');
+  };
+
+  window.closeLogs = function() {
+    const panel = _getPanel();
+    if (panel) panel.style.display = 'none';
+    const btn = document.getElementById('btnLogsReopen');
+    if (btn) btn.style.display = 'inline-flex';
+    _persist({ logsOpen: false });
+  };
+
+  window.openLogs = function() {
+    const panel = _getPanel();
+    if (panel) panel.style.display = 'flex';
+    const btn = document.getElementById('btnLogsReopen');
+    if (btn) btn.style.display = 'none';
+    _persist({ logsOpen: true });
+  };
+
+  // ── Resize drag ──
+  function _initResize() {
+    const handle = document.getElementById('logResize');
+    if (!handle) return;
+    let dragging = false, startX = 0, startY = 0, startW = 0, startH = 0;
+
+    handle.addEventListener('dblclick', function() {
+      const panel  = _getPanel();
+      const prefs  = _readPrefs();
+      const isBot  = panel && panel.classList.contains('dock-bottom');
+      if (!panel) return;
+      if (isBot) { panel.style.height = DEFAULT_H + 'px'; _persist({ logHeight: DEFAULT_H }); }
+      else        { panel.style.width  = DEFAULT_W + 'px'; _persist({ logWidth:  DEFAULT_W }); }
+    });
+
+    handle.addEventListener('pointerdown', function(e) {
+      const panel = _getPanel();
+      if (!panel) return;
+      dragging = true;
+      startX = e.clientX; startY = e.clientY;
+      startW = panel.offsetWidth; startH = panel.offsetHeight;
+      handle.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    handle.addEventListener('pointermove', function(e) {
+      if (!dragging) return;
+      const panel = _getPanel();
+      if (!panel) return;
+      const isBot = panel.classList.contains('dock-bottom');
+      if (isBot) {
+        const dy = startY - e.clientY;
+        const newH = Math.max(MIN_H, Math.min(window.innerHeight * 0.5, startH + dy));
+        panel.style.height = newH + 'px';
+      } else {
+        const dx = startX - e.clientX;
+        const newW = Math.max(MIN_W, Math.min(window.innerWidth * 0.5, startW + dx));
+        panel.style.width = newW + 'px';
+      }
+    });
+
+    handle.addEventListener('pointerup', function(e) {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      const panel = _getPanel();
+      if (!panel) return;
+      const isBot = panel.classList.contains('dock-bottom');
+      const prefs = _readPrefs();
+      if (isBot && (prefs.rememberLogSize !== false)) _persist({ logHeight: panel.offsetHeight });
+      else if (!isBot && (prefs.rememberLogSize !== false)) _persist({ logWidth: panel.offsetWidth });
+    });
+  }
+
+  // ── Zoom keyboard shortcuts ──
+  function _applyZoom(z) {
+    if (typeof SimState === 'undefined') return;
+    SimState.setTheme({ zoom: z });
+    if (typeof SimState.applyTheme === 'function') SimState.applyTheme();
+  }
+
+  document.addEventListener('keydown', function(e) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+    if (e.key === '=' || e.key === '+') {
+      e.preventDefault();
+      const cur = parseFloat(document.documentElement.style.zoom || '1');
+      const idx = ZOOM_STEPS.indexOf(Math.round(cur * 10) / 10);
+      if (idx < ZOOM_STEPS.length - 1) _applyZoom(ZOOM_STEPS[idx < 0 ? 2 : idx + 1]);
+    } else if (e.key === '-') {
+      e.preventDefault();
+      const cur = parseFloat(document.documentElement.style.zoom || '1');
+      const idx = ZOOM_STEPS.indexOf(Math.round(cur * 10) / 10);
+      if (idx > 0) _applyZoom(ZOOM_STEPS[idx < 0 ? 2 : idx - 1]);
+    } else if (e.key === '0') {
+      e.preventDefault();
+      _applyZoom(1.0);
+    }
+    // Ctrl+` to toggle logs
+    if (!mod && e.key === '`') { e.preventDefault(); _toggleLogs(); }
+  });
+
+  // Ctrl+` toggle (no metaKey needed, just Ctrl)
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+      e.preventDefault();
+      const panel = _getPanel();
+      if (panel && panel.style.display === 'none') openLogs();
+      else closeLogs();
+    }
+  }, true);
+
+  // ── Restore persisted state on load ──
+  window.addEventListener('DOMContentLoaded', function() {
+    const prefs = _readPrefs();
+    const panel = _getPanel();
+    if (!panel) return;
+
+    // Dock position
+    const pos = prefs.logPos || 'right';
+    _setDock(pos);
+
+    // Closed state
+    if (prefs.logsOpen === false) {
+      panel.style.display = 'none';
+      const btn = document.getElementById('btnLogsReopen');
+      if (btn) btn.style.display = 'inline-flex';
+    }
+
+    _initResize();
+  });
+})();
 
 // ── Init ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {

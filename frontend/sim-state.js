@@ -37,7 +37,7 @@ function mkDefault() {
     tests:   JSON.parse(JSON.stringify(TEST_SEED)),
     runs:    JSON.parse(JSON.stringify(RUN_SEED)),
     global:  JSON.parse(JSON.stringify(GLOBAL_SEED)),
-    theme: { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'' },
+    theme: { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'', buttonStyle:'default', density:'', reduceMotion:false, iconPack:'outline', zoom:1, logPos:'right', logWidth:420, logHeight:280, rememberLogSize:true, logsOpen:true },
     customThemes: [],
     mqttProfiles: [],
   };
@@ -72,6 +72,13 @@ let _s = (() => {
         if (!p.theme.fontFamily) p.theme.fontFamily = '';
         if (!p.customThemes) p.customThemes = [];
         if (!p.mqttProfiles) p.mqttProfiles = [];
+        // migrate: UI preferences
+        if (p.theme.zoom === undefined) p.theme.zoom = 1;
+        if (p.theme.logPos === undefined) p.theme.logPos = 'right';
+        if (p.theme.logWidth === undefined) p.theme.logWidth = 420;
+        if (p.theme.logHeight === undefined) p.theme.logHeight = 280;
+        if (p.theme.rememberLogSize === undefined) p.theme.rememberLogSize = true;
+        if (p.theme.logsOpen === undefined) p.theme.logsOpen = true;
         return p;
       }
     }
@@ -161,6 +168,9 @@ window.SimState = {
         document.head.appendChild(lnk);
       }
     } else if (prevLink) { prevLink.remove(); }
+    // zoom
+    const zoom = t.zoom !== undefined ? t.zoom : 1;
+    document.documentElement.style.zoom = String(zoom);
     // font size
     let el = document.getElementById('_simFontStyle');
     if (!el) { el = document.createElement('style'); el.id = '_simFontStyle'; document.head.appendChild(el); }
