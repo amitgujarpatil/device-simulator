@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="metrics">
 <head>
 <script src="/wails/ipc.js"></script>
 <script src="/wails/runtime.js"></script>
@@ -9,19 +9,20 @@
 <script src="sim-nav.js"></script>
 <style>
 .app-wrap{flex-direction:column!important}
-.page-hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 18px;height:44px;display:flex;align-items:center;gap:10px;flex-shrink:0}
-.page-title{font-size:13px;font-weight:700;color:var(--t0)}
+.page-hdr{height:52px;background:var(--bg1);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;padding:0 20px;flex-shrink:0}
+.page-hdr-title{font-size:15px;font-weight:600;color:var(--t0)}
+.page-hdr svg{color:var(--t2);flex-shrink:0}
 .page-sub{font-size:10px;color:var(--t2)}
 .refresh-chip{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:9px;color:var(--t2)}
 .refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .refresh-dot.live{animation:blink 2s ease-in-out infinite}
-.metrics-body{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.metrics-body{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px;background:var(--bg0)}
 .metrics-body::-webkit-scrollbar{width:4px}.metrics-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* ── Cards ── */
 .mx-row{display:flex;gap:12px;flex-wrap:wrap}
-.mx-card{background:var(--bg1);border:1px solid var(--border);border-radius:9px;padding:14px 16px;flex:1;min-width:220px}
+.mx-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;flex:1;min-width:220px}
 .mx-card-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:6px}
 .mx-card-title .mx-icon{font-size:13px;opacity:.7}
 
@@ -30,7 +31,7 @@
 .gauge-svg{width:100%;height:100%}
 .gauge-bg{fill:none;stroke:var(--bg3);stroke-width:10;stroke-linecap:round}
 .gauge-fill{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s ease,stroke .4s}
-.gauge-val{font-size:22px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;fill:var(--t0);text-anchor:middle;dominant-baseline:middle}
+.gauge-val{font-size:22px;font-weight:800;font-family:var(--font-mono);fill:var(--t0);text-anchor:middle;dominant-baseline:middle}
 .gauge-unit{font-size:9px;font-weight:700;fill:var(--t2);text-anchor:middle}
 
 /* Mini bar rows */
@@ -40,29 +41,29 @@
 .mx-bar-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
 .mx-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;background:var(--blue)}
 .mx-bar-fill.green{background:var(--green)}
-.mx-bar-fill.purple{background:var(--purple)}
+.mx-bar-fill.purple{background:var(--blue)}
 .mx-bar-fill.orange{background:var(--orange)}
 .mx-bar-fill.yellow{background:var(--yellow)}
-.mx-bar-val{color:var(--t0);font-family:monospace;min-width:52px;text-align:right;font-size:9px}
+.mx-bar-val{color:var(--t0);font-family:var(--font-mono);min-width:52px;text-align:right;font-size:9px}
 
 /* Big KV stats */
 .mx-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
 .mx-stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
-.mx-stat-val{font-size:19px;font-weight:800;font-family:'SF Mono','Cascadia Code',Consolas,monospace;color:var(--t0);line-height:1.2}
+.mx-stat-val{font-size:19px;font-weight:800;font-family:var(--font-mono);color:var(--t0);line-height:1.2}
 .mx-stat-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-top:2px}
 .mx-stat-val.green{color:var(--green)}
 .mx-stat-val.blue{color:var(--blue)}
-.mx-stat-val.purple{color:var(--purple)}
+.mx-stat-val.purple{color:var(--blue)}
 .mx-stat-val.orange{color:var(--orange)}
 
 /* Comparison table */
 .cmp-table{width:100%;border-collapse:collapse;font-size:10px}
 .cmp-table th{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t2);padding:4px 8px;text-align:left;border-bottom:1px solid var(--border)}
-.cmp-table td{padding:6px 8px;border-bottom:1px solid rgba(45,42,64,.5);color:var(--t1)}
+.cmp-table td{padding:6px 8px;border-bottom:1px solid var(--border-subtle);color:var(--t1)}
 .cmp-table tr:last-child td{border-bottom:none}
-.cmp-table td:nth-child(2){font-family:monospace;color:var(--t0)}
+.cmp-table td:nth-child(2){font-family:var(--font-mono);color:var(--t0)}
 .cmp-table td:nth-child(3){font-size:9px}
-.cmp-ours td{background:rgba(167,139,250,.05)}
+.cmp-ours td{background:rgba(46,196,182,.05)}
 .cmp-ours td:nth-child(1){color:var(--blue);font-weight:700}
 .cmp-bar-cell{width:120px}
 .cmp-bar-wrap{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
@@ -76,8 +77,8 @@
 <body>
 <div class="app-wrap">
   <div class="page-hdr">
-    <span class="page-title">System Metrics</span>
-    <span class="page-sub">Live process &amp; host stats</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <span class="page-hdr-title">System Metrics</span>
     <div class="refresh-chip">
       <div class="refresh-dot live" id="rdot"></div>
       <span id="lastRefresh">—</span>
@@ -126,7 +127,7 @@
           <svg class="gauge-svg" viewBox="0 0 100 100">
             <circle class="gauge-bg" cx="50" cy="50" r="42" stroke-dasharray="220 220" stroke-dashoffset="-20" transform="rotate(-210 50 50)"/>
             <circle class="gauge-fill" id="cpuGaugeFill" cx="50" cy="50" r="42"
-              stroke="var(--purple)" stroke-dasharray="220 220" stroke-dashoffset="220"
+              stroke="var(--blue)" stroke-dasharray="220 220" stroke-dashoffset="220"
               transform="rotate(-210 50 50)"/>
             <text class="gauge-val" id="cpuGaugeVal" x="50" y="46">—</text>
             <text class="gauge-unit" id="cpuGaugeSub" x="50" y="62">load avg</text>
@@ -287,7 +288,7 @@ async function refresh() {
   const cpuFill = document.getElementById('cpuGaugeFill');
   if (cpuFill) {
     cpuFill.style.strokeDashoffset = arcLen - (arcLen * loadPct / 100);
-    cpuFill.style.stroke = loadPct > 80 ? 'var(--red)' : loadPct > 50 ? 'var(--yellow)' : 'var(--purple)';
+    cpuFill.style.stroke = loadPct > 80 ? 'var(--red)' : loadPct > 50 ? 'var(--yellow)' : 'var(--blue)';
   }
   setText('cpuGaugeVal', load1.toFixed(2));
   setText('cpuGaugeSub', 'load avg');

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="utilities">
 <head>
 <script src="/wails/ipc.js"></script>
 <script src="/wails/runtime.js"></script>
@@ -8,6 +8,8 @@
 <script src="sim-state.js"></script>
 <script src="sim-nav.js"></script>
 <style>
+.page-hdr{height:52px;background:var(--bg1);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;padding:0 20px;flex-shrink:0}
+.page-hdr-title{font-size:15px;font-weight:600;color:var(--t0)}
 .ut-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 
 /* ── home ────────────────────────────────────────── */
@@ -19,18 +21,18 @@
 .ut-search-wrap{flex:1;max-width:260px;position:relative}
 .ut-search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:12px;height:12px;color:var(--t2);pointer-events:none}
 .ut-sinp{width:100%;padding:6px 10px 6px 28px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;color:var(--t0);font-size:11px;outline:none;transition:border-color .13s,background .13s}
-.ut-sinp:focus{border-color:rgba(167,139,250,.45);background:var(--bg1)}
+.ut-sinp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(46,196,182,.12);background:var(--bg1)}
 .ut-sinp::placeholder{color:var(--t2)}
 .ut-home-cnt{font-size:9px;color:var(--t2);white-space:nowrap;margin-left:auto}
 .ut-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:5px;padding:14px 18px 22px}
 
 /* tool card */
 .wc{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:14px 10px 11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;transition:border-color .17s,box-shadow .17s,transform .17s,background .17s;user-select:none;position:relative;overflow:hidden}
-.wc::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .17s;background:radial-gradient(ellipse at 50% 0%,rgba(var(--wrgb,167,139,250),.08) 0%,transparent 70%)}
-.wc:hover{border-color:var(--wc,var(--blue));background:var(--bg2);transform:translateY(-2px);box-shadow:0 8px 28px rgba(var(--wrgb,167,139,250),.12),0 0 0 1px rgba(var(--wrgb,167,139,250),.06)}
+.wc::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .17s;background:radial-gradient(ellipse at 50% 0%,rgba(var(--wrgb,46,196,182),.08) 0%,transparent 70%)}
+.wc:hover{border-color:var(--wc,var(--blue));background:var(--bg2);transform:translateY(-2px);box-shadow:0 8px 28px rgba(var(--wrgb,46,196,182),.12),0 0 0 1px rgba(var(--wrgb,46,196,182),.06)}
 .wc:hover::before{opacity:1}
 .wc:active{transform:translateY(-1px)}
-.wc.hidden{display:none!important}
+.wc.hidden{display:none}
 
 .wc-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .17s}
 .wc-ico svg{width:19px;height:19px}
@@ -48,45 +50,48 @@
 .ut-phdr-desc{font-size:9px;color:var(--t2);margin-top:1px}
 .ut-phdr-back{width:26px;height:26px;border-radius:5px;background:none;border:none;color:var(--t2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;outline:none;transition:all .14s;flex-shrink:0}
 .ut-phdr-back:hover{background:var(--bg3);color:var(--t0)}
-.ut-pbody{flex:1;overflow-y:auto;padding:16px 18px 22px}
+.ut-pbody{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px}
 .ut-pbody::-webkit-scrollbar{width:4px}
 .ut-pbody::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* ── shared tool atoms ───────────────────────────── */
-.t-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:7px 10px;background:var(--bg1);border:1px solid var(--border);border-radius:8px}
+.t-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
 .t-toolbar-sep{width:1px;height:16px;background:var(--border);margin:0 2px}
 .sp{flex:1}
 .t-row{display:flex;gap:12px;align-items:flex-start}
 .t-col{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
-.t-zone{background:var(--bg1);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.t-zone-hdr{display:flex;align-items:center;justify-content:space-between;padding:6px 10px 5px;border-bottom:1px solid var(--border);background:var(--bg0)}
-.t-zone-lbl{font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--t2)}
+.t-zone{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.t-zone-hdr{display:flex;align-items:center;justify-content:space-between;padding:6px 10px 5px;border-bottom:1px solid var(--border);background:var(--bg1)}
+.t-zone-lbl{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--t2)}
 .t-zone-acts{display:flex;align-items:center;gap:5px}
-.t-ta{width:100%;resize:vertical;min-height:140px;padding:10px 12px;background:var(--bg1);border:none;outline:none;color:var(--t0);font-size:11px;font-family:var(--font-mono);line-height:1.6}
+.t-ta{width:100%;resize:vertical;min-height:140px;padding:10px 12px;background:var(--bg0);border:none;outline:none;color:var(--t0);font-size:11px;font-family:var(--font-mono);line-height:1.6}
 .t-ta.sm{min-height:80px}
 .t-ta.lg{min-height:190px}
 .t-ta.err{background:rgba(248,113,113,.04)}
 .t-ta::placeholder{color:var(--t2);opacity:.7}
-.t-out{padding:10px 12px;min-height:90px;font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--t0);white-space:pre-wrap;word-break:break-all;background:var(--bg0)}
+.t-out{padding:10px 12px;min-height:90px;font-family:var(--font-mono);font-size:12px;line-height:1.6;color:var(--t1);white-space:pre-wrap;word-break:break-all;background:var(--bg0);border:1px solid var(--border);border-radius:6px}
 .t-out.sm{min-height:55px}
-.t-inp{width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--t0);font-size:11px;font-family:var(--font-mono);outline:none;transition:border-color .13s,background .13s}
-.t-inp:focus{border-color:rgba(167,139,250,.45);background:var(--bg1)}
+.t-zone .t-out{border:none;border-radius:0}
+.t-inp{width:100%;padding:7px 10px;background:var(--bg0);border:1px solid var(--border-strong);border-radius:6px;color:var(--t0);font-size:11px;font-family:var(--font-mono);outline:none;transition:border-color .13s,box-shadow .13s}
+.t-inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(46,196,182,.12)}
 .t-inp::placeholder{color:var(--t2);font-family:var(--font-ui);opacity:.7}
-.t-sel{padding:5px 24px 5px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--t0);font-size:10px;font-weight:600;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%238878b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;transition:border-color .13s}
+.t-sel{padding:5px 24px 5px 9px;background:var(--bg0);border:1px solid var(--border-strong);border-radius:6px;color:var(--t0);font-size:10px;font-weight:600;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%232EC4B6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;transition:border-color .13s,box-shadow .13s}
+.t-sel:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(46,196,182,.12)}
 .t-sel:hover{border-color:var(--t2)}
 .t-btn{padding:5px 13px;border-radius:6px;border:none;cursor:pointer;font-size:10px;font-weight:700;transition:all .14s;outline:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.t-btn-pri{background:var(--tc,var(--blue));color:#09080e}.t-btn-pri:hover{filter:brightness(1.12);box-shadow:0 2px 12px rgba(var(--trgb,167,139,250),.35)}
+.t-btn-pri{background:var(--tc,var(--blue));color:#09080e}.t-btn-pri:hover{filter:brightness(1.12);box-shadow:0 2px 12px rgba(var(--trgb,46,196,182),.35)}
 .t-btn-sec{background:var(--bg3);border:1px solid var(--border);color:var(--t1)}.t-btn-sec:hover{color:var(--t0);border-color:var(--t2)}
 .t-btn-ghost{background:none;border:1px solid var(--border);color:var(--t2);padding:4px 10px;font-size:9px}.t-btn-ghost:hover{color:var(--t0);border-color:var(--t2)}
-.t-copy-btn{padding:3px 8px;font-size:9px;font-weight:700;background:var(--bg3);border:1px solid var(--border);color:var(--t2);border-radius:4px;cursor:pointer;transition:all .12s;outline:none}
+.t-copy-btn{padding:3px 8px;font-size:9px;font-weight:700;background:var(--bg3);border:1px solid var(--border);color:var(--t2);border-radius:4px;cursor:pointer;transition:all .12s;outline:none;display:inline-flex;align-items:center;gap:4px}
+.t-copy-btn svg{width:10px;height:10px;flex-shrink:0}
 .t-copy-btn:hover{color:var(--t0);border-color:var(--t2)}
 .t-copy-btn.ok{color:var(--green);border-color:rgba(52,211,153,.3)}
 .t-seg{display:inline-flex;background:var(--bg0);border:1px solid var(--border);border-radius:6px;overflow:hidden}
 .t-seg-btn{padding:4px 11px;font-size:10px;font-weight:700;color:var(--t2);background:none;border:none;cursor:pointer;transition:all .12s;outline:none;white-space:nowrap}
 .t-seg-btn:hover{color:var(--t1)}
 .t-seg-btn.on{background:var(--bg3);color:var(--t0)}
-.t-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px}
-.t-card-hdr{padding:7px 12px 6px;border-bottom:1px solid var(--border);background:var(--bg0);font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);display:flex;align-items:center;justify-content:space-between}
+.t-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.t-card-hdr{padding:7px 12px 6px;border-bottom:1px solid var(--border);background:var(--bg1);font-size:13px;font-weight:600;color:var(--t0);display:flex;align-items:center;justify-content:space-between;border-left:3px solid var(--blue);padding-left:10px}
 .t-card-body{padding:10px 12px}
 .t-kv{display:flex;align-items:flex-start;gap:10px;padding:4px 0;border-bottom:1px solid rgba(45,42,64,.5);font-size:10px}
 .t-kv:last-child{border-bottom:none}
@@ -97,7 +102,7 @@
 .badge-ok{background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.2)}
 .badge-err{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.2)}
 .badge-warn{background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2)}
-.badge-info{background:rgba(167,139,250,.12);color:#a78bfa;border:1px solid rgba(167,139,250,.2)}
+.badge-info{background:rgba(46,196,182,.12);color:var(--blue);border:1px solid rgba(46,196,182,.2)}
 .t-err{padding:7px 11px;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2);border-radius:7px;color:var(--red);font-size:10px;font-family:var(--font-mono);margin-top:8px;display:none;line-height:1.5}
 .t-err.on{display:block}
 .t-hint{font-size:9px;color:var(--t2);line-height:1.55;padding:3px 0}
@@ -125,7 +130,7 @@
 
 /* regex */
 .regex-preview{font-family:var(--font-mono);font-size:11px;line-height:1.65;padding:10px 12px;background:var(--bg0);min-height:80px;white-space:pre-wrap;word-break:break-all;border-radius:0 0 8px 8px}
-.rm{background:rgba(167,139,250,.22);border-radius:2px;outline:1px solid rgba(167,139,250,.4)}
+.rm{background:rgba(46,196,182,.22);border-radius:2px;outline:1px solid rgba(46,196,182,.4)}
 .rm0{background:rgba(251,146,60,.22);outline:1px solid rgba(251,146,60,.4)}
 .rmatch-list{display:flex;flex-direction:column;gap:3px;max-height:100px;overflow-y:auto;padding:6px 0}
 .rmatch-item{font-size:9px;font-family:var(--font-mono);padding:3px 8px;background:var(--bg2);border-radius:4px;display:flex;gap:8px}
@@ -134,7 +139,7 @@
 
 /* uuid */
 .uuid-big{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--tc,var(--blue));letter-spacing:.04em;padding:14px;background:var(--bg0);border-radius:8px;text-align:center;cursor:pointer;transition:all .15s;user-select:all;border:1px solid var(--border)}
-.uuid-big:hover{border-color:var(--tc,var(--blue));box-shadow:0 0 0 2px rgba(var(--trgb,167,139,250),.1)}
+.uuid-big:hover{border-color:var(--tc,var(--blue));box-shadow:0 0 0 2px rgba(var(--trgb,46,196,182),.1)}
 .uuid-batch-list{display:flex;flex-direction:column;gap:2px;max-height:160px;overflow-y:auto;padding:5px}
 .uuid-batch-list::-webkit-scrollbar{width:3px}.uuid-batch-list::-webkit-scrollbar-thumb{background:var(--border)}
 .uuid-batch-item{font-family:var(--font-mono);font-size:10px;color:var(--t1);padding:3px 6px;border-radius:4px;cursor:pointer;transition:all .1s}
@@ -176,6 +181,10 @@
 <div class="app-wrap">
 
 <div class="ut-main">
+  <div class="page-hdr">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <span class="page-hdr-title">Utilities</span>
+  </div>
   <!-- HOME -->
   <div class="ut-home" id="utHome">
     <div class="ut-home-top">
@@ -229,6 +238,7 @@ const IC = {
   swap:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/></svg>`,
   table:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>`,
   calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="12 14 12 16 14 16"/></svg>`,
+  clipboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>`,
 };
 
 /* ── tool registry ───────────────────────────────── */
@@ -238,7 +248,7 @@ const TOOLS = [
   { id:'base64',   name:'Base64',            desc:'Encode & decode Base64',                 c:'#818cf8', rgb:'129,140,248',  icon:'arrows'   },
   { id:'url',      name:'URL Encode',        desc:'Percent-encode & decode strings',        c:'#22d3ee', rgb:'34,211,238',   icon:'link'     },
   { id:'html',     name:'HTML Entities',     desc:'Encode & decode HTML entities',          c:'#fb923c', rgb:'251,146,60',   icon:'code'     },
-  { id:'hash',     name:'Hash Generator',    desc:'MD5 · SHA-1 · SHA-256 · SHA-512',        c:'#a78bfa', rgb:'167,139,250',  icon:'hash'     },
+  { id:'hash',     name:'Hash Generator',    desc:'MD5 · SHA-1 · SHA-256 · SHA-512',        c:'var(--blue)', rgb:'46,196,182',  icon:'hash'     },
   { id:'hmac',     name:'HMAC',              desc:'HMAC-SHA256 & HMAC-SHA512',              c:'#f87171', rgb:'248,113,113',  icon:'shield'   },
   { id:'epoch',    name:'Epoch Converter',   desc:'Unix timestamp ↔ human time',            c:'#fbbf24', rgb:'251,191,36',   icon:'clock'    },
   { id:'uuid',     name:'UUID / ULID',       desc:'Generate & decode unique IDs',           c:'#f472b6', rgb:'244,114,182',  icon:'id'       },
@@ -320,7 +330,7 @@ function toast(msg, isErr) {
 }
 function copyText(text, btn) {
   navigator.clipboard.writeText(text).then(() => {
-    if (btn) { const o = btn.textContent; btn.textContent = 'Copied!'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = o; btn.classList.remove('ok'); }, 1400); }
+    if (btn) { const o = btn.innerHTML; btn.innerHTML = IC.clipboard + 'Copied!'; btn.classList.add('ok'); setTimeout(() => { btn.innerHTML = o; btn.classList.remove('ok'); }, 1400); }
     else toast('Copied!');
   });
 }
@@ -344,6 +354,7 @@ function zone(label, content, actions='') {
 }
 function zoneTA(id, ph='', h='') { return `<textarea class="t-ta ${h}" id="${id}" placeholder="${ph}"></textarea>`; }
 function zoneOut(id) { return `<div class="t-out" id="${id}"></div>`; }
+function copyBtn(onclick) { return `<button class="t-copy-btn" onclick="${onclick}">${IC.clipboard}Copy</button>`; }
 
 /* ═══════════════════════════════════════════════
    TOOL PANELS
@@ -370,7 +381,7 @@ PANELS.json = () => `
     <div class="t-err" id="jsonErr"></div>
   </div>
   <div class="t-col">
-    ${zone('Output', zoneOut('jsonOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('jsonOut').textContent,this)">Copy</button>`)}
+    ${zone('Output', zoneOut('jsonOut'), copyBtn("copyText(document.getElementById('jsonOut').textContent,this)"))}
   </div>
 </div>`;
 
@@ -407,7 +418,7 @@ PANELS.base64 = () => `
 </div>
 <div class="t-row" style="gap:10px">
   <div class="t-col">${zone('Input', zoneTA('b64In','','lg'), `<span class="t-paste-lbl" onclick="pasteIn('b64In')">Paste</span>`)}</div>
-  <div class="t-col">${zone('Output', zoneOut('b64Out'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('b64Out').textContent,this)">Copy</button>`)}</div>
+  <div class="t-col">${zone('Output', zoneOut('b64Out'), copyBtn("copyText(document.getElementById('b64Out').textContent,this)"))}</div>
 </div>
 <div class="t-err" id="b64Err"></div>`;
 
@@ -428,7 +439,7 @@ PANELS.url = () => `
 </div>
 <div class="t-row" style="gap:10px">
   <div class="t-col">${zone('Input', zoneTA('urlIn','','lg'), `<span class="t-paste-lbl" onclick="pasteIn('urlIn')">Paste</span>`)}</div>
-  <div class="t-col">${zone('Output', zoneOut('urlOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('urlOut').textContent,this)">Copy</button>`)}</div>
+  <div class="t-col">${zone('Output', zoneOut('urlOut'), copyBtn("copyText(document.getElementById('urlOut').textContent,this)"))}</div>
 </div>
 <div class="t-err" id="urlErr"></div>`;
 
@@ -446,7 +457,7 @@ PANELS.html = () => `
 </div>
 <div class="t-row" style="gap:10px">
   <div class="t-col">${zone('Input', zoneTA('htmlIn','','lg'), `<span class="t-paste-lbl" onclick="pasteIn('htmlIn')">Paste</span>`)}</div>
-  <div class="t-col">${zone('Output', zoneOut('htmlOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('htmlOut').textContent,this)">Copy</button>`)}</div>
+  <div class="t-col">${zone('Output', zoneOut('htmlOut'), copyBtn("copyText(document.getElementById('htmlOut').textContent,this)"))}</div>
 </div>`;
 
 let htmlMode='encode';
@@ -458,7 +469,7 @@ function htmlRun(){const v=document.getElementById('htmlIn').value;const out=doc
 PANELS.hash = () => `
 ${zone('Input', zoneTA('hashIn','Text to hash…','sm'), `<span class="t-paste-lbl" onclick="pasteIn('hashIn')">Paste</span>`)}
 <div style="display:flex;justify-content:flex-end;margin:8px 0">
-  <button class="t-btn t-btn-pri" onclick="hashRun()">Compute Hashes</button>
+  <button class="t-btn t-btn-pri" onclick="hashRun()">${IC.hash}Compute Hashes</button>
 </div>
 <div class="t-card" id="hashCard" style="display:none">
   <div class="t-card-hdr">Results <span id="hashMeta" style="color:var(--t2);font-size:8px;letter-spacing:0;text-transform:none;font-weight:400"></span></div>
@@ -468,14 +479,14 @@ ${zone('Input', zoneTA('hashIn','Text to hash…','sm'), `<span class="t-paste-l
 </div>`;
 
 INITS.hash=()=>{document.getElementById('hashIn').addEventListener('input',()=>{if(document.getElementById('hashIn').value)hashRun();else document.getElementById('hashCard').style.display='none';});};
-async function hashRun(){const v=document.getElementById('hashIn').value;if(!v){document.getElementById('hashCard').style.display='none';return;}if(!GA){toast('Backend not available',true);return;}try{const r=await GA.UtilHash(v);document.getElementById('hashCard').style.display='block';document.getElementById('hashMeta').textContent=v.length+' chars · '+new Blob([v]).size+' bytes';const algos=['md5','sha1','sha256','sha512'];document.getElementById('hashTbl').innerHTML=algos.map(a=>`<tr><td>${a.replace('sha','SHA-').replace('md5','MD5')}</td><td onclick="copyText(this.textContent)" title="Click to copy">${r[a]||''}</td><td><button class="t-copy-btn" onclick="copyText(document.getElementById('hashTbl').querySelectorAll('td:nth-child(2)')[${algos.indexOf(a)}].textContent,this)">Copy</button></td></tr>`).join('');}catch(e){toast(String(e),true);}}
+async function hashRun(){const v=document.getElementById('hashIn').value;if(!v){document.getElementById('hashCard').style.display='none';return;}if(!GA){toast('Backend not available',true);return;}try{const r=await GA.UtilHash(v);document.getElementById('hashCard').style.display='block';document.getElementById('hashMeta').textContent=v.length+' chars · '+new Blob([v]).size+' bytes';const algos=['md5','sha1','sha256','sha512'];document.getElementById('hashTbl').innerHTML=algos.map(a=>`<tr><td>${a.replace('sha','SHA-').replace('md5','MD5')}</td><td onclick="copyText(this.textContent)" title="Click to copy">${r[a]||''}</td><td><button class="t-copy-btn" onclick="copyText(document.getElementById('hashTbl').querySelectorAll('td:nth-child(2)')[${algos.indexOf(a)}].textContent,this)">${IC.clipboard}Copy</button></td></tr>`).join('');}catch(e){toast(String(e),true);}}
 
 /* ── 7. HMAC GENERATOR ── */
 PANELS.hmac = () => `
 <div class="t-toolbar">
   <select class="t-sel" id="hmacAlgo" onchange="hmacRun()"><option value="sha256">HMAC-SHA256</option><option value="sha512">HMAC-SHA512</option></select>
   <div class="sp"></div>
-  <button class="t-btn t-btn-pri" onclick="hmacRun()">Generate</button>
+  <button class="t-btn t-btn-pri" onclick="hmacRun()">${IC.key}Generate</button>
 </div>
 <div class="t-row" style="gap:10px">
   <div class="t-col" style="flex:2">${zone('Message', zoneTA('hmacMsg','Message text…','lg'), `<span class="t-paste-lbl" onclick="pasteIn('hmacMsg')">Paste</span>`)}</div>
@@ -485,7 +496,7 @@ PANELS.hmac = () => `
 </div>
 <div class="t-err" id="hmacErr"></div>
 <div class="t-card" id="hmacCard" style="display:none">
-  <div class="t-card-hdr">Result <button class="t-copy-btn" onclick="copyText(document.getElementById('hmacHex').textContent,this)" style="font-size:8px">Copy</button></div>
+  <div class="t-card-hdr">Result <button class="t-copy-btn" onclick="copyText(document.getElementById('hmacHex').textContent,this)">${IC.clipboard}Copy</button></div>
   <div class="t-card-body"><div id="hmacHex" style="font-family:var(--font-mono);font-size:11px;color:var(--tc,var(--blue));word-break:break-all;cursor:pointer" onclick="copyText(this.textContent)"></div></div>
 </div>`;
 
@@ -537,7 +548,7 @@ PANELS.uuid = () => `
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
   <div>
     <div class="t-card" style="margin-bottom:10px">
-      <div class="t-card-hdr">UUID v4 <button class="t-copy-btn" onclick="copyText(document.getElementById('uuidVal').textContent,this)">Copy</button></div>
+      <div class="t-card-hdr">UUID v4 <button class="t-copy-btn" onclick="copyText(document.getElementById('uuidVal').textContent,this)">${IC.clipboard}Copy</button></div>
       <div class="t-card-body">
         <div class="uuid-big" id="uuidVal" onclick="copyText(this.textContent)" title="Click to copy">—</div>
         <div style="display:flex;gap:6px;margin-top:8px">
@@ -550,7 +561,7 @@ PANELS.uuid = () => `
         <div style="display:flex;align-items:center;gap:6px">
           <input class="t-inp" id="uuidN" type="number" value="10" min="1" max="100" style="width:55px;padding:3px 7px;font-size:10px">
           <button class="t-btn t-btn-ghost" onclick="uuidBatch()">Generate</button>
-          <button class="t-copy-btn" onclick="copyText(Array.from(document.querySelectorAll('.uuid-batch-item')).map(e=>e.textContent).join('\n'),this)">Copy All</button>
+          <button class="t-copy-btn" onclick="copyText(Array.from(document.querySelectorAll('.uuid-batch-item')).map(e=>e.textContent).join('\n'),this)">${IC.clipboard}Copy All</button>
         </div>
       </div>
       <div class="t-card-body" style="padding:4px 6px"><div class="uuid-batch-list" id="uuidBatch"></div></div>
@@ -558,7 +569,7 @@ PANELS.uuid = () => `
   </div>
   <div>
     <div class="t-card" style="margin-bottom:10px">
-      <div class="t-card-hdr">ULID <span style="font-size:8px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--t2)">sortable · timestamp-prefixed</span><button class="t-copy-btn" onclick="copyText(document.getElementById('ulidVal').textContent,this)">Copy</button></div>
+      <div class="t-card-hdr">ULID <span style="font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--t2)">sortable · timestamp-prefixed</span><button class="t-copy-btn" onclick="copyText(document.getElementById('ulidVal').textContent,this)">${IC.clipboard}Copy</button></div>
       <div class="t-card-body">
         <div class="uuid-big" id="ulidVal" style="font-size:12px" onclick="copyText(this.textContent)" title="Click to copy">—</div>
         <button class="t-btn t-btn-pri" onclick="ulidGen()" style="margin-top:8px;width:100%">Generate New</button>
@@ -637,7 +648,7 @@ PANELS.compress = () => `
 <div class="t-row" style="gap:10px">
   <div class="t-col" id="cmpInWrap"></div>
   <div class="t-col">
-    ${zone('Output (base64)', zoneOut('cmpOut'), `<button class="t-copy-btn" onclick="copyText(document.getElementById('cmpOut').textContent,this)">Copy</button>`)}
+    ${zone('Output (base64)', zoneOut('cmpOut'), copyBtn("copyText(document.getElementById('cmpOut').textContent,this)"))}
   </div>
 </div>
 <div class="t-err" id="cmpErr"></div>
@@ -690,17 +701,17 @@ ${zone('PEM Input', zoneTA('certStrIn','-----BEGIN CERTIFICATE-----\n…\n-----E
 <div class="t-err" id="certStrErr"></div>
 <div id="certStrOut" style="display:none;margin-top:12px">
   <div class="t-card" style="margin-bottom:8px">
-    <div class="t-card-hdr">Single-line (escaped \n) <button class="t-copy-btn" onclick="copyText(document.getElementById('cso1').textContent,this)">Copy</button></div>
+    <div class="t-card-hdr">Single-line (escaped \n) <button class="t-copy-btn" onclick="copyText(document.getElementById('cso1').textContent,this)">${IC.clipboard}Copy</button></div>
     <div class="t-card-body" style="padding:0"><div class="t-out sm" id="cso1" style="border-radius:0 0 8px 8px;font-size:9px;overflow-x:auto;white-space:nowrap"></div></div>
     <div style="padding:6px 12px 10px;font-size:9px;color:var(--t2)">Paste directly into <code style="background:var(--bg3);padding:1px 4px;border-radius:3px;color:var(--blue)">.env</code> or a database text column — newlines stored as literal \n</div>
   </div>
   <div class="t-card" style="margin-bottom:8px">
-    <div class="t-card-hdr">JSON / Go string <button class="t-copy-btn" onclick="copyText(document.getElementById('cso2').textContent,this)">Copy</button></div>
+    <div class="t-card-hdr">JSON / Go string <button class="t-copy-btn" onclick="copyText(document.getElementById('cso2').textContent,this)">${IC.clipboard}Copy</button></div>
     <div class="t-card-body" style="padding:0"><div class="t-out sm" id="cso2" style="border-radius:0 0 8px 8px;font-size:9px;overflow-x:auto;white-space:nowrap"></div></div>
     <div style="padding:6px 12px 10px;font-size:9px;color:var(--t2)">Use inside JSON config or Go string literal — includes surrounding quotes</div>
   </div>
   <div class="t-card">
-    <div class="t-card-hdr">Base64 DER <button class="t-copy-btn" onclick="copyText(document.getElementById('cso3').textContent,this)">Copy</button></div>
+    <div class="t-card-hdr">Base64 DER <button class="t-copy-btn" onclick="copyText(document.getElementById('cso3').textContent,this)">${IC.clipboard}Copy</button></div>
     <div class="t-card-body" style="padding:0"><div class="t-out sm" id="cso3" style="border-radius:0 0 8px 8px;font-size:9px;overflow-x:auto;white-space:nowrap"></div></div>
     <div style="padding:6px 12px 10px;font-size:9px;color:var(--t2)">Raw DER bytes in Base64 — use when a binary-safe format is required</div>
   </div>
@@ -723,7 +734,7 @@ PANELS.yaml = () => `
     <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="yamlInLbl">YAML INPUT</span><span class="t-zone-acts"><span class="t-paste-lbl" onclick="pasteIn('yamlIn')">Paste</span></span></div><textarea class="t-ta lg" id="yamlIn" placeholder="Paste YAML…" oninput="yamlAuto()"></textarea></div>
   </div>
   <div class="t-col">
-    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="yamlOutLbl">JSON OUTPUT</span><span class="t-zone-acts"><button class="t-copy-btn" onclick="copyText(document.getElementById('yamlOut').textContent,this)">Copy</button></span></div><div class="t-out lg" id="yamlOut"></div></div>
+    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="yamlOutLbl">JSON OUTPUT</span><span class="t-zone-acts">${copyBtn("copyText(document.getElementById('yamlOut').textContent,this)")}</span></div><div class="t-out lg" id="yamlOut"></div></div>
   </div>
 </div>
 <div class="t-err" id="yamlErr"></div>`;
@@ -750,7 +761,7 @@ PANELS.csv = () => `
     <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="csvInLbl">CSV INPUT</span><span class="t-zone-acts"><span class="t-paste-lbl" onclick="pasteIn('csvIn')">Paste</span></span></div><textarea class="t-ta lg" id="csvIn" oninput="csvRun()" placeholder="name,age,city&#10;Alice,30,New York&#10;Bob,25,London"></textarea></div>
   </div>
   <div class="t-col">
-    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="csvOutLbl">JSON OUTPUT</span><span class="t-zone-acts"><button class="t-copy-btn" onclick="copyText(document.getElementById('csvOut').textContent,this)">Copy</button></span></div><div class="t-out lg" id="csvOut"></div></div>
+    <div class="t-zone"><div class="t-zone-hdr"><span class="t-zone-lbl" id="csvOutLbl">JSON OUTPUT</span><span class="t-zone-acts">${copyBtn("copyText(document.getElementById('csvOut').textContent,this)")}</span></div><div class="t-out lg" id="csvOut"></div></div>
   </div>
 </div>
 <div class="t-err" id="csvErr"></div>`;

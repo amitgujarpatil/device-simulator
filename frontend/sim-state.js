@@ -37,7 +37,7 @@ function mkDefault() {
     tests:   JSON.parse(JSON.stringify(TEST_SEED)),
     runs:    JSON.parse(JSON.stringify(RUN_SEED)),
     global:  JSON.parse(JSON.stringify(GLOBAL_SEED)),
-    theme: { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'', buttonStyle:'default', density:'', reduceMotion:false, iconPack:'outline', zoom:1, logPos:'right', logWidth:420, logHeight:280, rememberLogSize:true, logsOpen:true },
+    theme: { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'', buttonStyle:'default', density:'', reduceMotion:false, iconPack:'outline', zoom:1, pageZoom:{}, logPos:'right', logWidth:420, logHeight:280, rememberLogSize:true, logsOpen:true },
     customThemes: [],
     mqttProfiles: [],
   };
@@ -79,6 +79,9 @@ let _s = (() => {
         if (p.theme.logHeight === undefined) p.theme.logHeight = 280;
         if (p.theme.rememberLogSize === undefined) p.theme.rememberLogSize = true;
         if (p.theme.logsOpen === undefined) p.theme.logsOpen = true;
+        // btnRadius undefined = use buttonStyle preset
+        if (p.theme.navCollapsed === undefined) p.theme.navCollapsed = false;
+        if (!p.theme.pageZoom) p.theme.pageZoom = {};
         return p;
       }
     }
@@ -168,16 +171,23 @@ window.SimState = {
         document.head.appendChild(lnk);
       }
     } else if (prevLink) { prevLink.remove(); }
-    // zoom
-    const zoom = t.zoom !== undefined ? t.zoom : 1;
+    // zoom — per-page override when available, fall back to global
+    const _pageKey = document.documentElement.getAttribute('data-page') || '';
+    const zoom = (_pageKey && t.pageZoom && t.pageZoom[_pageKey] !== undefined)
+      ? t.pageZoom[_pageKey]
+      : (t.zoom !== undefined ? t.zoom : 1);
     document.documentElement.style.zoom = String(zoom);
     // font size
     let el = document.getElementById('_simFontStyle');
     if (!el) { el = document.createElement('style'); el.id = '_simFontStyle'; document.head.appendChild(el); }
     el.textContent = t.fontSize && t.fontSize !== 12 ? `body{font-size:${t.fontSize}px!important}` : '';
-    // button style
-    const btnRadii = { pill:'50px', sharp:'2px', soft:'10px', default:'5px' };
-    root.style.setProperty('--btn-radius', btnRadii[t.buttonStyle || 'default'] || '5px');
+    // button radius: fine-grained slider overrides buttonStyle preset
+    if (t.btnRadius !== undefined && t.btnRadius !== null) {
+      root.style.setProperty('--btn-radius', t.btnRadius + 'px');
+    } else {
+      const btnRadii = { pill:'50px', sharp:'2px', soft:'10px', default:'6px' };
+      root.style.setProperty('--btn-radius', btnRadii[t.buttonStyle || 'default'] || '6px');
+    }
     // density
     document.body.classList.remove('density-compact','density-spacious');
     if (t.density === 'compact') document.body.classList.add('density-compact');
@@ -185,6 +195,19 @@ window.SimState = {
     // reduce motion
     document.body.classList.toggle('reduce-motion', !!t.reduceMotion);
   },
+  // ── per-page zoom ─────────────────────────────────
+  setPageZoom(pageKey, zoom) {
+    if (!_s.theme) _s.theme = {};
+    if (!_s.theme.pageZoom) _s.theme.pageZoom = {};
+    if (pageKey) _s.theme.pageZoom[pageKey] = zoom;
+    _save();
+  },
+  getPageZoom(pageKey) {
+    const t = _s.theme || {};
+    if (pageKey && t.pageZoom && t.pageZoom[pageKey] !== undefined) return t.pageZoom[pageKey];
+    return t.zoom !== undefined ? t.zoom : 1;
+  },
+
   // ── setup ─────────────────────────────────────────
   isSetupDone: () => !!_s.setupComplete,
   markSetupDone(outputDir) {

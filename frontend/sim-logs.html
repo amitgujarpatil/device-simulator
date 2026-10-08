@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="logs">
 <head>
 <script src="/wails/ipc.js"></script>
 <script src="/wails/runtime.js"></script>
@@ -10,31 +10,38 @@
 <link rel="stylesheet" href="flatpickr-dark.css">
 <script src="flatpickr.min.js"></script>
 <style>
+/* ── Graphite page-scope overrides ── */
+html[data-page="logs"] body{font-family:var(--font-ui);font-size:13px;background:var(--bg0);color:var(--t0)}
+
 .app-wrap{flex-direction:column!important}
 
+/* ── Page header ── */
+.page-hdr{height:52px;background:var(--bg1);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px;padding:0 20px;font-size:15px;font-weight:600;flex-shrink:0}
+.page-hdr-icon{color:var(--blue)}
+
 /* ── Controls bar ── */
-.ctrl-bar{background:var(--bg1);border-bottom:1px solid var(--border);padding:6px 14px;display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap}
+.ctrl-bar{background:var(--bg1);border-bottom:1px solid var(--border-subtle);padding:0 14px;display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap;min-height:44px}
 .ctrl-group{display:flex;align-items:center;gap:5px}
 .ctrl-lbl{font-size:9px;color:var(--t1);font-weight:600;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase}
 .ctrl-inp{padding:5px 7px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:11px;outline:none;height:30px}
 .ctrl-inp:focus{border-color:var(--blue)}
-.ctrl-sel{padding:5px 26px 5px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:11px;height:30px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238878b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;transition:border-color .15s,background-color .15s}
+.ctrl-sel{padding:5px 26px 5px 9px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:11px;height:30px;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A939E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;transition:border-color .15s,background-color .15s}
 .ctrl-sel:hover{border-color:var(--t2);background-color:var(--bg3)}
-.ctrl-sel:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(167,139,250,.15);background-color:var(--bg3)}
+.ctrl-sel:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(46,196,182,.15);background-color:var(--bg3)}
 .ctrl-sep{width:1px;height:18px;background:var(--border);flex-shrink:0}
 .sp{flex:1}
 
 /* ── View-mode toggle ── */
 .view-toggle{display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
 .vt-btn{padding:4px 10px;background:var(--bg2);border:none;color:var(--t1);font-size:10px;font-weight:700;cursor:pointer;outline:none;transition:all .12s}
-.vt-btn.on{background:rgba(167,139,250,.15);color:var(--blue)}
+.vt-btn.on{background:rgba(46,196,182,.15);color:var(--blue)}
 .vt-btn:hover:not(.on){background:var(--bg3);color:var(--t0)}
 
 
 /* ── Status bar ── */
 .status-bar{padding:4px 14px;border-bottom:1px solid var(--border);font-size:10px;color:var(--t2);font-family:monospace;flex-shrink:0;min-height:24px;display:flex;align-items:center;gap:10px;background:var(--bg0)}
 .sb-pill{padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
-.sb-page{background:rgba(167,139,250,.12);color:var(--blue)}
+.sb-page{background:rgba(46,196,182,.12);color:var(--blue)}
 .sb-pkts{background:rgba(52,211,153,.12);color:var(--green)}
 .sb-errs{background:rgba(248,113,113,.12);color:var(--red)}
 .sb-lek{color:var(--t2)}
@@ -46,16 +53,16 @@
 .filter-row{padding:4px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:4px;flex-shrink:0;background:var(--bg1)}
 .filter-row-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-right:2px}
 .pill{padding:2px 6px;border-radius:3px;font-size:8px;font-weight:700;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--t1);transition:all .12s}
-.pill.on{background:rgba(167,139,250,.13);border-color:var(--blue);color:var(--blue)}
+.pill.on{background:rgba(46,196,182,.13);border-color:var(--blue);color:var(--blue)}
 .pill.gps.on{background:rgba(52,211,153,.12);border-color:var(--green);color:var(--green)}
 .pill.obd.on{background:rgba(251,146,60,.12);border-color:var(--orange);color:var(--orange)}
 .pill.hs.on{background:rgba(129,140,248,.12);border-color:var(--purple);color:var(--purple)}
 .pill.set.on{background:rgba(251,191,36,.12);border-color:var(--yellow);color:var(--yellow)}
 .search-inp{margin-left:auto;padding:3px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t0);font-size:10px;outline:none;width:180px}
-.search-inp:focus{border-color:var(--blue)}
+.search-inp:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(46,196,182,.15)}
 
 /* ── Stream ── */
-.log-stream{flex:1;overflow-y:auto;font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:10px;line-height:1.55}
+.log-stream{flex:1;overflow-y:auto;font-family:var(--font-mono);font-size:10px;line-height:1.55}
 .log-stream::-webkit-scrollbar{width:3px}.log-stream::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* Packet row (matches sim-run.html .le pattern) */
@@ -72,7 +79,7 @@
 .le-exp:hover{opacity:1}
 
 /* Expanded payload */
-.le-payload{background:var(--bg0);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin:2px 0 4px 113px;display:none}
+.le-payload{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin:2px 0 4px 113px;display:none}
 .le-payload.open{display:block}
 .le-payload-hdr{display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 .le-payload-badge{font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px}
@@ -84,7 +91,7 @@
 .le-payload-ts{font-size:9px;color:var(--t2);font-family:'SF Mono','Cascadia Code',Consolas,monospace;flex:1}
 .le-raw-btn{padding:2px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--t2);font-size:8px;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:all .12s}
 .le-raw-btn:hover{color:var(--t0);border-color:var(--t2)}
-.le-raw-btn.on{background:rgba(167,139,250,.1);border-color:var(--blue);color:var(--blue)}
+.le-raw-btn.on{background:rgba(46,196,182,.1);border-color:var(--blue);color:var(--blue)}
 .le-payload-pre{margin:0;font-size:9.5px;color:var(--t0);white-space:pre-wrap;word-break:break-all;line-height:1.6;font-family:'SF Mono','Cascadia Code',Consolas,monospace}
 .le-raw-pre{display:none;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--border);font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:9px;color:var(--t1);white-space:pre-wrap;word-break:break-all;line-height:1.5}
 .json-key{color:var(--blue)}.json-str{color:var(--green)}.json-num{color:var(--orange)}.json-bool{color:var(--purple)}.json-null{color:var(--t2)}
@@ -146,6 +153,17 @@ input.flatpickr-alt-input[readonly]{cursor:pointer}
 </head>
 <body>
 <div class="app-wrap">
+
+  <!-- Page header -->
+  <div class="page-hdr">
+    <svg class="page-hdr-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="1" y="1" width="12" height="12" rx="2"/>
+      <line x1="4" y1="4.5" x2="10" y2="4.5"/>
+      <line x1="4" y1="7" x2="10" y2="7"/>
+      <line x1="4" y1="9.5" x2="7.5" y2="9.5"/>
+    </svg>
+    Data Logs
+  </div>
 
   <!-- Controls -->
   <div class="ctrl-bar">

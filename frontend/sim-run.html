@@ -537,6 +537,9 @@ html[data-page="run"] #simCtrlGroup .btn:disabled{opacity:.4;background:var(--bg
   <div id="hdrCross" onclick="focusDeviceSection()" title="Cross-region active — click to edit"></div>
   <div class="sp"></div>
   <!-- Right group -->
+  <button class="hdr-btn" id="btnToggleSb" onclick="toggleRunSidebar()" title="Hide/show config panel (Ctrl+B)">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+  </button>
   <div class="hdr-region-wrap">
     <span class="hdr-region-lbl">Region</span>
     <div class="hdr-region-sel-wrap">
@@ -2420,9 +2423,24 @@ async function clearTestState() {
   }
 }
 
+// ── Run page sidebar toggle ───────────────────────────────────
+var _runSbVisible = true;
+function toggleRunSidebar() {
+  const sb  = document.querySelector('.sb');
+  const btn = document.getElementById('btnToggleSb');
+  if (!sb) return;
+  _runSbVisible = !_runSbVisible;
+  sb.style.display = _runSbVisible ? '' : 'none';
+  if (btn) btn.style.background = _runSbVisible ? '' : 'var(--accent-soft-bg)';
+  if (btn) btn.style.color = _runSbVisible ? '' : 'var(--accent)';
+}
+// keyboard shortcut Ctrl+B
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); toggleRunSidebar(); }
+});
+
 // ── Log panel: resize, dock, open/close ───────────────────────
 (function() {
-  const ZOOM_STEPS = [0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5];
   const DEFAULT_W = 420, DEFAULT_H = 280, MIN_W = 320, MIN_H = 160;
 
   function _getPanel() { return document.getElementById('logsPanel2'); }
@@ -2557,35 +2575,7 @@ async function clearTestState() {
     });
   }
 
-  // ── Zoom keyboard shortcuts ──
-  function _applyZoom(z) {
-    if (typeof SimState === 'undefined') return;
-    SimState.setTheme({ zoom: z });
-    if (typeof SimState.applyTheme === 'function') SimState.applyTheme();
-  }
-
-  document.addEventListener('keydown', function(e) {
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod) return;
-    if (e.key === '=' || e.key === '+') {
-      e.preventDefault();
-      const cur = parseFloat(document.documentElement.style.zoom || '1');
-      const idx = ZOOM_STEPS.indexOf(Math.round(cur * 10) / 10);
-      if (idx < ZOOM_STEPS.length - 1) _applyZoom(ZOOM_STEPS[idx < 0 ? 2 : idx + 1]);
-    } else if (e.key === '-') {
-      e.preventDefault();
-      const cur = parseFloat(document.documentElement.style.zoom || '1');
-      const idx = ZOOM_STEPS.indexOf(Math.round(cur * 10) / 10);
-      if (idx > 0) _applyZoom(ZOOM_STEPS[idx < 0 ? 2 : idx - 1]);
-    } else if (e.key === '0') {
-      e.preventDefault();
-      _applyZoom(1.0);
-    }
-    // Ctrl+` to toggle logs
-    if (!mod && e.key === '`') { e.preventDefault(); _toggleLogs(); }
-  });
-
-  // Ctrl+` toggle (no metaKey needed, just Ctrl)
+  // Ctrl+` to toggle logs
   document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === '`') {
       e.preventDefault();

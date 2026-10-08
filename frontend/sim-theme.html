@@ -135,6 +135,12 @@
         <input type="range" class="ty-sl" min="10" max="16" step="1" id="fontSizeSlider" oninput="onFontSize(this.value)">
         <span class="ty-val" id="fontSizeVal">12px</span>
       </div>
+      <div class="ty-row">
+        <span class="ty-lbl">Button radius</span>
+        <input type="range" class="ty-sl" min="0" max="24" step="1" id="btnRadiusSl" oninput="onBtnRadius(this.value)">
+        <span class="ty-val" id="btnRadiusVal">6px</span>
+        <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;height:24px;margin-left:4px" onclick="onBtnRadiusReset()">Reset</button>
+      </div>
     </div>
   </div>
 
@@ -587,6 +593,8 @@ function init() {
   const fs = curTheme.fontSize || 12;
   document.getElementById('fontSizeSlider').value = fs;
   document.getElementById('fontSizeVal').textContent = fs + 'px';
+  const br = curTheme.btnRadius !== undefined && curTheme.btnRadius !== null ? curTheme.btnRadius : 6;
+  const brSl = document.getElementById('btnRadiusSl'); if (brSl) { brSl.value = br; document.getElementById('btnRadiusVal').textContent = br + 'px'; }
 
   renderThemeGrid();
   renderColorPickers();
@@ -827,6 +835,19 @@ function onRememberSize(checked) {
   SimState.setTheme({ rememberLogSize: checked });
 }
 
+function onBtnRadius(v) {
+  v = parseInt(v);
+  document.getElementById('btnRadiusVal').textContent = v + 'px';
+  SimState.setTheme({ btnRadius: v });
+  SimState.applyTheme();
+}
+function onBtnRadiusReset() {
+  SimState.setTheme({ btnRadius: null });
+  SimState.applyTheme();
+  const sl = document.getElementById('btnRadiusSl'); if (sl) sl.value = 6;
+  document.getElementById('btnRadiusVal').textContent = '6px';
+}
+
 function resetAll() {
   curTheme = { name:'dark', vars:{}, fontSize:12, fontFamily:'', monoFamily:'', fontUrl:'', iconPack:'outline', buttonStyle:'default' };
   SimState.setTheme(curTheme);
@@ -842,6 +863,7 @@ function resetAll() {
   renderIconPacks();
   renderButtonStyles();
   initUIPref();
+  const brSlR = document.getElementById('btnRadiusSl'); if (brSlR) { brSlR.value = 6; document.getElementById('btnRadiusVal').textContent = '6px'; }
   flash();
 }
 
