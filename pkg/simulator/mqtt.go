@@ -50,19 +50,23 @@ func buildTLSConfig(_ Config) (*tls.Config, error) {
 }
 
 func connectMQTT(cfg Config) (mqtt.Client, error) {
-	if cfg.TgtIMEI == "" {
+	tgtIMEI := strings.TrimSpace(cfg.TgtIMEI)
+	mqttBroker := strings.TrimSpace(cfg.MQTTBroker)
+	mqttUsername := strings.TrimSpace(cfg.MQTTUsername)
+
+	if tgtIMEI == "" {
 		return nil, fmt.Errorf("target IMEI (clientId) is empty — set it in the test config")
 	}
 
 	protocol := "mqtts"
 	if cfg.MQTTProtocol != "" {
-		protocol = cfg.MQTTProtocol
+		protocol = strings.TrimSpace(cfg.MQTTProtocol)
 	}
 
 	opts := mqtt.NewClientOptions()
-	broker := fmt.Sprintf("%s://%s:%d", protocol, cfg.MQTTBroker, cfg.MQTTPort)
+	broker := fmt.Sprintf("%s://%s:%d", protocol, mqttBroker, cfg.MQTTPort)
 	opts.AddBroker(broker)
-	opts.SetClientID(cfg.TgtIMEI)
+	opts.SetClientID(tgtIMEI)
 	opts.SetKeepAlive(60 * time.Second)
 	opts.SetCleanSession(true)
 	opts.SetAutoReconnect(false)
@@ -77,8 +81,8 @@ func connectMQTT(cfg Config) (mqtt.Client, error) {
 	}
 
 	// Set username only — no password (broker uses TLS client-cert + username for auth).
-	if cfg.MQTTUsername != "" {
-		opts.SetUsername(cfg.MQTTUsername)
+	if mqttUsername != "" {
+		opts.SetUsername(mqttUsername)
 	}
 
 	client := mqtt.NewClient(opts)
@@ -153,17 +157,52 @@ func isNetworkError(err error) bool {
 		strings.Contains(msg, "host unreachable")
 }
 
-// connectWithFallback tries the primary MQTT connection; if it fails with a network/DNS
-// error and TLS fallback settings are configured, retries over TLS and logs the switch.
+// connectWithFallback tries the primary MQTT connection; if it fails it attempts two
+// recovery paths in order:
+//  1. Plain-on-TLS-port auto-upgrade: if the primary protocol is mqtt:// (plain) and
+//     the port looks like a TLS port (8883/8884), the EOF / identifier-rejected errors
+//     mean the broker requires TLS — retry with mqtts:// same broker+port.
+//  2. Explicit TLS fallback: if FallbackMQTTBroker is set and the error is a network
+//     error, retry using the configured TLS broker (plain-broker-toggled path).
 func connectWithFallback(cfg Config, emitFn func(SimEvent), elap func() int64) (mqtt.Client, Config, error) {
 	client, err := connectMQTT(cfg)
 	if err == nil {
 		return client, cfg, nil
 	}
+
+	// ── Path 1: plain protocol on a TLS port → auto-upgrade to mqtts ──────────
+	proto := strings.ToLower(strings.TrimSpace(cfg.MQTTProtocol))
+	isPlain := proto == "mqtt" || proto == "tcp"
+	isTLSPort := cfg.MQTTPort == 8883 || cfg.MQTTPort == 8884
+	errMsg := err.Error()
+	isPlainOnTLSErr := strings.Contains(errMsg, "EOF") ||
+		strings.Contains(errMsg, "identifier rejected") ||
+		strings.Contains(errMsg, "bad protocol version")
+	if isPlain && isTLSPort && isPlainOnTLSErr {
+		emitFn(SimEvent{
+			Elapsed: elap(), Tag: "MQTT", Cls: "warn",
+			Msg: fmt.Sprintf("Plain protocol on TLS port %d (err: %s) — auto-upgrading to mqtts…", cfg.MQTTPort, strings.TrimSpace(errMsg)),
+			Ty:  "warn",
+		})
+		tlsUpgrade := cfg
+		tlsUpgrade.MQTTProtocol = "mqtts"
+		emitFn(SimEvent{
+			Elapsed: elap(), Tag: "MQTT", Cls: "mq",
+			Msg:  fmt.Sprintf("Connecting to mqtts://%s:%d (clientId:%s)…", strings.TrimSpace(cfg.MQTTBroker), cfg.MQTTPort, strings.TrimSpace(cfg.TgtIMEI)),
+			Ty:   "info", Step: "mqtt:connect",
+		})
+		client2, err2 := connectMQTT(tlsUpgrade)
+		if err2 != nil {
+			return nil, cfg, fmt.Errorf("mqtt plain: %v; mqtts auto-upgrade: %w", err, err2)
+		}
+		return client2, tlsUpgrade, nil
+	}
+
+	// ── Path 2: explicit TLS fallback broker (plain toggle with fallback set) ──
 	if cfg.FallbackMQTTBroker == "" || !isNetworkError(err) {
 		return nil, cfg, err
 	}
-	parts := strings.Split(err.Error(), ":")
+	parts := strings.Split(errMsg, ":")
 	shortErr := strings.TrimSpace(parts[len(parts)-1])
 	emitFn(SimEvent{
 		Elapsed: elap(), Tag: "MQTT", Cls: "warn",

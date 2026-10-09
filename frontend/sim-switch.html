@@ -194,6 +194,9 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
 .sw-log-st.ok{color:var(--green)}.sw-log-st.err{color:var(--red)}
 .sw-log-path{color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sw-log-snip{color:var(--t2);flex-shrink:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-log-row.expandable{cursor:pointer}
+.sw-log-row.expandable:hover .sw-log-path{color:var(--blue)}
+.sw-log-expand{padding:6px 14px 10px;font-family:var(--font-mono);font-size:9.5px;color:var(--t1);background:var(--bg0);border-bottom:1px solid var(--border);white-space:pre;overflow-x:auto;max-height:280px;overflow-y:auto;line-height:1.5}
 </style>
 </head>
 <body>
@@ -850,18 +853,36 @@ const S = {
 
 // ── API Log ──────────────────────────────────────────────────────────────────
 let _logOpen = false;
-function _logApi(method, path, statusCode, snippet) {
+function _logApi(method, path, statusCode, snippet, fullBody) {
   const ts = new Date().toTimeString().slice(0,8);
   const isErr = !statusCode || statusCode >= 400;
-  const body = document.getElementById('swLogBody');
-  if (!body) return;
+  const logBody = document.getElementById('swLogBody');
+  if (!logBody) return;
   const row = document.createElement('div');
-  row.className = 'sw-log-row' + (isErr ? ' err' : '');
-  row.innerHTML = `<span class="sw-log-ts">${ts}</span><span class="sw-log-meth ${method}">${method}</span><span class="sw-log-st ${isErr?'err':'ok'}">${statusCode||'ERR'}</span><span class="sw-log-path" title="${_esc(path)}">${_esc(path)}</span><span class="sw-log-snip">${_esc(snippet||'')}</span>`;
-  body.appendChild(row);
-  body.scrollTop = body.scrollHeight;
+  const hasBody = !!fullBody;
+  row.className = 'sw-log-row' + (isErr ? ' err' : '') + (hasBody ? ' expandable' : '');
+  row.innerHTML = `<span class="sw-log-ts">${ts}</span><span class="sw-log-meth ${method}">${method}</span><span class="sw-log-st ${isErr?'err':'ok'}">${statusCode||'ERR'}</span><span class="sw-log-path" title="${_esc(path)}">${_esc(path)}</span><span class="sw-log-snip">${_esc(snippet||'')}</span>${hasBody?'<span class="sw-log-snip" style="color:var(--t2);margin-left:4px">▶</span>':''}`;
+  if (hasBody) {
+    row.addEventListener('click', () => {
+      const next = row.nextElementSibling;
+      if (next && next.classList.contains('sw-log-expand')) {
+        next.remove();
+        row.querySelector('.sw-log-snip:last-child').textContent = '▶';
+      } else {
+        const pre = document.createElement('div');
+        pre.className = 'sw-log-expand';
+        try { pre.textContent = JSON.stringify(JSON.parse(fullBody), null, 2); }
+        catch { pre.textContent = fullBody; }
+        row.after(pre);
+        row.querySelector('.sw-log-snip:last-child').textContent = '▼';
+        pre.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      }
+    });
+  }
+  logBody.appendChild(row);
+  logBody.scrollTop = logBody.scrollHeight;
   const cnt = document.getElementById('swLogCount');
-  if (cnt) cnt.textContent = body.children.length + ' calls';
+  if (cnt) cnt.textContent = logBody.querySelectorAll('.sw-log-row').length + ' calls';
   if (isErr && !_logOpen) toggleLog();
 }
 function toggleLog() {
@@ -1020,10 +1041,12 @@ async function _searchExistAccounts(q) {
   dd.innerHTML = '<div class="sw-acc-msg">Searching…</div>';
   dd.classList.add('open');
   _existAccRepos();
-  const data = await _get(`/account/listV2?sort=display_name+asc&psize=30&stage=POC&query=${encodeURIComponent(q)}`);
+  const data = await _get(`/account/listV2?sort=display_name+asc&psize=30&query=${encodeURIComponent(q)}`);
   if (data.error) { dd.innerHTML = `<div class="sw-acc-msg">Error: ${_esc(data.error)}</div>`; return; }
-  const accs = (data.result && data.result.accounts) || [];
-  if (!accs.length) { dd.innerHTML = '<div class="sw-acc-msg">No POC accounts found</div>'; return; }
+  const accs = (data.result && data.result.accounts)
+    || (data.result && Array.isArray(data.result) ? data.result : null)
+    || data.accounts || [];
+  if (!accs.length) { dd.innerHTML = '<div class="sw-acc-msg">No accounts found — click row above to inspect response</div>'; return; }
   dd.innerHTML = accs.map(a =>
     `<div class="sw-acc-item" data-id="${_esc(a._id)}" data-name="${_esc(a.display_name||a.name||'')}" data-stage="${_esc(a.stage||'')}">
       <div class="sw-acc-name">${_esc(a.display_name||a.name||'—')}</div>
@@ -1063,10 +1086,10 @@ async function _get(path) {
   const raw = await window.go.main.App.SwitchAPIGet(_base(), _tok(), path);
   try {
     const p = JSON.parse(raw);
-    _logApi('GET', path, p.error ? 400 : 200, p.error || raw.slice(0,80));
+    _logApi('GET', path, p.error ? 400 : 200, p.error || raw.slice(0,80), raw);
     return p;
   } catch {
-    _logApi('GET', path, 0, raw.slice(0,80));
+    _logApi('GET', path, 0, raw.slice(0,80), raw);
     return { error: 'parse error: ' + raw.slice(0,200) };
   }
 }
@@ -1075,10 +1098,10 @@ async function _post(path, body) {
   const raw = await window.go.main.App.SwitchAPIPost(_base(), _tok(), path, JSON.stringify(body));
   try {
     const p = JSON.parse(raw);
-    _logApi('POST', path, p.error ? 400 : 200, p.error || raw.slice(0,80));
+    _logApi('POST', path, p.error ? 400 : 200, p.error || raw.slice(0,80), raw);
     return p;
   } catch {
-    _logApi('POST', path, 0, raw.slice(0,80));
+    _logApi('POST', path, 0, raw.slice(0,80), raw);
     return { error: 'parse error: ' + raw.slice(0,200) };
   }
 }
@@ -1164,10 +1187,12 @@ async function _searchAccounts(q) {
   _accDd().innerHTML = '<div class="sw-acc-msg">Searching…</div>';
   _accDd().classList.add('open');
   _accRepos();
-  const data = await _get(`/account/listV2?sort=display_name+asc&psize=20&stage=LIVE,POC&query=${encodeURIComponent(q)}`);
+  const data = await _get(`/account/listV2?sort=display_name+asc&psize=25&query=${encodeURIComponent(q)}`);
   if (data.error) { _accDd().innerHTML = `<div class="sw-acc-msg">Error: ${_esc(data.error)}</div>`; return; }
-  const accs = (data.result && data.result.accounts) || [];
-  if (!accs.length) { _accDd().innerHTML = `<div class="sw-acc-msg">No accounts found</div>`; return; }
+  const accs = (data.result && data.result.accounts)
+    || (data.result && Array.isArray(data.result) ? data.result : null)
+    || data.accounts || [];
+  if (!accs.length) { _accDd().innerHTML = `<div class="sw-acc-msg">No accounts found — click row above to inspect response</div>`; return; }
   _accDd().innerHTML = accs.map(a =>
     `<div class="sw-acc-item" data-id="${_esc(a._id)}" data-name="${_esc(a.display_name||a.name||'')}">
       <div class="sw-acc-name">${_esc(a.display_name||a.name||'—')}</div>

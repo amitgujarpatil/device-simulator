@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -107,13 +108,13 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 		}
 		page++
 
-		srcBase := cfg.SrcAPIBase
+		srcBase := strings.TrimSpace(cfg.SrcAPIBase)
 		if srcBase == "" {
-			srcBase = cfg.APIBase
+			srcBase = strings.TrimSpace(cfg.APIBase)
 		}
-		srcToken := cfg.SrcAPIToken
+		srcToken := strings.TrimSpace(cfg.SrcAPIToken)
 		if srcToken == "" {
-			srcToken = cfg.APIToken
+			srcToken = strings.TrimSpace(cfg.APIToken)
 		}
 		url := fmt.Sprintf("%s/idevice/logsV2/%s?psize=%d&token=%s&from=%d&until=%d",
 			srcBase, cfg.SrcIMEI, psize, srcToken, cfg.FromMS, cfg.UntilMS)
@@ -156,6 +157,14 @@ func fetchTelemetry(ctx context.Context, cfg Config, emit func(SimEvent), startT
 					time.Sleep(2 * time.Second)
 				}
 				continue
+			}
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				maxLen := 300
+				if len(body) < maxLen {
+					maxLen = len(body)
+				}
+				fetchErr = fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body[:maxLen])))
+				break
 			}
 			fetchErr = nil
 			break

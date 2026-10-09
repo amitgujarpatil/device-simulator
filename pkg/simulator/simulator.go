@@ -367,7 +367,7 @@ func runSimulation(ctx context.Context, cfg Config, emit EventEmitter, startT ti
 	// would produce a different packet list, making saved offsets stale.
 	// Users who want a true fresh run must call ClearTestState first.
 	skipFetchDone := false
-	if cfg.Mode == "simulate" && runState.Phase1Complete {
+	if (cfg.Mode == "simulate" && runState.Phase1Complete) || cfg.SkipFetch {
 		if data, err2 := os.ReadFile(livePktsPath); err2 == nil {
 			var cached []livePacket
 			if json.Unmarshal(data, &cached) == nil && len(cached) > 0 {
@@ -1044,7 +1044,7 @@ func runPhase1(ctx context.Context, cfg Config, batchFiles []string, liveObdPack
 				if err != nil {
 					emit(SimEvent{
 						Elapsed: elap(), Tag: "UPLOAD", Cls: "er",
-						Msg: fmt.Sprintf("batch_%d FAILED: %v", i+1, err), Ty: "warn",
+						Msg: fmt.Sprintf("batch_%d FAILED: %v", i+1, err), Ty: "err",
 					})
 				} else {
 					emit(SimEvent{

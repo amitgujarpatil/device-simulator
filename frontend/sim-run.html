@@ -290,8 +290,7 @@ select.lf-inp:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(46,196,
 .st-lbl{color:var(--text-1)}
 .st-stat{font-size:13px;color:var(--text-2)}.st-stat strong{color:var(--text-1)}
 .st-detail{font-family:var(--font-mono);font-size:11.5px;color:var(--text-3)}
-/* Hidden progress fills kept for JS */
-.st-prog{height:0;overflow:hidden}
+.st-prog{height:3px;overflow:hidden}
 .st-fill{height:3px;border-radius:2px;width:0;transition:width .5s ease}
 .fa{background:var(--stream-a-fg)}.fb{background:var(--stream-b-fg)}.fc{background:var(--stream-c-fg)}
 .fg2{background:var(--data-gps)}.fblue{background:var(--accent)}
@@ -698,6 +697,16 @@ html[data-page="run"] #simCtrlGroup .btn:disabled{opacity:.4;background:var(--bg
         <span class="ctr-sub">Phase 1 accumulate</span>
         <span class="ctr-bar"><span class="ctr-bar-fill" id="mcObd" style="background:var(--data-obd)"></span></span>
       </div>
+      <!-- Batches uploaded -->
+      <div class="ctr-tile">
+        <div class="ctr-hdr">
+          <span class="ctr-name"><span class="ctr-sq" style="background:var(--stream-a-fg)"></span>Batches</span>
+          <svg class="ctr-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <span class="ctr-num" id="stBatchUp" style="color:var(--stream-a-fg)">0/—</span>
+        <span class="ctr-sub">Files uploaded</span>
+        <span class="ctr-bar"><span class="ctr-bar-fill" id="mcBatch" style="background:var(--stream-a-fg)"></span></span>
+      </div>
     </div>
   </section>
 
@@ -831,7 +840,7 @@ html[data-page="run"] #simCtrlGroup .btn:disabled{opacity:.4;background:var(--bg
 
   <!-- Phase 2 card -->
   <section class="ph" id="ph2" aria-label="Phase 2">
-    <button type="button" class="ph2-btn" aria-expanded="false" onclick="this.setAttribute('aria-expanded',this.getAttribute('aria-expanded')==='true'?'false':'true')">
+    <button type="button" class="ph2-btn" aria-expanded="false" onclick="(function(b){const exp=b.getAttribute('aria-expanded')==='true';b.setAttribute('aria-expanded',exp?'false':'true');const s=b.closest('.ph').querySelector('.streams');if(s)s.style.display=exp?'none':'';})( this)"  >
       <span class="ph2-title-row">
         <svg class="ph2-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         Phase 2
@@ -1180,7 +1189,7 @@ window.onRegionChange = function(key) {
 function loadFromState() {
   activeTest = SimState.getActiveTest();
   if (!activeTest) return;
-  activeRegion = SimState.getRegion(SimState.getActiveRegionKey());
+  activeRegion = SimState.getRegion(activeTest.regionKey || SimState.getActiveRegionKey());
   populateRegionDropdown();
   renderTestList();
   renderCfgSummary();
@@ -1200,6 +1209,7 @@ async function reconnectSim(runId) {
   addLog('+  0.0s', 'SYS', 'fe', 'Reconnected to running simulation', 'info');
   try { await waitForRuntime(5000); } catch(e) { return; }
   if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
+  try { window.runtime.EventsOff('simulation:event'); } catch(_) {}
   try {
     _evListenerOff = window.runtime.EventsOn('simulation:event', function(ev) {
       const elapsed = ev.elapsed || 0;
@@ -1288,6 +1298,11 @@ function patchActiveTest(key, val) {
   if (key === 'mode') { renderCfgSummary(); adaptForMode(val); }
   if (key === 'regionKey') { activeRegion = SimState.getRegion(val) || activeRegion; SimState.setActiveRegionKey(val); SimNav._refreshRegion(); renderCfgSummary(); renderTestList(); }
   if (key === 'srcRegionKey') { renderCfgSummary(); renderTestList(); }
+  // Date range changed → stale batch/OBD files belong to old range; wipe them so
+  // the next run fetches fresh data instead of resuming with wrong packets.
+  if (key === 'from' || key === 'until' || key === 'histEnd') {
+    clearTestState();
+  }
 }
 
 function updateWindowDurations() {
@@ -1632,7 +1647,7 @@ function selectTest(id) {
   if (running) return;
   SimState.setActiveTest(id);
   activeTest = SimState.getActiveTest();
-  activeRegion = SimState.getRegion(SimState.getActiveRegionKey());
+  activeRegion = SimState.getRegion((activeTest||{}).regionKey || SimState.getActiveRegionKey());
   renderTestList();
   renderCfgSummary();
 }
@@ -1644,7 +1659,7 @@ function delTest(ev, id) {
   if (el.dataset.confirm === '1') {
     SimState.deleteTest(id);
     activeTest = SimState.getActiveTest();
-    activeRegion = SimState.getRegion(SimState.getActiveRegionKey());
+    activeRegion = SimState.getRegion((activeTest||{}).regionKey || SimState.getActiveRegionKey());
     renderTestList();
     renderCfgSummary();
   } else {
@@ -1689,7 +1704,7 @@ function prog(pid,pct,_,iid,html){const p=g(pid);if(p)p.style.width=pct+'%';if(i
 function phBadge(id,txt,isRun,isOk){const b=g(id);if(isOk){b.style.background='rgba(52,211,153,.12)';b.style.color='var(--green)';}else if(isRun){b.style.background='rgba(167,139,250,.14)';b.style.color='var(--blue)';}else{b.style.background='var(--bg2)';b.style.color='var(--t2)';}b.textContent=txt}
 function rs(id,val,isOk){const e=g(id);if(!e)return;e.textContent=val;e.className='v '+(isOk?'ok':'hi')}
 function mc(valId,barId,disp,cur,max,rBarId,rLblId){setS(valId,disp);const pct=Math.round(cur/max*100);[barId,rBarId].forEach(id=>{const e=g(id);if(e)e.style.width=pct+'%'});const rl=g(rLblId);if(rl)rl.textContent=disp}
-function sA(cur,tot,n){g('pA').style.width=Math.round(cur/tot*100)+'%';setS('iA',`Batch <strong>${cur}</strong>/<strong>${tot}</strong>`);setS('dA',`Upload #${n} · encrypted`);g('stA').classList.add('on')}
+function sA(cur,tot,n){g('pA').style.width=Math.round(cur/tot*100)+'%';setS('iA',`Batch <strong>${cur}</strong>/<strong>${tot}</strong>`);setS('dA',`Upload #${n} · encrypted`);g('stA').classList.add('on');setS('stBatchUp',`${cur}/${tot}`);const _bb=g('mcBatch');if(_bb)_bb.style.width=Math.round(cur/Math.max(1,tot)*100)+'%'}
 function sB(pub,tot){g('pB').style.width=Math.round(pub/tot*100)+'%';setS('iB',`Published: <strong>${pub}</strong>`);g('stB').classList.add('on')}
 function sC(rows,tot){g('pC').style.width=Math.round(rows/tot*100)+'%';setS('iC',`Rows: <strong>${rows}</strong>`);g('stC').classList.add('on')}
 function p2U(pct){g('pP2U').style.width=pct+'%';setS('iP2U',`live_obd_<strong>${(activeTest||{}).tgtImei||'—'}</strong>.db ✓`);g('p2Up').classList.add('on')}
@@ -1766,7 +1781,7 @@ function waitForRuntime(timeoutMs) {
 
 function buildSimConfig() {
   const t = activeTest || {};
-  const r = activeRegion || {};
+  const r = SimState.getRegion(t.regionKey) || activeRegion || {};
   const srcR = SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r;
   const g2 = SimState.getGlobal();
   const toMs = s => { if (!s) return 0; const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime(); };
@@ -1777,7 +1792,7 @@ function buildSimConfig() {
   const effectivePlain = usePlain && !!r.mqttBrokerPlain;
   const mqttProtocol = effectivePlain ? 'mqtt'                              : (r.mqttProtocol || 'mqtts');
   const mqttBroker   = effectivePlain ? (r.mqttBrokerPlain)                 : (r.mqttBroker   || '');
-  const mqttPort     = effectivePlain ? (r.mqttPortPlain   || 1883)         : (r.mqttPort     || 8884);
+  const mqttPort     = effectivePlain ? (r.mqttPortPlain   || 1884)         : (r.mqttPort     || 8884);
   const tlsCerts     = effectivePlain ? 'none'                              : (r.tlsCerts     || 'embedded');
   // In MQTT Direct mode clamp GPS/OBD intervals to the allowed range (100ms–60s).
   // Stored values from other modes (e.g. 120s OBD accum) would otherwise make each packet wait 2 min.
@@ -1843,7 +1858,7 @@ async function startSim() {
   _liveMetrics = { totalPackets:0, historicPackets:0, liveGps:0, liveObd:0, batchesUploaded:0, errors:0 };
   _runId = SimState.newRunId();
   SimState.setGlobal({ _simRunning: true, _simRunId: _runId });
-  SimState.addRun({ id:_runId, testId:activeTest.id, testName:activeTest.name, regionKey:SimState.getActiveRegionKey(), srcImei:activeTest.srcImei, tgtImei:activeTest.tgtImei, from:activeTest.from, until:activeTest.until, histEnd:activeTest.histEnd, mode:activeTest.mode, outputDir:SimState.getGlobal().outputDir||'', startedAt:new Date().toISOString(), completedAt:null, status:'running', durationSec:null, metrics:{}, logSnapshot:[] });
+  SimState.addRun({ id:_runId, testId:activeTest.id, testName:activeTest.name, regionKey:SimState.getActiveRegionKey(), srcRegionKey:activeTest.srcRegionKey||SimState.getActiveRegionKey(), srcImei:activeTest.srcImei, tgtImei:activeTest.tgtImei, from:activeTest.from, until:activeTest.until, histEnd:activeTest.histEnd, mode:activeTest.mode, outputDir:SimState.getGlobal().outputDir||'', startedAt:new Date().toISOString(), completedAt:null, status:'running', durationSec:null, metrics:{}, logSnapshot:[] });
   g('btnGo').disabled = true; g('btnStop').disabled = false; g('btnPause').disabled = false;
   setStatus('run', 'Running');
   setRingPhase('Starting');
@@ -1855,8 +1870,10 @@ async function startSim() {
     stopSim(); return;
   }
 
-  // Subscribe to events from Go
+  // Subscribe to events from Go — always flush stale listeners first so
+  // accumulated EventsOn registrations from prior runs can't fire 2×/3×.
   if (_evListenerOff) { _evListenerOff(); _evListenerOff = null; }
+  try { window.runtime.EventsOff('simulation:event'); } catch(_) {}
   try {
     _evListenerOff = window.runtime.EventsOn('simulation:event', function(ev) {
       const elapsed = ev.elapsed || 0;
@@ -1963,6 +1980,11 @@ function handleSimStep(ev) {
       phBadge('ph1Badge','Done',false,true); rs('rsP1','true',true); break;
     case 'phase2:start': {
       g('ph2').classList.add('on'); phBadge('ph2Badge','Running',true); setRingPhase('Phase 2');
+      // Auto-expand Phase 2 streams panel
+      const _ph2btn = g('ph2') && g('ph2').querySelector('.ph2-btn');
+      if (_ph2btn) _ph2btn.setAttribute('aria-expanded', 'true');
+      const _ph2streams = g('ph2') && g('ph2').querySelector('.streams');
+      if (_ph2streams) _ph2streams.style.display = '';
       const _gl2 = SimState.getGlobal();
       const _ni2 = g('p2NormalInterval');
       if (_ni2) _ni2.textContent = _p2NiText(_gl2);
@@ -2046,15 +2068,20 @@ function _resetUI() {
   ['cFetch','cSplit','cBatch','cMqtt'].forEach(id=>g(id).className='step');
   ['sFetch','sSplit','sBatch','sMqtt'].forEach(id=>{const e=g(id);e.className='ss p';e.textContent='Pending'});
   ['pFetch','pSplit','pBatch','pMqtt','pA','pB','pC','pP2U','pP2S'].forEach(id=>{const e=g(id);if(e){e.style.width='0';e.classList.remove('done')}});
-  ['mcPkts','mcHist','mcGps','mcObd','rmPkts','rmHist','rmGps','rmObd'].forEach(id=>{const e=g(id);if(e)e.style.width='0'});
+  ['mcPkts','mcHist','mcGps','mcObd','mcBatch','rmPkts','rmHist','rmGps','rmObd'].forEach(id=>{const e=g(id);if(e)e.style.width='0'});
   ['rmPktsLbl','rmHistLbl','rmGpsLbl','rmObdLbl'].forEach(id=>setS(id,'0'));
   setS('iFetch','Pages: <strong>—</strong>');setS('iSplit','Hist/Live: <strong>—</strong>');setS('iBatch','Files: <strong>—</strong>');setS('iMqtt','Broker: <strong>—</strong>');
-  ['stPkts','stHist','stGps','stObd'].forEach(id=>setS(id,'0'));
+  ['stPkts','stHist','stGps','stObd'].forEach(id=>setS(id,'0'));setS('stBatchUp','0/—');
   setS('iA','Batch <strong>0</strong>/<strong>—</strong>');setS('iB','Published: <strong>0</strong>');setS('iC','Rows: <strong>0</strong>');setS('iP2U','live_obd_<strong>—</strong>.db');setS('iP2S','Published: <strong>0</strong>/<strong>—</strong>');
   ['p2GpsSent','p2GpsRem','p2ObdSent','p2ObdRem'].forEach(id=>{const e=g(id);if(e)e.textContent='0'});
   ['p2GpsTot','p2ObdTot'].forEach(id=>{const e=g(id);if(e)e.textContent='—'});
   ['stA','stB','stC','p2Up','p2Str','ph1','ph2','mqttDirectCard'].forEach(id=>g(id).classList.remove('on'));
   phBadge('ph1Badge','Pending');phBadge('ph2Badge','Pending');phBadge('mqttDirectBadge','Pending');
+  // Collapse Phase 2 streams on reset
+  const _ph2btn0 = g('ph2') && g('ph2').querySelector('.ph2-btn');
+  if (_ph2btn0) _ph2btn0.setAttribute('aria-expanded','false');
+  const _ph2s0 = g('ph2') && g('ph2').querySelector('.streams');
+  if (_ph2s0) _ph2s0.style.display = 'none';
   const fdCard = g('fetchDlCard'); if (fdCard) fdCard.classList.remove('ready');
   _fdCounts = { total:0, gps:0, obd:0, other:0 };
   ['mdGpsFill','mdObdFill','mdErrFill'].forEach(id=>{const e=g(id);if(e)e.style.width='0'});
@@ -2219,8 +2246,10 @@ function closeValView() {
 let _valResult = null;
 
 function _refreshValCfgRow() {
-  const t = activeTest, r = activeRegion;
-  if (!t || !r) { g('valCfgRow').innerHTML = '<span style="font-size:9px;color:var(--t2)">No test selected</span>'; return; }
+  const t = activeTest;
+  if (!t) { g('valCfgRow').innerHTML = '<span style="font-size:9px;color:var(--t2)">No test selected</span>'; return; }
+  const r = SimState.getRegion(t.regionKey) || activeRegion;
+  if (!r) { g('valCfgRow').innerHTML = '<span style="font-size:9px;color:var(--t2)">No test selected</span>'; return; }
   const row = g('valCfgRow');
   const srcR = SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r;
   const isCross = srcR !== r;
@@ -2244,8 +2273,10 @@ function _refreshValCfgRow() {
 }
 
 async function runValidation() {
-  const t = activeTest, r = activeRegion;
-  if (!t || !r) return;
+  const t = activeTest;
+  if (!t) return;
+  const r = SimState.getRegion(t.regionKey) || activeRegion;
+  if (!r) return;
   const srcR = SimState.getRegion(t.srcRegionKey || SimState.getActiveRegionKey()) || r;
   if (!r.userToken) {
     g('valError').style.display = '';
@@ -2417,6 +2448,12 @@ async function clearTestState() {
   try {
     await window.go.main.App.ClearTestState(outDir, tgtImei);
     addLog('+  0.0s', 'SYS', 'fe', 'Cleared batch & OBD state for ' + tgtImei, 'ok');
+    // Reset skip-fetch flag and uncheck the toggle — the cache it pointed to is gone
+    SimState.setGlobal({ _skipFetch: false });
+    const sfChk = document.getElementById('skipFetchChk');
+    if (sfChk) sfChk.classList.remove('on');
+    const sfLbl = document.getElementById('skipFetchLbl');
+    if (sfLbl) sfLbl.textContent = 'use cached pkts';
     loadResumeState();
   } catch(err) {
     addLog('+  0.0s', 'SYS', 'er', 'Clear state failed: ' + String(err), 'err');

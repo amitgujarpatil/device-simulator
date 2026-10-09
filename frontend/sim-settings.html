@@ -285,7 +285,7 @@ function renderRegionForm(regionKey) {
     <div class="section-title">MQTT — Plain TCP (mqtt://)</div>
     <div class="form-grid">
       <div class="fg wide"><label class="lbl">Broker Host (plain) <span style="color:var(--t2);font-size:8px">leave blank if not available</span></label><input class="inp" id="f-mqttBrokerPlain" value="${r.mqttBrokerPlain||''}" placeholder="mqtt.region.intangles.com (not mqttsecure)" oninput="patchRegion('${regionKey}','mqttBrokerPlain',this.value)"></div>
-      <div class="fg"><label class="lbl">Port <span style="color:var(--t2);font-size:8px">default 1883</span></label><input class="inp" type="number" id="f-mqttPortPlain" value="${r.mqttPortPlain||1883}" placeholder="1883" oninput="patchRegion('${regionKey}','mqttPortPlain',+this.value)"></div>
+      <div class="fg"><label class="lbl">Port <span style="color:var(--t2);font-size:8px">default 1884</span></label><input class="inp" type="number" id="f-mqttPortPlain" value="${r.mqttPortPlain||1884}" placeholder="1884" oninput="patchRegion('${regionKey}','mqttPortPlain',+this.value)"></div>
     </div>
 
     <div class="section-title">API &amp; HTTP Upload</div>
@@ -500,7 +500,7 @@ function autoHistEnd(id) {
 function newTest() {
   const rk = SimState.getActiveRegionKey();
   const id = SimState.nextTestId();
-  SimState.saveTest({ id, name:'New Test', regionKey:rk, srcImei:'', tgtImei:'', from:'', until:'', histEnd:'', mode:'simulate', createdAt:new Date().toISOString() });
+  SimState.saveTest({ id, name:'New Test', regionKey:rk, srcRegionKey:rk, srcImei:'', tgtImei:'', from:'', until:'', histEnd:'', mode:'simulate', createdAt:new Date().toISOString() });
   renderSidebarTests();
   showPanel('test:' + id);
 }

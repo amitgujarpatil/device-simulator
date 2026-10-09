@@ -264,7 +264,7 @@ function rerun(runId) {
     return;
   }
   const newId = SimState.nextTestId();
-  SimState.saveTest({ id:newId, name:r.testName+' (re-run)', regionKey:r.regionKey, srcImei:r.srcImei, tgtImei:r.tgtImei, from:r.from, until:r.until, histEnd:r.histEnd, mode:r.mode, createdAt:new Date().toISOString() });
+  SimState.saveTest({ id:newId, name:r.testName+' (re-run)', regionKey:r.regionKey, srcRegionKey:r.srcRegionKey||r.regionKey, srcImei:r.srcImei, tgtImei:r.tgtImei, from:r.from, until:r.until, histEnd:r.histEnd, mode:r.mode, createdAt:new Date().toISOString() });
   SimState.setActiveTest(newId);
   SimState.setActiveRegionKey(r.regionKey);
   location.href = 'sim-run.html';

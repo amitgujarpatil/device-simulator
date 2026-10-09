@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func uploadFile(filePath string, cfg Config) error {
 	}
 	w.Close()
 
-	req, err := http.NewRequest("POST", cfg.UploadURL, &buf)
+	req, err := http.NewRequest("POST", strings.TrimSpace(cfg.UploadURL), &buf)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
