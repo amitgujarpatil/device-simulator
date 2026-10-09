@@ -313,15 +313,94 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
             <div class="sw-card-lbl">Geofences</div>
             <div class="sw-card-sub" id="swCardGeoHubs">—</div>
           </div>
-          <div class="sw-card">
-            <div class="sw-card-icon"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="14" height="8" rx="1.5"/><polyline points="6,7 6,4.5 9,2.5 12,4.5 12,7"/></svg></div>
-            <div class="sw-card-num" id="swCardGroups">—</div>
-            <div class="sw-card-lbl">Groups</div>
-            <div class="sw-card-sub" id="swCardSpecs">—</div>
+        </div>
+
+        <!-- Target Mock Account (inline in Setup stage) -->
+        <div class="sw-sec" style="margin-top:18px">
+          <div class="sw-sec-title">
+            <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16V5l6-3 6 3v11"/><rect x="6.5" y="10" width="5" height="6"/></svg>
+            Target Mock Account
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:18px">
+            <button class="sw-mode-btn active" id="swModeCreateBtn" onclick="setTargetMode('create')">+ Create New</button>
+            <button class="sw-mode-btn" id="swModeExistBtn" onclick="setTargetMode('existing')">Use Existing</button>
+          </div>
+
+          <!-- ── Create New ── -->
+          <div id="swCreateModePanel">
+            <div class="sw-info" style="margin-bottom:12px">
+              <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+              Account name must end with <code style="font-family:var(--font-mono);background:var(--bg3);padding:1px 5px;border-radius:3px">_test</code> — e.g. <em>intangles-deanta_test</em>
+            </div>
+            <div class="sw-fg2">
+              <div class="sw-fg">
+                <label class="sw-lbl">Mock Account Name</label>
+                <div class="sw-row">
+                  <input class="sw-inp" id="swMockName" placeholder="intangles-…_test" oninput="validateMockNameSuffix(this.value)">
+                  <button class="sw-btn sw-btn-ghost" onclick="checkMockName()">Check</button>
+                </div>
+                <div class="sw-inp-hint" id="swNameHint"></div>
+              </div>
+            </div>
+            <div id="swCopiedFields" style="display:none">
+              <div class="sw-lbl" style="margin-bottom:8px">Fields copied from source</div>
+              <div class="sw-field-list" id="swFieldList"></div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+              <button class="sw-btn sw-btn-primary" id="swPlanAccBtn" onclick="planAccount()">
+                <svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg>
+                Confirm Account Plan
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Use Existing ── -->
+          <div id="swExistModePanel" style="display:none">
+            <div class="sw-info" style="margin-bottom:12px">
+              <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
+              Select a POC or <code style="font-family:var(--font-mono);background:var(--bg3);padding:1px 5px;border-radius:3px">_test</code> account. Existing vehicles, geofences and groups in that account will be detected automatically.
+            </div>
+            <div class="sw-fg">
+              <label class="sw-lbl">Search existing test / POC accounts</label>
+              <div style="position:relative">
+                <input class="sw-inp" id="swExistAccSearch" placeholder="Type account name or ID…" autocomplete="off">
+                <div class="sw-acc-dd" id="swExistAccDd"></div>
+              </div>
+            </div>
+            <div id="swExistAccBox" style="display:none;margin-top:8px">
+              <div class="sw-accbox">
+                <div class="sw-accbox-dot" style="background:var(--blue);box-shadow:0 0 8px rgba(46,196,182,.4)"></div>
+                <div>
+                  <div class="sw-accbox-name" id="swExistAccName">—</div>
+                  <div class="sw-accbox-id" id="swExistAccIdDisp">—</div>
+                </div>
+                <div class="sw-accbox-right">
+                  <span class="sw-chip" id="swExistAccStage"></span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px">
+              <button class="sw-btn sw-btn-primary" id="swUseExistBtn" onclick="confirmExistingAccount()" style="display:none">Use This Account →</button>
+            </div>
+          </div>
+
+          <!-- Shared: confirmed mock account box -->
+          <div id="swMockCreated" style="display:none;margin-top:14px">
+            <div class="sw-accbox">
+              <div class="sw-accbox-dot" style="background:var(--green);box-shadow:0 0 8px rgba(91,210,138,.4)"></div>
+              <div>
+                <div class="sw-accbox-name" id="swMockAccName">—</div>
+                <div class="sw-accbox-id" id="swMockAccId">—</div>
+              </div>
+              <div class="sw-accbox-right">
+                <span class="sw-chip" style="color:var(--green);border-color:rgba(91,210,138,.3)" id="swMockAccChip">POC</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div style="display:flex;gap:10px;margin-top:4px">
-          <button class="sw-btn sw-btn-primary" onclick="goStage(1)">Continue to Map Vehicles →</button>
+
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="sw-btn sw-btn-primary" id="swToMapBtn" onclick="goStage(1)" style="display:none">Continue to Map Vehicles →</button>
         </div>
       </div>
     </div>
@@ -370,7 +449,6 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
                 <th>Mock IMEI</th>
                 <th>Spec</th>
                 <th>Type</th>
-                <th>Groups</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -379,147 +457,13 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
         </div>
         <div style="display:flex;gap:10px;margin-top:4px">
           <button class="sw-btn sw-btn-ghost" onclick="goStage(0)">← Back</button>
-          <button class="sw-btn sw-btn-primary" id="swToAccBtn" onclick="goStage(2)">Continue to Target Account →</button>
+          <button class="sw-btn sw-btn-primary" id="swToGeoBtn" onclick="goStage(2)">Continue to Geofences →</button>
         </div>
       </div>
     </div>
 
-    <!-- ══ STAGE 2: TARGET ACCOUNT ═════════════════════════════════════════ -->
+    <!-- ══ STAGE 2: GEOFENCES ═════════════════════════════════════════════ -->
     <div class="sw-stage" id="sw-s2">
-      <div class="sw-sec">
-        <div class="sw-sec-title">
-          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16V5l6-3 6 3v11"/><rect x="6.5" y="10" width="5" height="6"/></svg>
-          Target Mock Account
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:18px">
-          <button class="sw-mode-btn active" id="swModeCreateBtn" onclick="setTargetMode('create')">+ Create New</button>
-          <button class="sw-mode-btn" id="swModeExistBtn" onclick="setTargetMode('existing')">Use Existing</button>
-        </div>
-
-        <!-- ── Create New ── -->
-        <div id="swCreateModePanel">
-          <div class="sw-info" style="margin-bottom:12px">
-            <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
-            Account name must end with <code style="font-family:var(--font-mono);background:var(--bg3);padding:1px 5px;border-radius:3px">_test</code> — e.g. <em>intangles-deanta_test</em>
-          </div>
-          <div class="sw-fg2">
-            <div class="sw-fg">
-              <label class="sw-lbl">Mock Account Name</label>
-              <div class="sw-row">
-                <input class="sw-inp" id="swMockName" placeholder="intangles-…_test" oninput="validateMockNameSuffix(this.value)">
-                <button class="sw-btn sw-btn-ghost" onclick="checkMockName()">Check</button>
-              </div>
-              <div class="sw-inp-hint" id="swNameHint"></div>
-            </div>
-          </div>
-          <div id="swCopiedFields" style="display:none">
-            <div class="sw-lbl" style="margin-bottom:8px">Fields copied from source</div>
-            <div class="sw-field-list" id="swFieldList"></div>
-          </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
-            <button class="sw-btn sw-btn-primary" id="swPlanAccBtn" onclick="planAccount()">
-              <svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg>
-              Confirm Account Plan
-            </button>
-          </div>
-        </div>
-
-        <!-- ── Use Existing ── -->
-        <div id="swExistModePanel" style="display:none">
-          <div class="sw-info" style="margin-bottom:12px">
-            <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
-            Select a POC or <code style="font-family:var(--font-mono);background:var(--bg3);padding:1px 5px;border-radius:3px">_test</code> account. Existing vehicles, geofences and groups in that account will be detected automatically.
-          </div>
-          <div class="sw-fg">
-            <label class="sw-lbl">Search existing test / POC accounts</label>
-            <div style="position:relative">
-              <input class="sw-inp" id="swExistAccSearch" placeholder="Type account name or ID…" autocomplete="off">
-              <div class="sw-acc-dd" id="swExistAccDd"></div>
-            </div>
-          </div>
-          <div id="swExistAccBox" style="display:none;margin-top:8px">
-            <div class="sw-accbox">
-              <div class="sw-accbox-dot" style="background:var(--blue);box-shadow:0 0 8px rgba(46,196,182,.4)"></div>
-              <div>
-                <div class="sw-accbox-name" id="swExistAccName">—</div>
-                <div class="sw-accbox-id" id="swExistAccIdDisp">—</div>
-              </div>
-              <div class="sw-accbox-right">
-                <span class="sw-chip" id="swExistAccStage"></span>
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;gap:10px;margin-top:12px">
-            <button class="sw-btn sw-btn-primary" id="swUseExistBtn" onclick="confirmExistingAccount()" style="display:none">Use This Account →</button>
-          </div>
-        </div>
-
-        <!-- Shared: confirmed mock account box -->
-        <div id="swMockCreated" style="display:none;margin-top:14px">
-          <div class="sw-accbox">
-            <div class="sw-accbox-dot" style="background:var(--green);box-shadow:0 0 8px rgba(91,210,138,.4)"></div>
-            <div>
-              <div class="sw-accbox-name" id="swMockAccName">—</div>
-              <div class="sw-accbox-id" id="swMockAccId">—</div>
-            </div>
-            <div class="sw-accbox-right">
-              <span class="sw-chip" style="color:var(--green);border-color:rgba(91,210,138,.3)" id="swMockAccChip">POC</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(1)">← Back</button>
-        <button class="sw-btn sw-btn-primary" id="swToSeedBtn" onclick="goStage(3)" style="display:none">Continue to Seed Vehicles →</button>
-      </div>
-    </div>
-
-    <!-- ══ STAGE 3: SEED VEHICLES ══════════════════════════════════════════ -->
-    <div class="sw-stage" id="sw-s3">
-      <div class="sw-sec">
-        <div class="sw-sec-title">
-          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="14" height="10" rx="2"/><line x1="6" y1="8" x2="12" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/></svg>
-          Seed Devices &amp; Vehicles
-        </div>
-        <div class="sw-info">
-          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
-          5 API calls per vehicle (create device → create vehicle → attach spec → attach device → set base info). Devices and vehicles cannot be deleted — always create 1 first and verify.
-        </div>
-        <div class="sw-prog-wrap" id="swSeedProgWrap" style="display:none">
-          <div class="sw-prog" id="swSeedProg" style="width:0%"></div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-          <span style="font-size:10px;color:var(--blue)" id="swSeedPlanNote">Vehicles will be seeded when you click Apply in the final step.</span>
-        </div>
-      </div>
-
-      <div class="sw-tbl-wrap" id="swSeedTableWrap" style="display:none">
-        <table class="sw-tbl">
-          <thead>
-            <tr>
-              <th>Source Plate</th>
-              <th>Source IMEI</th>
-              <th>Mock Plate</th>
-              <th>Mock IMEI</th>
-              <th>Mock Vehicle</th>
-              <th>Steps</th>
-              <th>Status</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody id="swSeedBody"></tbody>
-        </table>
-      </div>
-
-      <div style="display:flex;gap:10px;margin-top:8px">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(2)">← Back</button>
-        <button class="sw-btn sw-btn-primary" id="swDoneBtn" onclick="goStage(4)">Continue to Geofences →</button>
-      </div>
-    </div>
-
-    <!-- ══ STAGE 4: GEOFENCES ═════════════════════════════════════════════ -->
-    <div class="sw-stage" id="sw-s4">
       <div class="sw-sec">
         <div class="sw-sec-title">
           <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4.5"/><circle cx="9" cy="8" r="1.5" fill="currentColor" stroke="none"/><line x1="9" y1="12.5" x2="9" y2="16"/></svg>
@@ -550,46 +494,13 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
         </div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(3)">← Back</button>
-        <button class="sw-btn sw-btn-primary" id="swToGroupsBtn" onclick="goStage(5)">Continue to Groups →</button>
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(1)">← Back</button>
+        <button class="sw-btn sw-btn-primary" id="swToAlertBtn" onclick="goStage(3)">Continue to Alert Config →</button>
       </div>
     </div>
 
-    <!-- ══ STAGE 5: GROUPS ════════════════════════════════════════════════ -->
-    <div class="sw-stage" id="sw-s5">
-      <div class="sw-sec">
-        <div class="sw-sec-title">
-          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="14" height="8" rx="1.5"/><polyline points="6,7 6,4.5 9,2.5 12,4.5 12,7"/></svg>
-          Recreate Vehicle Groups
-        </div>
-        <div class="sw-toggle-row" style="margin-bottom:10px">
-          <input type="checkbox" id="swIncAllVehicleGroups" onchange="initGroupsStage()">
-          <label for="swIncAllVehicleGroups">Include all_vehicles groups (e.g. Live-Tracking)</label>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <span style="font-size:10px;color:var(--blue)">Groups will be recreated when you click Apply in the final step.</span>
-        </div>
-        <div class="sw-tbl-wrap" id="swGroupTableWrap">
-          <table class="sw-tbl">
-            <thead><tr>
-              <th>Group Name</th>
-              <th>Source Vehicles</th>
-              <th>Mock Vehicles Resolved</th>
-              <th>Mock Group ID</th>
-              <th>Status</th>
-            </tr></thead>
-            <tbody id="swGroupBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(4)">← Back</button>
-        <button class="sw-btn sw-btn-primary" id="swToAlertBtn" onclick="goStage(6)">Continue to Alert Config →</button>
-      </div>
-    </div>
-
-    <!-- ══ STAGE 6: ALERT CONFIG ══════════════════════════════════════════ -->
-    <div class="sw-stage" id="sw-s6">
+    <!-- ══ STAGE 3: ALERT CONFIG ══════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s3">
       <div class="sw-sec">
         <div class="sw-sec-title">
           <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1L1 16h16z"/><line x1="9" y1="7" x2="9" y2="11"/><circle cx="9" cy="13.5" r=".6" fill="currentColor" stroke="none"/></svg>
@@ -631,13 +542,13 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
         <p style="font-size:11px;color:var(--t2);margin:0">Recipients are managed via the platform UI — navigate to the mock account's Alert Settings and add users per alert type there.</p>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(5)">← Back</button>
-        <button class="sw-btn sw-btn-primary" onclick="goStage(7)">Continue to Tracker Time →</button>
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(2)">← Back</button>
+        <button class="sw-btn sw-btn-primary" onclick="goStage(4)">Continue to Tracker Time →</button>
       </div>
     </div>
 
-    <!-- ══ STAGE 7: TRACKER ATTACH TIME ══════════════════════════════════ -->
-    <div class="sw-stage" id="sw-s7">
+    <!-- ══ STAGE 4: TRACKER TIME ══════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s4">
       <div class="sw-sec">
         <div class="sw-sec-title">
           <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><polyline points="9,5 9,9 12,11"/></svg>
@@ -685,93 +596,13 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
         </div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(6)">← Back</button>
-        <button class="sw-btn sw-btn-primary" onclick="goStage(8)">Continue to Replay & Verify →</button>
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(3)">← Back</button>
+        <button class="sw-btn sw-btn-primary" onclick="goStage(5)">Continue to Review &amp; Apply →</button>
       </div>
     </div>
 
-    <!-- ══ STAGE 8: REPLAY & VERIFY ═══════════════════════════════════════ -->
-    <div class="sw-stage" id="sw-s8">
-      <!-- 8a: Plan -->
-      <div class="sw-sec">
-        <div class="sw-sec-title">
-          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,14 5.5,8 9,11.5 12.5,4.5 16,7"/></svg>
-          8a — Replay Window Planner
-        </div>
-        <div class="sw-fg3">
-          <div class="sw-fg">
-            <label class="sw-lbl">Lookback Days</label>
-            <input class="sw-inp" type="number" id="swLookback" value="30" min="1" max="365" style="width:80px">
-          </div>
-          <div class="sw-fg">
-            <label class="sw-lbl">Max Window Hrs</label>
-            <input class="sw-inp" type="number" id="swMaxWin" value="24" min="1" max="168" style="width:80px">
-          </div>
-          <div class="sw-fg">
-            <label class="sw-lbl">Lead Hours</label>
-            <input class="sw-inp" type="number" id="swLeadHrs" value="2" min="0" max="24" style="width:80px">
-          </div>
-        </div>
-        <div class="sw-fg" style="margin-bottom:12px">
-          <label class="sw-lbl">Vehicle Scope</label>
-          <select class="sw-inp" id="swReplayScopeVeh" style="width:260px">
-            <option value="all">All source vehicles</option>
-          </select>
-        </div>
-        <div class="sw-prog-wrap" id="swScanProgWrap" style="display:none">
-          <div class="sw-prog" id="swScanProg" style="width:0%"></div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-          <button class="sw-btn sw-btn-primary" id="swScanBtn" onclick="scanAndPlan()">
-            <span class="sw-spin" id="swScanSpin" style="display:none"></span>
-            Scan &amp; Plan
-          </button>
-          <button class="sw-btn sw-btn-ghost" id="swExportWinBtn" onclick="exportWindowPlan()" style="display:none">Export .jsonc</button>
-          <span style="font-size:10px;color:var(--t2)" id="swScanStatus"></span>
-        </div>
-        <div class="sw-tbl-wrap" id="swWinTableWrap" style="display:none">
-          <table class="sw-tbl">
-            <thead><tr>
-              <th>ID</th>
-              <th>Vehicle</th>
-              <th>Start (UTC)</th>
-              <th>End (UTC)</th>
-              <th>New Types</th>
-              <th>All Alert Counts</th>
-            </tr></thead>
-            <tbody id="swWinBody"></tbody>
-          </table>
-        </div>
-      </div>
-      <!-- 8b: Verify -->
-      <div class="sw-sec">
-        <div class="sw-sec-title">
-          <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg>
-          8b — Alert Verification (post-replay)
-        </div>
-        <div class="sw-info">
-          <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7"/><line x1="9" y1="5.5" x2="9" y2="9.5"/><circle cx="9" cy="12" r=".5" fill="currentColor" stroke="none"/></svg>
-          Run this after the replay service has processed the windows. Alerts are timestamped by packet event time, so replayed September data shows September timestamps.
-        </div>
-        <div id="swVerifyPairs" style="margin-bottom:12px"></div>
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <button class="sw-btn sw-btn-primary" id="swCompareBtn" onclick="compareAlerts()">
-            <span class="sw-spin" id="swVerSpin" style="display:none"></span>
-            Compare Alerts
-          </button>
-          <span style="font-size:10px;color:var(--t2)" id="swVerStatus"></span>
-        </div>
-        <div id="swVerifyResults"></div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(7)">← Back</button>
-        <button class="sw-btn sw-btn-primary" onclick="goStage(9)">Continue to Review &amp; Apply →</button>
-      </div>
-    </div>
-
-
-    <!-- ══ STAGE 9: REVIEW & APPLY ═══════════════════════════════════════════ -->
-    <div class="sw-stage" id="sw-s9">
+    <!-- ══ STAGE 5: REVIEW & APPLY ════════════════════════════════════════ -->
+    <div class="sw-stage" id="sw-s5">
       <div class="sw-sec">
         <div class="sw-sec-title">
           <svg width="12" height="12" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,9 7,13 15,5"/></svg>
@@ -788,7 +619,6 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
         <div class="sw-toggle-row"><input type="checkbox" id="swApplyCopyUI" checked><label for="swApplyCopyUI">Copy UI config from source</label></div>
         <div class="sw-toggle-row"><input type="checkbox" id="swApplyCopyAlerts" checked><label for="swApplyCopyAlerts">Copy alert thresholds from source</label></div>
         <div class="sw-toggle-row"><input type="checkbox" id="swApplyCloneGeo" checked><label for="swApplyCloneGeo">Clone geofences</label></div>
-        <div class="sw-toggle-row"><input type="checkbox" id="swApplyRecreateGroups" checked><label for="swApplyRecreateGroups">Recreate groups</label></div>
         <div class="sw-toggle-row"><input type="checkbox" id="swApplyRebuildGeoIdx" checked><label for="swApplyRebuildGeoIdx">Rebuild geofence spatial index after clone</label></div>
       </div>
       <div class="sw-sec">
@@ -806,7 +636,7 @@ html[data-page="switch"] body{font-family:var(--font-ui);background:var(--bg0);c
         <div id="swApplyLog" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:none;font-family:var(--font-mono);font-size:10px;max-height:240px;overflow-y:auto"></div>
       </div>
       <div style="display:flex;gap:10px">
-        <button class="sw-btn sw-btn-ghost" onclick="goStage(8)">&#x2190; Back</button>
+        <button class="sw-btn sw-btn-ghost" onclick="goStage(4)">← Back</button>
       </div>
     </div>
 
@@ -899,18 +729,14 @@ function clearLog() {
 
 // ── Stage definitions ───────────────────────────────────────────────────────
 const STAGES = [
-  { id: 0, label: 'Discover',        key: 's0' },
-  { id: 1, label: 'Map Vehicles',    key: 's1' },
-  { id: 2, label: 'Target Account',  key: 's2' },
-  { id: 3, label: 'Seed Plan',       key: 's3' },
-  { id: 4, label: 'Geofences',       key: 's4' },
-  { id: 5, label: 'Groups',          key: 's5' },
-  { id: 6, label: 'Alert Config',    key: 's6' },
-  { id: 7, label: 'Tracker Time',    key: 's7' },
-  { id: 8, label: 'Replay & Verify', key: 's8' },
-  { id: 9, label: 'Review & Apply',  key: 's9' },
+  { id: 0, label: 'Setup',          key: 's0' },
+  { id: 1, label: 'Map Vehicles',   key: 's1' },
+  { id: 2, label: 'Geofences',      key: 's2' },
+  { id: 3, label: 'Alert Config',   key: 's3' },
+  { id: 4, label: 'Tracker Time',   key: 's4' },
+  { id: 5, label: 'Review & Apply', key: 's5' },
 ];
-let _stageStatus = [null,null,null,null,null,null,null,null,null,null]; // null | 'done' | 'err'
+let _stageStatus = [null,null,null,null,null,null]; // null | 'done' | 'err'
 let _activeStage = 0;
 
 function renderSteps() {
@@ -937,13 +763,10 @@ function goStage(id) {
   document.getElementById('swBody').scrollTop = 0;
   renderSteps();
   // Init hooks for stages that need it
-  if (id === 3) fetchMockVehicles();
-  if (id === 4) initGeoStage();
-  if (id === 5) initGroupsStage();
-  if (id === 6) initAlertStage();
-  if (id === 7) renderTrackerCmd();
-  if (id === 8) _buildVehicleScopeDropdown();
-  if (id === 9) buildReviewPlan();
+  if (id === 2) initGeoStage();
+  if (id === 3) initAlertStage();
+  if (id === 4) renderTrackerCmd();
+  if (id === 5) buildReviewPlan();
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1043,15 +866,16 @@ async function _searchExistAccounts(q) {
   _existAccRepos();
   const data = await _get(`/account/listV2?sort=display_name+asc&psize=30&query=${encodeURIComponent(q)}`);
   if (data.error) { dd.innerHTML = `<div class="sw-acc-msg">Error: ${_esc(data.error)}</div>`; return; }
-  const accs = (data.result && data.result.accounts)
-    || (data.result && Array.isArray(data.result) ? data.result : null)
-    || data.accounts || [];
+  const accs = _pickAccounts(data);
   if (!accs.length) { dd.innerHTML = '<div class="sw-acc-msg">No accounts found — click row above to inspect response</div>'; return; }
-  dd.innerHTML = accs.map(a =>
-    `<div class="sw-acc-item" data-id="${_esc(a._id)}" data-name="${_esc(a.display_name||a.name||'')}" data-stage="${_esc(a.stage||'')}">
-      <div class="sw-acc-name">${_esc(a.display_name||a.name||'—')}</div>
-      <div class="sw-acc-id">${_esc(a._id)}</div>
-    </div>`).join('');
+  dd.innerHTML = accs.map(a => {
+    const aid = String(a._id || a.id || '');
+    const aname = a.display_name || a.name || a.account_name || '—';
+    return `<div class="sw-acc-item" data-id="${_esc(aid)}" data-name="${_esc(aname)}" data-stage="${_esc(a.stage||'')}">
+      <div class="sw-acc-name">${_esc(aname)}</div>
+      <div class="sw-acc-id">${_esc(aid)}</div>
+    </div>`;
+  }).join('');
   dd.querySelectorAll('.sw-acc-item').forEach(el => {
     el.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -1075,8 +899,8 @@ function confirmExistingAccount() {
   document.getElementById('swMockAccId').textContent   = S.mockAccId;
   document.getElementById('swMockAccChip').textContent = _selectedExistAcc.stage || 'POC';
   document.getElementById('swMockCreated').style.display = 'block';
-  document.getElementById('swToSeedBtn').style.display   = 'inline-flex';
-  _stageStatus[2] = 'done';
+  document.getElementById('swToMapBtn').style.display   = 'inline-flex';
+  _stageStatus[0] = 'done';
   renderSteps();
   _saveSwState();
 }
@@ -1109,6 +933,22 @@ async function _post(path, body) {
 function _badge(state, text) {
   const map = { ok:'sw-badge-ok', warn:'sw-badge-warn', err:'sw-badge-err', pend:'sw-badge-pend' };
   return `<span class="sw-badge ${map[state]||'sw-badge-pend'}">${_esc(text)}</span>`;
+}
+
+// Extract account list from any API response shape
+function _pickAccounts(data) {
+  const candidates = [
+    data && data.result && data.result.accounts,
+    data && data.result && Array.isArray(data.result) && data.result,
+    data && data.accounts,
+    data && data.data && data.data.accounts,
+    data && data.data && Array.isArray(data.data) && data.data,
+    data && Array.isArray(data) && data,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length) return c;
+  }
+  return [];
 }
 
 // ── Luhn ────────────────────────────────────────────────────────────────────
@@ -1189,15 +1029,16 @@ async function _searchAccounts(q) {
   _accRepos();
   const data = await _get(`/account/listV2?sort=display_name+asc&psize=25&query=${encodeURIComponent(q)}`);
   if (data.error) { _accDd().innerHTML = `<div class="sw-acc-msg">Error: ${_esc(data.error)}</div>`; return; }
-  const accs = (data.result && data.result.accounts)
-    || (data.result && Array.isArray(data.result) ? data.result : null)
-    || data.accounts || [];
+  const accs = _pickAccounts(data);
   if (!accs.length) { _accDd().innerHTML = `<div class="sw-acc-msg">No accounts found — click row above to inspect response</div>`; return; }
-  _accDd().innerHTML = accs.map(a =>
-    `<div class="sw-acc-item" data-id="${_esc(a._id)}" data-name="${_esc(a.display_name||a.name||'')}">
-      <div class="sw-acc-name">${_esc(a.display_name||a.name||'—')}</div>
-      <div class="sw-acc-id">${_esc(a._id)}</div>
-    </div>`).join('');
+  _accDd().innerHTML = accs.map(a => {
+    const aid = String(a._id || a.id || '');
+    const aname = a.display_name || a.name || a.account_name || '—';
+    return `<div class="sw-acc-item" data-id="${_esc(aid)}" data-name="${_esc(aname)}">
+      <div class="sw-acc-name">${_esc(aname)}</div>
+      <div class="sw-acc-id">${_esc(aid)}</div>
+    </div>`;
+  }).join('');
   _accDd().querySelectorAll('.sw-acc-item').forEach(el => {
     el.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -1235,25 +1076,50 @@ async function doDiscover() {
       _get(`/accountV2/${S.srcAccId}`),
       _get(`/vehicle/getlist?psize=500&pnum=1&status=*&lastloc=false&acc_id=${S.srcAccId}`),
       _get(`/idevice/listV2?psize=500&pnum=1&status=*&acc_id=${S.srcAccId}`),
-      _get(`/geofence/listV2?psize=2000&pnum=1&acc_id=${S.srcAccId}`),
+      _get(`/geofence/listV2?psize=50&pnum=1&status=*&query=*&acc_id=${S.srcAccId}&lang=en`),
       _get(`/group/listV2?psize=200&pnum=1&acc_id=${S.srcAccId}`),
-      _get(`/alertconfigV2/account/${S.srcAccId}/all`),
+      _get(`/alertconfigV2/account/${S.srcAccId}/all?data_export_config=true&lang=en`),
       _get(`/config/all/accountV2/${S.srcAccId}`),
     ]);
 
     if (accRaw.error) { throw new Error('Account: ' + accRaw.error); }
 
-    S.srcAcc     = accRaw.result || accRaw;
-    S.vehicles   = (vehiclesRaw.result && vehiclesRaw.result.v) || vehiclesRaw.result?.vehicles || [];
-    S.idevices   = (idevicesRaw.result && idevicesRaw.result.idevices) || [];
-    S.geofences  = (geoRaw.result && geoRaw.result.gf) || (geoRaw.result && geoRaw.result.geofences) || [];
-    S.groups     = (groupsRaw.result && groupsRaw.result.groups) || [];
-    S.alertConfig= (alertRaw.result && alertRaw.result.configs) || (alertRaw.result && alertRaw.result.alertconfigs) || [];
+    // Helper: try multiple response shapes (result.X → result → data.X → data → X)
+    function _pick(obj, ...keys) {
+      for (const k of keys) {
+        const parts = k.split('.');
+        let v = obj;
+        for (const p of parts) { v = v && v[p]; }
+        if (Array.isArray(v) && v.length > 0) return v;
+        if (Array.isArray(v)) { /* keep going — might find non-empty path */ }
+      }
+      // second pass: accept empty arrays
+      for (const k of keys) {
+        const parts = k.split('.');
+        let v = obj;
+        for (const p of parts) { v = v && v[p]; }
+        if (Array.isArray(v)) return v;
+      }
+      return [];
+    }
+
+    S.srcAcc     = (accRaw.result && typeof accRaw.result === 'object' && !Array.isArray(accRaw.result))
+                    ? accRaw.result : (accRaw.account || accRaw.data || accRaw);
+    // Normalise _id: some regions use numeric id instead of string _id
+    if (S.srcAcc && !S.srcAcc._id && S.srcAcc.id) S.srcAcc._id = String(S.srcAcc.id);
+    if (S.srcAcc && !S.srcAcc._id) S.srcAcc._id = S.srcAccId;
+
+    S.vehicles   = _pick(vehiclesRaw, 'result.v', 'result.vehicles', 'result.data', 'vehicles', 'v', 'data.vehicles');
+    S.idevices   = _pick(idevicesRaw, 'result.idevices', 'result.data', 'idevices', 'data.idevices');
+    S.geofences  = _pick(geoRaw,      'result.gf', 'result.geofences', 'result.data', 'gf', 'geofences', 'data.geofences');
+    S.groups     = _pick(groupsRaw,   'result.groups', 'result.data', 'groups', 'data.groups');
+    S.alertConfig= _pick(alertRaw,    'result.configs', 'result.alertconfigs', 'result.alert_configs', 'result.data',
+                                      'configs', 'alertconfigs', 'alert_configs', 'data.configs');
     S.uiConfig   = uiRaw;
 
     // Specs
     const specsRaw = await _get(`/account/${S.srcAccId}/specsV2`);
-    const specList = (specsRaw.result && specsRaw.result.specs) || [];
+    const specList = _pick(specsRaw, 'result.specs', 'specs', 'data.specs');
     S.specs = {};
     specList.forEach(sp => { S.specs[sp._id] = sp; });
 
@@ -1273,8 +1139,8 @@ async function doDiscover() {
 
 function _renderDiscoverResult() {
   const acc = S.srcAcc;
-  document.getElementById('swSrcName').textContent = acc.display_name || acc.name || '—';
-  document.getElementById('swSrcId').textContent   = acc._id || S.srcAccId;
+  document.getElementById('swSrcName').textContent = acc.display_name || acc.name || acc.account_name || '—';
+  document.getElementById('swSrcId').textContent   = String(acc._id || acc.id || S.srcAccId);
   document.getElementById('swSrcStage').textContent = acc.stage || '—';
   document.getElementById('swSrcRegion').textContent = acc.region || '—';
 
@@ -1290,9 +1156,6 @@ function _renderDiscoverResult() {
   const hubs = S.geofences.filter(g => g.is_hub).length;
   document.getElementById('swCardGeo').textContent = S.geofences.length;
   document.getElementById('swCardGeoHubs').textContent = hubs + ' hubs';
-
-  document.getElementById('swCardGroups').textContent = S.groups.length;
-  document.getElementById('swCardSpecs').textContent  = Object.keys(S.specs).length + ' specs';
 
   document.getElementById('swDiscoverResult').style.display = 'block';
 }
@@ -1354,13 +1217,13 @@ function generateMapping() {
     } while ((srcImeis.has(mockImei) || usedMockImeis.has(mockImei)) && attempts < 200);
     usedMockImeis.add(mockImei);
 
-    // Generate unique mock plate
-    let baseMock = prefix + srcPlate.slice(2);
+    // Generate unique mock plate: prefix + original plate (pure prefix, no char replacement)
+    let baseMock = (prefix + srcPlate).slice(0, 16); // cap at 16 chars
     let mockPlate = baseMock;
-    const suffixes = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const suffixes = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let si = 0;
     while (usedMockPlates.has(mockPlate) && si < suffixes.length) {
-      mockPlate = prefix.slice(0, -1) + suffixes[si] + srcPlate.slice(2);
+      mockPlate = (baseMock.slice(0, -1) + suffixes[si]).slice(0, 16);
       si++;
     }
     usedMockPlates.add(mockPlate);
@@ -1408,7 +1271,6 @@ function _renderMappingTable() {
       <td><input class="sw-tbl-edit" value="${_esc(row.mock_imei)}" oninput="S.mapping[${i}].mock_imei=this.value;_revalidateImei(${i})"></td>
       <td class="sw-tbl-muted" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_esc(row.spec_name)}">${_esc(row.spec_name||'—')}</td>
       <td class="sw-tbl-muted">${_esc(row.dev_type)}</td>
-      <td class="sw-tbl-muted" style="font-size:10px">${_esc((row.groups||[]).join(', ')||'—')}</td>
       <td id="swMRS-${i}">${_badgeForStatus(row.status)}</td>
     </tr>`
   ).join('');
@@ -1475,8 +1337,8 @@ async function checkMockName() {
   const hint = document.getElementById('swNameHint');
   hint.textContent = 'Checking…'; hint.style.color = 'var(--t2)';
   const data = await _get(`/account/listV2?query=${encodeURIComponent(name)}&psize=5`);
-  const accs = (data.result && data.result.accounts) || [];
-  const clash = accs.find(a => (a.display_name||a.name||'').toLowerCase() === name.toLowerCase());
+  const accs = _pickAccounts(data);
+  const clash = accs.find(a => (a.display_name||a.name||a.account_name||'').toLowerCase() === name.toLowerCase());
   if (clash) {
     hint.textContent = `⚠ Account "${clash.display_name||clash.name}" already exists (${clash._id})`;
     hint.style.color = 'var(--red)';
@@ -1534,7 +1396,7 @@ async function _copyAlertConfig() {
       return entry;
     });
   if (!configs.length) return;
-  await _post(`/alertconfig/account/addV2?acc_id=${S.mockAccId}`, { account_id: S.mockAccId, configs });
+  await _post(`/alertconfig/account/addV2/?lang=en&acc_id=${S.mockAccId}`, { account_id: S.mockAccId, configs });
 }
 
 // ── STAGE 3: SEED VEHICLES ───────────────────────────────────────────────────
@@ -2097,8 +1959,8 @@ function planAccount() {
   document.getElementById('swMockAccId').textContent   = '(will be created in Apply)';
   document.getElementById('swMockAccChip').textContent = 'planned';
   document.getElementById('swMockCreated').style.display = 'block';
-  document.getElementById('swToSeedBtn').style.display   = 'inline-flex';
-  _stageStatus[2] = 'done'; renderSteps();
+  document.getElementById('swToMapBtn').style.display   = 'inline-flex';
+  _stageStatus[0] = 'done'; renderSteps();
   _saveSwState();
 }
 
@@ -2108,16 +1970,12 @@ function buildReviewPlan() {
   const warnText = document.getElementById('swReviewWarnText');
   const selected = S.mapping.filter(r => r.selected);
   const toGeo = S.geofences.filter(g => GS.selected.has(g._id) && !GS.mapping.find(m => m.src === g._id && !m.preExisting));
-  const incAll = document.getElementById('swIncAllVehicleGroups') && document.getElementById('swIncAllVehicleGroups').checked;
-  const SKIP = ['live-tracking','all vehicles','all_vehicles'];
-  const toGroup = S.groups.filter(g => incAll || !SKIP.some(kw => (g.name||'').toLowerCase().includes(kw)));
 
   const rows = [
     { label: 'Source account',   val: (S.srcAcc && (S.srcAcc.display_name||S.srcAcc.name)) || S.srcAccId || '—' },
     { label: 'Target account',   val: S.mockAccId ? `${S.mockName} (${S.mockAccId}) — existing` : (S.mockName ? `${S.mockName} — will be created` : '⚠ not set') },
     { label: 'Vehicles to seed', val: `${selected.length} selected (${selected.filter(r=>r.existingMockVid).length} use existing, ${selected.filter(r=>!r.existingMockVid).length} create new)` },
     { label: 'Geofences',        val: `${GS.selected.size} selected, ${toGeo.length} to clone` },
-    { label: 'Groups',           val: `${toGroup.length} groups` },
     { label: 'Alert types',      val: `${S.alertConfig.filter(a => a.is_enabled).length} enabled types` },
   ];
 
@@ -2166,7 +2024,6 @@ async function applyAll() {
   if (!S.mockAccId) steps.push('account');
   steps.push('seed');
   if (document.getElementById('swApplyCloneGeo').checked && S.geofences.length) steps.push('geo');
-  if (document.getElementById('swApplyRecreateGroups').checked && S.groups.length) steps.push('groups');
   if (document.getElementById('swApplyCopyAlerts').checked && S.alertConfig.length) steps.push('alerts');
   const total = steps.length;
   let done = 0;
@@ -2210,17 +2067,7 @@ async function applyAll() {
       prog(++done);
     }
 
-    // 4. Recreate groups
-    if (document.getElementById('swApplyRecreateGroups').checked && S.groups.length) {
-      _applyLog('── Recreating groups…', 'head');
-      setStatus('Recreating groups…');
-      await _applyRecreateGroups();
-      _applyLog('✓ Groups done', 'ok');
-      _saveSwState();
-      prog(++done);
-    }
-
-    // 5. Copy alerts
+    // 4. Copy alerts
     if (document.getElementById('swApplyCopyAlerts').checked && S.alertConfig.length) {
       _applyLog('── Copying alert thresholds…', 'head');
       setStatus('Copying alerts…');
@@ -2239,12 +2086,12 @@ async function applyAll() {
 
     _applyLog('══ Apply complete! ══', 'ok');
     setStatus('Done!');
-    _stageStatus[9] = 'done'; renderSteps();
+    _stageStatus[5] = 'done'; renderSteps();
     prog(total);
   } catch(e) {
     _applyLog('✗ ' + e.message, 'err');
     setStatus('Failed — see log');
-    _stageStatus[9] = 'err'; renderSteps();
+    _stageStatus[5] = 'err'; renderSteps();
   } finally {
     _applyRunning = false;
     btn.disabled = false; spin.style.display = 'none';
@@ -2355,7 +2202,7 @@ async function _applyCopyAlerts() {
     .filter(a => !SKIP.has(a.type) && a.config)
     .map(a => { const e = { type: a.type, is_enabled: a.is_enabled, config: a.config }; if (a.rest_time) e.rest_time = a.rest_time; return e; });
   if (!configs.length) return;
-  const d = await _post(`/alertconfig/account/addV2?acc_id=${S.mockAccId}`, { account_id: S.mockAccId, configs });
+  const d = await _post(`/alertconfig/account/addV2/?lang=en&acc_id=${S.mockAccId}`, { account_id: S.mockAccId, configs });
   if (d.error) throw new Error(d.error);
   S.alertCopied = configs.map(c => ({ type: c.type }));
 }
@@ -2364,7 +2211,9 @@ async function _applyCopyAlerts() {
 const SW_KEY = 'sw_sess_v1';
 function _saveSwState() {
   try {
-    const toSave = Object.assign({}, S, { token: '' }); // never persist token
+    // Snapshot GS.mapping into S so geofence state survives reload
+    S._geoMapping = GS.mapping;
+    const toSave = Object.assign({}, S, { token: '', _stageStatus: _stageStatus });
     localStorage.setItem(SW_KEY, JSON.stringify(toSave));
   } catch(e) { console.warn('[SW] save failed', e); }
 }
@@ -2374,9 +2223,13 @@ function _loadSwState() {
     if (!raw) return;
     const saved = JSON.parse(raw);
     if (!saved || !saved.srcAccId) return; // don't load empty sessions
-    Object.assign(S, saved, { token: '' });
+    // Restore _stageStatus before Object.assign so we don't stomp it
+    if (Array.isArray(saved._stageStatus)) {
+      saved._stageStatus.forEach((v, i) => { if (v) _stageStatus[i] = v; });
+    }
+    Object.assign(S, saved, { token: '', _stageStatus: undefined });
     // Restore GS mapping from saved geo state
-    if (S._geoMapping) { GS.mapping = S._geoMapping; GS.selected = new Set(S.geofences.map(g => g._id)); }
+    if (S._geoMapping && S._geoMapping.length) { GS.mapping = S._geoMapping; GS.selected = new Set(S.geofences.map(g => g._id)); GS._mockFetched = true; }
     // Re-render whatever stage we're on
     if (S.srcAcc) _renderDiscoverResult();
     if (S.mapping.length) { _renderMappingTable(); document.getElementById('swMappingTable').style.display='block'; document.getElementById('swVerifyBtn').style.display='inline-flex'; _updateSelCount(); }
@@ -2384,11 +2237,11 @@ function _loadSwState() {
       document.getElementById('swMockAccName').textContent = S.mockName;
       document.getElementById('swMockAccId').textContent   = S.mockAccId || '(planned)';
       document.getElementById('swMockCreated').style.display = 'block';
-      document.getElementById('swToSeedBtn').style.display   = 'inline-flex';
-      _stageStatus[2] = 'done';
+      document.getElementById('swToMapBtn').style.display   = 'inline-flex';
+      if (!_stageStatus[0]) _stageStatus[0] = 'done';
     }
-    if (S.seeded.length) {
-      _stageStatus[3] = 'done';
+    if (S.seeded && S.seeded.length) {
+      if (!_stageStatus[1]) _stageStatus[1] = 'done';
     }
     renderSteps();
     // Show a banner
@@ -2409,7 +2262,7 @@ function clearSwState() {
   document.getElementById('swDiscoverResult').style.display = 'none';
   document.getElementById('swMappingTable').style.display = 'none';
   document.getElementById('swMockCreated').style.display = 'none';
-  document.getElementById('swToSeedBtn').style.display = 'none';
+  document.getElementById('swToMapBtn').style.display = 'none';
   goStage(0);
 }
 
